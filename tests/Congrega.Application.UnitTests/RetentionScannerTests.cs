@@ -63,7 +63,7 @@ public sealed class RetentionScannerTests
         Assert.Equal(6, result.AlertsBuilt);
         Assert.Equal(6, result.AlertsEnqueued);
 
-        Assert.Single(dispatcher.Received.Where(a => a.SubscriptionId == 1));
+        Assert.Single(dispatcher.Received, a => a.SubscriptionId == 1);
         Assert.Equal(2, dispatcher.Received.Count(a => a.SubscriptionId == 2));
         Assert.Equal(3, dispatcher.Received.Count(a => a.SubscriptionId == 3));
     }

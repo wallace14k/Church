@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Congrega.Api.Authorization;
@@ -13,7 +14,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
-Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateBootstrapLogger();
+Log.Logger = new LoggerConfiguration().WriteTo.Console(formatProvider: CultureInfo.InvariantCulture).CreateBootstrapLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 

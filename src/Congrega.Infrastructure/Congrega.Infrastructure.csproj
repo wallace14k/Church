@@ -13,6 +13,9 @@
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
     <PackageReference Include="Microsoft.Extensions.Options" />
     <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+    <!-- Traz OptionsBuilder<T>.Bind(IConfiguration). Sem ele, .Bind() não resolve
+         mesmo com o using de DependencyInjection presente. -->
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 

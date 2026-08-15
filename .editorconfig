@@ -1,0 +1,79 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+indent_style = space
+trim_trailing_whitespace = true
+
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[*.sql]
+indent_size = 4
+
+[*.cs]
+indent_size = 4
+max_line_length = 120
+
+# ---------------------------------------------------------------------------
+# Analisadores
+# ---------------------------------------------------------------------------
+# O projeto roda com TreatWarningsAsErrors: um aviso ignorado hoje é o incidente
+# de amanhã. As exceções abaixo são declaradas uma a uma, com justificativa —
+# desligar regra em massa anularia o propósito de tratar avisos como erro.
+
+# CA1711 proíbe sufixos reservados a construções de framework (Delegate, Flags,
+# Enum, Impl, Ex...) e inclui "Permission", pensando em System.Security.Permissions.
+# No modelo de domínio do Congrega, `Permission` e `RolePermission` são o termo da
+# linguagem ubíqua: permissão é uma entidade real, com tabela, código e vínculo com
+# papéis. Renomear para "PermissionEntity" ou "Grant" pioraria o código para
+# satisfazer uma convenção que não se aplica.
+#
+# A opção abaixo libera APENAS este sufixo — os demais continuam sendo pegos.
+dotnet_code_quality.CA1711.allowed_suffixes = Permission
+
+# CA1062 (validar argumentos públicos) é redundante em um projeto com nullable
+# reference types habilitado e warnings como erro: o compilador já garante o que a
+# regra pediria, e as guardas extras seriam ruído.
+dotnet_diagnostic.CA1062.severity = none
+
+# CA1848 exige LoggerMessage delegates no lugar das extensões de ILogger. O ganho é
+# real em caminho quente de alta frequência — não é o caso aqui: os logs desta base
+# ficam em handlers de autenticação (poucas por segundo) e em ciclos de worker (um
+# por hora). Converter ~40 chamadas em delegates gerados trocaria legibilidade por
+# uma otimização que nenhuma medição pediu, e a skill de performance é explícita
+# em não otimizar sem evidência. Fica como sugestão: aparece na IDE, não quebra o build.
+dotnet_diagnostic.CA1848.severity = suggestion
+
+# CA1873 é a mesma família: alerta sobre avaliar argumento de log que pode ser
+# descartado se o nível estiver desligado. Mesmo raciocínio, mesma decisão.
+dotnet_diagnostic.CA1873.severity = suggestion
+
+# ---------------------------------------------------------------------------
+# Estilo
+# ---------------------------------------------------------------------------
+csharp_style_namespace_declarations = file_scoped:warning
+
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_prefer_braces = true:warning
+dotnet_sort_system_directives_first = true
+csharp_using_directive_placement = outside_namespace:warning
+
+# ---------------------------------------------------------------------------
+# Projetos de teste
+# ---------------------------------------------------------------------------
+[tests/**/*.cs]
+
+# CA1707 proíbe underscore em nome de membro. Em código de produção a regra é boa;
+# em teste ela briga com a convenção do xUnit e com o propósito do nome. Os testes
+# desta base nomeiam o COMPORTAMENTO esperado como uma frase
+# (`Codigo_e_travado_apos_o_limite_de_tentativas`), o que faz o relatório de falha
+# ser legível por quem não escreveu o teste. Trocar por PascalCase colado
+# ("CodigoETravadoAposOLimiteDeTentativas") só piora.
+dotnet_diagnostic.CA1707.severity = none
+
+# CA1515: tipos públicos em assembly de teste não são API pública de ninguém.
+dotnet_diagnostic.CA1515.severity = none

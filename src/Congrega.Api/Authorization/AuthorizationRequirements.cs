@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using Congrega.Application.Abstractions;
-using Congrega.Domain.Identity;
+using Congrega.Domain.Tenancy;
 using Congrega.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 

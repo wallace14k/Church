@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Globalization;
 using Congrega.Application.Abstractions;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
@@ -71,13 +72,19 @@ public sealed class TenantConnectionInterceptor(ITenantContext tenantContext) : 
         // NULLIF(current_setting(...), '')::bigint. Vazio vira NULL na comparação, e
         // "coluna = NULL" é falso: o comportamento é fail closed. Um contexto ausente
         // nega acesso em vez de liberar tudo.
+        //
+        // InvariantCulture é OBRIGATÓRIO aqui, não estilo. O valor vira texto e é
+        // convertido de volta para BIGINT pelo Postgres; em uma cultura com separador
+        // de milhar, `1337.ToString()` poderia produzir "1.337" e o `::bigint` da
+        // policy falharia — derrubando o RLS de toda a requisição em produção, num
+        // servidor com locale diferente do da máquina de desenvolvimento.
         command.Parameters.Add(new NpgsqlParameter<string>
         {
-            TypedValue = tenantContext.TenantId?.ToString() ?? string.Empty
+            TypedValue = tenantContext.TenantId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty
         });
         command.Parameters.Add(new NpgsqlParameter<string>
         {
-            TypedValue = tenantContext.UserId?.ToString() ?? string.Empty
+            TypedValue = tenantContext.UserId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty
         });
 
         await command.ExecuteNonQueryAsync(cancellationToken);

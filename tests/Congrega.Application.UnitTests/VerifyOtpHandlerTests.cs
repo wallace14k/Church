@@ -41,7 +41,7 @@ public sealed class VerifyOtpHandlerTests
             userId, _hasher.HashOtp(code), OtpPurpose.Login, Now).WithId(1));
     }
 
-    private VerifyOtpCommand Command(string code = ValidCode, Guid? tenantId = null) => new()
+    private static VerifyOtpCommand Command(string code = ValidCode, Guid? tenantId = null) => new()
     {
         Email = "joao@igreja.com",
         Code = code,

@@ -2,6 +2,7 @@ using Congrega.Api.Authorization;
 using Congrega.Application.Abstractions;
 using Congrega.Domain.Identity;
 using Congrega.Infrastructure;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Congrega.Api.Middleware;
 

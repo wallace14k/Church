@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Congrega.Application.Identity;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Congrega.Api.Endpoints;
@@ -187,7 +188,9 @@ public static class AuthEndpoints
     /// para ser guardado em Keychain/Keystore. Deixar o cliente escolher permitiria a
     /// um XSS pedir a variante que o JavaScript consegue ler.
     /// </remarks>
-    private static IResult BuildSessionResult(AuthenticatedSession session, HttpContext httpContext)
+    private static Ok<SessionResponse> BuildSessionResult(
+        AuthenticatedSession session,
+        HttpContext httpContext)
     {
         bool isBrowser = IsBrowserClient(httpContext);
 

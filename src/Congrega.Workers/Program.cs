@@ -1,3 +1,4 @@
+using System.Globalization;
 using Congrega.Application.Abstractions;
 using Congrega.Application.Retention;
 using Congrega.Domain.Retention;
@@ -18,7 +19,7 @@ using Serilog;
 // configuração, secret ausente, ValidateOnStart reprovando. Sem ele, o pod morre
 // na subida sem deixar nenhuma linha de log, que é o pior modo de falhar.
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
+    .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture)
     .CreateBootstrapLogger();
 
 var builder = Host.CreateApplicationBuilder(args);
