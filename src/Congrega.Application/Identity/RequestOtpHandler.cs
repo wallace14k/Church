@@ -39,6 +39,12 @@ public sealed class RequestOtpHandler(
     TimeProvider timeProvider,
     ILogger<RequestOtpHandler> logger)
 {
+    /// <summary>Janela do rate limiting por e-mail.</summary>
+    private static readonly TimeSpan EmailRateWindow = TimeSpan.FromMinutes(15);
+
+    /// <summary>Máximo de códigos emitidos por e-mail dentro da janela.</summary>
+    private const int MaxCodesPerWindow = 5;
+
     public async Task<RequestOtpResult> HandleAsync(
         RequestOtpCommand command,
         CancellationToken cancellationToken)
@@ -66,6 +72,33 @@ public sealed class RequestOtpHandler(
                 user.Id, user.Status);
 
             return new RequestOtpResult { CodeIssued = false, UserCreated = false };
+        }
+
+        // Rate limiting por e-mail, contado NO BANCO.
+        //
+        // O limitador de borda do ASP.NET Core particiona por IP, o que não cobre o
+        // ataque que importa aqui: solicitar códigos repetidamente para o e-mail de
+        // uma vítima, a partir de IPs diferentes, para inundar a caixa dela ou forçar
+        // rotação de códigos. Contar emissões por usuário fecha esse vetor.
+        //
+        // A contagem vem do banco, e não de IMemoryCache, porque o limite precisa ser
+        // global: com três réplicas, um contador em memória transformaria o limite de
+        // 5 em 15 na prática.
+        if (user.Id != 0)
+        {
+            int recentCodes = await codes.CountIssuedSinceAsync(
+                user.Id, OtpPurpose.Login, now - EmailRateWindow, cancellationToken);
+
+            if (recentCodes >= MaxCodesPerWindow)
+            {
+                logger.LogWarning(
+                    "Rate limit por e-mail atingido para usuário {UserId}: {Count} códigos em {Window}.",
+                    user.Id, recentCodes, EmailRateWindow);
+
+                // Mesma resposta de sucesso. Sinalizar o bloqueio confirmaria ao
+                // atacante que o e-mail existe e está sendo alvo.
+                return new RequestOtpResult { CodeIssued = false, UserCreated = false };
+            }
         }
 
         // Um código válido por vez. Sem isso, cada reenvio ampliaria o espaço de

@@ -226,6 +226,25 @@ public sealed class Permission
     public string Name { get; private set; }
 }
 
+/// <summary>
+/// Vínculo N:N entre papel e permissão.
+/// </summary>
+/// <remarks>
+/// Entidade explícita em vez de <c>many-to-many</c> implícito do EF Core: a
+/// resolução de permissões é caminho quente da autenticação, e ter a tabela mapeada
+/// permite escrever a projeção exata em vez de depender do SQL que o EF geraria para
+/// uma navegação skip-level.
+/// </remarks>
+public sealed class RolePermission
+{
+    private RolePermission()
+    {
+    }
+
+    public long RoleId { get; private set; }
+    public long PermissionId { get; private set; }
+}
+
 public static class Permissions
 {
     public const string MembersRead = "members.read";

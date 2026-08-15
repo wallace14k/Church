@@ -41,6 +41,21 @@ public interface IEmailVerificationCodeRepository
         DateTimeOffset now,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Quantos códigos foram emitidos para o usuário desde o instante informado.
+    /// </summary>
+    /// <remarks>
+    /// Base do rate limiting por e-mail. Contar no <b>banco</b>, e não em memória, é
+    /// o que torna o limite real com várias réplicas: um contador em
+    /// <c>IMemoryCache</c> seria por pod, e com três réplicas o limite de 5 viraria
+    /// 15 na prática. A tabela já registra cada emissão — o controle sai de graça.
+    /// </remarks>
+    Task<int> CountIssuedSinceAsync(
+        long userId,
+        OtpPurpose purpose,
+        DateTimeOffset since,
+        CancellationToken cancellationToken);
+
     void Add(EmailVerificationCode code);
 }
 
