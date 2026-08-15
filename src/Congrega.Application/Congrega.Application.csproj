@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Congrega.Domain\Congrega.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Apenas abstrações. Logging.Abstractions e Options são contratos, não
+      implementações — a aplicação declara que quer logar e ser configurada, sem
+      saber que existe Serilog ou appsettings.json.
+
+      Polly.Core é a exceção pragmática: envolvê-la em uma interface própria seria
+      cerimônia sem ganho, e a skill dotnet-expert veda abstração sem benefício
+      justificado. A dependência é de uma biblioteca de política, não de I/O.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Polly.Core" />
+  </ItemGroup>
+
+</Project>

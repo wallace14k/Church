@@ -1,0 +1,141 @@
+# =============================================================================
+# Congrega.Workers — Deployment
+#
+# Três réplicas rodam simultaneamente e o motor de retenção é seguro nesse cenário
+# por duas camadas independentes (ADR-021):
+#   1. advisory lock  → só uma réplica executa o ciclo (evita trabalho duplicado)
+#   2. UNIQUE dedupe_key → mesmo se o lock falhar, nenhum alerta é duplicado
+# A camada 2 é a que garante correção; a 1 é otimização.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: congrega-workers
+  labels:
+    app.kubernetes.io/name: congrega-workers
+    app.kubernetes.io/part-of: congrega
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: congrega-workers
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: congrega-workers
+    spec:
+      # Endurecimento no nível do pod. Pod Security Standards "restricted".
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 64198          # usuário 'app' das imagens chiseled
+        fsGroup: 64198
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: workers
+          image: ghcr.io/congrega/workers:1.0.0   # tag imutável, nunca :latest
+          imagePullPolicy: IfNotPresent
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+
+          env:
+            - name: DOTNET_ENVIRONMENT
+              value: Production
+            # Secrets vêm do Secret, nunca do manifesto nem da imagem (skill §8).
+            - name: Database__PooledConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: congrega-db
+                  key: pooled-connection-string
+            - name: Database__DirectConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: congrega-db
+                  key: direct-connection-string
+
+          # Requests e limits obrigatórios: sem eles o pod é BestEffort e é o
+          # primeiro a ser despejado quando o nó fica sob pressão de memória.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              # Sem limite de CPU de propósito: throttling em worker de lote só
+              # alonga o ciclo. O limite de memória, esse sim, precisa existir —
+              # é a proteção contra vazamento derrubar o nó inteiro.
+              memory: 512Mi
+
+          # readOnlyRootFilesystem exige volume gravável para o temp do .NET.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+          # Liveness NÃO consulta o banco, de propósito: se o Postgres cair, o
+          # kubelet reiniciaria os pods em loop e atrasaria a recuperação quando
+          # o banco voltasse. Liveness responde "o processo está vivo?".
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+
+          # Readiness, sim, consulta o banco: sem banco o worker não tem trabalho útil.
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 5
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+      # Tempo para o ciclo em andamento encerrar em ponto seguro. O
+      # CancellationToken é honrado entre lotes, então o shutdown é limpo:
+      # nenhum lote fica pela metade e o advisory lock é liberado.
+      terminationGracePeriodSeconds: 60
+---
+# =============================================================================
+# NetworkPolicy — egress restrito (skill §23)
+# O worker fala com o Postgres e com os provedores de e-mail/push. Nada mais.
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: congrega-workers-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: congrega-workers
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+    - ports:
+        - port: 5432    # Postgres direto — advisory lock
+          protocol: TCP
+        - port: 6543    # Supavisor — consultas da aplicação
+          protocol: TCP
+        - port: 443     # provedores de e-mail e push
+          protocol: TCP

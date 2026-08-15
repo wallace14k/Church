@@ -1,0 +1,53 @@
+<Project>
+
+  <!--
+    Central Package Management: todas as versões em um só lugar.
+    Os .csproj referenciam pacotes sem Version, o que impede que dois projetos
+    da solution divirjam de versão no mesmo pacote — origem clássica de
+    conflito de binding em runtime.
+
+    ⚠️ AS VERSÕES ABAIXO NÃO FORAM VERIFICADAS CONTRA O NUGET.
+    A política de rede da sessão em que este código foi escrito bloqueia o
+    acesso ao NuGet e às docs da Microsoft, e a skill dotnet-expert exige
+    verificação em fonte oficial antes de afirmar detalhes de versão.
+    Rode `dotnet restore` e ajuste o que não resolver antes do primeiro commit
+    de verdade. Ver docs/00-premissas.md, P2.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup Label="Runtime">
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Persistência">
+    <PackageVersion Include="Npgsql" Version="9.0.2" />
+    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Resiliência e observabilidade">
+    <PackageVersion Include="Polly.Core" Version="8.5.0" />
+    <PackageVersion Include="Serilog.Extensions.Hosting" Version="9.0.0" />
+    <PackageVersion Include="Serilog.Settings.Configuration" Version="9.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageVersion Include="Serilog.Formatting.Compact" Version="3.0.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.11.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.10.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testes">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.0.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.1.0" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+  </ItemGroup>
+
+</Project>

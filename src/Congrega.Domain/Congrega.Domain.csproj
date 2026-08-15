@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    O projeto de domínio NÃO tem nenhuma PackageReference nem ProjectReference.
+    Essa ausência é a própria definição de Clean Architecture aqui: sem EF Core,
+    sem ASP.NET, sem Npgsql, sem logging. Se um dia alguém precisar adicionar uma
+    dependência a este arquivo, é sinal de que a regra sendo escrita não pertence
+    ao domínio — e não de que o domínio precisa da biblioteca.
+  -->
+
+</Project>
