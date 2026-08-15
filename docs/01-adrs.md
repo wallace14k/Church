@@ -82,17 +82,35 @@ alarme.
 tenant?", não "este usuário pode ver a ficha financeira deste membro?". Autorização de domínio
 precisa estar no domínio.
 
-**Como o contexto é propagado:** interceptor de conexão do EF Core emite, no início de cada
-transação:
+**Como o contexto é propagado:** interceptor de conexão do EF Core
+(`TenantConnectionInterceptor`) emite, ao abrir a conexão:
 
 ```sql
-SET LOCAL app.tenant_id = '42';
-SET LOCAL app.user_id   = '1337';
+SELECT set_config('app.tenant_id', $1, false),
+       set_config('app.user_id',   $2, false);
 ```
 
-As policies leem `current_setting('app.tenant_id', true)::bigint`. `SET LOCAL` é **transacional**,
-o que o torna seguro sob *transaction pooling* do Supavisor (P3) — o valor não vaza para a próxima
-requisição que pegar a mesma conexão física. Esta é a razão de usar `SET LOCAL` e não `SET`.
+As policies leem `current_setting('app.tenant_id', true)::bigint`.
+
+> ⚠️ **Revisão desta decisão durante a implementação.** A versão original deste ADR previa
+> `SET LOCAL` por transação, escolhido para ser seguro sob o *transaction pooling* do Supavisor
+> (P3). Ao implementar, o problema apareceu: **`SET LOCAL` só vale dentro de uma transação**, e
+> leituras em autocommit — a maioria das queries de uma API — ficariam sem contexto, fazendo o
+> RLS negar tudo. Forçar toda leitura a abrir transação explícita é caro e fácil de esquecer.
+>
+> **Decisão revisada:** a API conecta **direto** ao Postgres (porta 5432), usando o pool do
+> próprio Npgsql, e o contexto vira GUC de **sessão**. Isso é seguro porque o Npgsql emite
+> `DISCARD ALL` ao devolver a conexão ao pool, limpando os GUCs — o vazamento entre requisições,
+> que era a razão de ser do `SET LOCAL`, não acontece.
+>
+> **Condição que invalida a revisão:** se a API passar a usar o Supavisor em *transaction mode*,
+> é obrigatório voltar para `SET LOCAL` dentro de transação explícita. O `DISCARD ALL` do Npgsql
+> não protege quando o multiplexador de conexões é externo ao processo. Esta armadilha não quebra
+> nenhum teste e vaza dados entre tenants em produção — está anotada no código, em
+> `TenantConnectionInterceptor`.
+
+O uso de `NULLIF(current_setting(...), '')` nas policies garante **fail closed**: contexto ausente
+vira `NULL`, a comparação resulta em falso e o acesso é negado, em vez de liberado.
 
 **Duas roles de banco, com propósitos distintos:**
 
