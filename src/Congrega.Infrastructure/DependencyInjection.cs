@@ -88,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailVerificationCodeRepository, EmailVerificationCodeRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IMembershipRepository, MembershipRepository>();
+        services.AddScoped<ISubscriptionTierProvider, SubscriptionTierProvider>();
 
         services.AddSingleton<ISecretHasher, SecretHasher>();
         services.AddSingleton<IOtpGenerator, OtpGenerator>();
