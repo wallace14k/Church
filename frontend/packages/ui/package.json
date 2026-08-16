@@ -16,7 +16,8 @@
     "./Card": "./src/Card.tsx",
     "./EyebrowPill": "./src/EyebrowPill.tsx",
     "./Screen": "./src/Screen.tsx",
-    "./PhotoCard": "./src/PhotoCard.tsx"
+    "./PhotoCard": "./src/PhotoCard.tsx",
+    "./EmptyState": "./src/EmptyState.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
