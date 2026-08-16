@@ -1,6 +1,7 @@
 import { isProbablyEmail, normalizeEmail } from '@congrega/core/validation';
 import { describeError } from '@congrega/api-client/errors';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
+import { Brandmark } from '@congrega/ui/Brandmark';
 import { Screen } from '@congrega/ui/Screen';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
@@ -63,9 +64,7 @@ export default function Entrar() {
         <HeroCollage />
 
         <View style={{ gap: theme.space[8], marginBottom: theme.space[32] }}>
-          <Text variant="eyebrow" tone="muted">
-            CONGREGA
-          </Text>
+          <Brandmark size={34} />
           <Text variant="headingLg">Bom te ver por aqui</Text>
           <Text variant="body" tone="muted">
             Informe seu e-mail e enviaremos um código de acesso. Não precisa de senha.

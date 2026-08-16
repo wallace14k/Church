@@ -17,7 +17,8 @@
     "./Screen": "./src/Screen.tsx",
     "./PhotoCard": "./src/PhotoCard.tsx",
     "./EmptyState": "./src/EmptyState.tsx",
-    "./SignatureButton": "./src/SignatureButton.tsx"
+    "./SignatureButton": "./src/SignatureButton.tsx",
+    "./Brandmark": "./src/Brandmark.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
