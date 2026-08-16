@@ -8,7 +8,11 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=20.0.0"
+    "//": "Node 24 LTS (Krypton). Suporte ativo ate 2026-10, manutencao ate 2028-04.",
+    "//_2": "O piso 24.3.0 vem do react-native 0.86.2, cujo engines aceita",
+    "//_3": "^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0. Node 20 saiu de suporte",
+    "//_4": "em 2026-04-30 e nao deve ser usado. Versao exata em .nvmrc.",
+    "node": ">=24.3.0"
   },
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
