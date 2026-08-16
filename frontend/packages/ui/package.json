@@ -15,7 +15,8 @@
     "./TextField": "./src/TextField.tsx",
     "./Card": "./src/Card.tsx",
     "./EyebrowPill": "./src/EyebrowPill.tsx",
-    "./Screen": "./src/Screen.tsx"
+    "./Screen": "./src/Screen.tsx",
+    "./PhotoCard": "./src/PhotoCard.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

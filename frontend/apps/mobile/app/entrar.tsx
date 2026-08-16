@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { HeroCollage } from '../src/HeroCollage';
 import { useSession } from '../src/session';
 
 /**
@@ -59,6 +60,8 @@ export default function Entrar() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1, paddingTop: insets.top + theme.space[48] }}
       >
+        <HeroCollage />
+
         <View style={{ gap: theme.space[8], marginBottom: theme.space[32] }}>
           <Text variant="eyebrow" tone="muted">
             CONGREGA
