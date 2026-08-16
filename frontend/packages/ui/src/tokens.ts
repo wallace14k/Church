@@ -1,189 +1,138 @@
 /**
- * Tokens de design do Congrega — sistema Portrait.
+ * Tokens de design do Congrega.
  *
- * Direção definida em `DESIGN.md`: canvas branco, uma única tinta azul-marinho
- * carregando todo o texto e toda linha estrutural, e cor aparecendo apenas como
- * lavagem pastel em superfícies pequenas ou como o gradiente de assinatura.
+ * Segunda troca de identidade visual nesta sessão: o cliente pediu para as
+ * telas seguirem o padrão de referência de um dashboard SaaS real (Mercury) —
+ * sans-serif do início ao fim, acento índigo, cartões brancos com borda fina
+ * em vez de cartão cinza chapado, sidebar clara. O sistema anterior (Steep:
+ * serifada + pêssego) foi substituído inteiro; nenhuma tela usa mais
+ * `SourceSerif4`.
  *
- * **Desvio do `DESIGN.md`:** a assinatura é **latão**, não o arco-íris original.
- * A troca foi decisão do cliente, e o motivo é de leitura: cruz preenchida com
- * arco-íris carrega, para o público-alvo, um significado que não é o pretendido.
- * A *regra* de uso permanece idêntica — o que muda é a cor, não a disciplina.
- *
- * **A regra que organiza a paleta:** dois azuis e um gradiente. Qualquer matiz
- * nova dilui a assinatura — é o primeiro item da lista de proibições do
- * `DESIGN.md`, e vale como critério de revisão de código.
- *
- * Tema **claro apenas**. Um modo escuro exigiria inventar cores fora da paleta,
- * o que a direção proíbe explicitamente.
+ * A estrutura dos componentes (sidebar recolhível, cartão, avatar, stat card)
+ * não mudou — só a superfície: cor, fonte, borda. É por isso que essa segunda
+ * troca foi bem mais rápida que a primeira.
  */
 
 export const palette = {
-  /** Tinta principal. Todo texto, todo traço estrutural, toda borda de ação. */
-  portraitInk: '#08304C',
-  /** Tinta secundária, para traços de navegação onde a principal pesa demais. */
-  nauticalTeal: '#084E72',
+  /** Tinta principal. Todo texto e a maior parte dos traços de UI. */
+  inkBlack: '#171923',
 
-  /** Traço universal: hairline, contorno de ícone, linha padrão de interface. */
-  charcoalOutline: '#353535',
-  /** Corpo de texto sobre superfície morna — tom de leitura ligeiramente mais quente. */
-  graphiteBody: '#2C2C2C',
+  /** Canvas — branco puro, o fundo dominante do sistema. */
+  paperWhite: '#FFFFFF',
+
+  /** Fundo da sidebar e de superfícies levemente destacadas do canvas. */
+  fogWhite: '#FAFAFB',
+
+  /** Preenchimento de input, hover de item de lista. */
+  mistGray: '#F3F4F6',
+
   /**
-   * Texto auxiliar.
+   * Cor de link, texto auxiliar.
    *
-   * **Desvio deliberado do `DESIGN.md`, por acessibilidade.** A direção indica
-   * `#797979`, que mede 4.35:1 sobre o canvas branco e reprova no WCAG AA, cujo
-   * mínimo para texto normal é 4.5:1. Escurecido ao menor valor que passa:
-   * `#767676`, com 4.54:1.
-   *
-   * A diferença é imperceptível lado a lado — três pontos em cada canal — e
-   * decide se a secretária de 58 anos lê o texto auxiliar sob a luz do salão. É
-   * o único ponto em que contrario a direção visual, e contrario porque
-   * legibilidade não é preferência estética.
+   * Escurecido para acessibilidade — mede 4.6:1 sobre branco, WCAG AA. Ver
+   * `tokens.test.ts`.
    */
-  slateHelper: '#767676',
-  ironQuiet: '#585858',
+  slateGray: '#6B7280',
 
-  ashDivider: '#DEDEDE',
-  fogEdge: '#C7C7C7',
-  mistHairline: '#EEEEEE',
-  whiteCanvas: '#FFFFFF',
+  /** Rótulo terciário, categoria, texto de apoio pequeno. */
+  ashGray: '#8A8F98',
 
-  /** Lavagens pastel. Só em superfícies pequenas — nunca como fundo de seção. */
-  mintWash: '#D7FFE2',
-  skyWash: '#E8F1FF',
-  peachWash: '#FFEBD6',
+  /** Texto de placeholder — o cinza mais claro com função. */
+  smokeGray: '#A1A5AE',
 
-  /** Latão, do tom profundo ao claro. Ver `brass`. */
-  brassDeep: '#8F7118',
-  brass: '#C9A227',
-  brassLight: '#E3C158',
+  /**
+   * Acento — a única cor saturada do sistema. Botão primário, link com peso,
+   * indicador de progresso, foco de campo.
+   */
+  indigo: '#5B5FEE',
+  indigoDeep: '#4338CA',
+  indigoWash: '#EEF0FF',
 
-  /** Vermelho de erro. Ver nota em `colors.danger`. */
-  cherryRed: '#FF4940',
+  /** Positivo — variação/entrega concluída, checkmark de verificação. */
+  successGreen: '#1A8245',
+  successWash: '#E7F6EC',
+
+  /** Traço de campo inválido e delta negativo. */
+  errorRed: '#D33B2C',
+  errorWash: '#FDECEA',
 } as const;
-
-/**
- * Paradas do gradiente de assinatura — latão.
- *
- * Substitui o arco-íris do `DESIGN.md` por decisão do cliente. A regra de uso
- * permanece intacta: **três contextos, e só esses** — borda de 1,5px de um único
- * botão primário por tela, preenchimento de uma palavra em itálico por título, e
- * o traço da marca. A disciplina é o que faz a assinatura funcionar; a cor é o
- * que ela diz.
- *
- * O latão vem do mundo material da igreja brasileira: aplique de parede, numeral
- * do quadro de hinos, dourado da encadernação do hinário.
- *
- * A sequência **escuro → claro → escuro** não é enfeite: é como metal escovado
- * se comporta sob luz, com o brilho concentrado no meio. Um gradiente linear de
- * escuro para claro leria como degradê de interface, não como latão.
- *
- * Contraste sobre o canvas branco: 4.62:1 na parada profunda, 1.74:1 na clara.
- * Só a profunda serviria como texto — por isso o latão é **exclusivamente
- * traço e preenchimento decorativo**, nunca cor de leitura.
- */
-export const brass = ['#8F7118', '#E3C158', '#8F7118'] as const;
 
 export interface ColorScheme {
   readonly background: string;
   readonly surface: string;
+  readonly surfaceNeutral: string;
   readonly surfaceTinted: string;
   readonly hairline: string;
   readonly divider: string;
   readonly text: string;
   readonly textBody: string;
   readonly textMuted: string;
+  readonly placeholder: string;
   readonly textOnDark: string;
   readonly brand: string;
   readonly brandSecondary: string;
+  readonly success: string;
   readonly danger: string;
   readonly disabled: string;
 }
 
 export const colors: ColorScheme = {
-  background: palette.whiteCanvas,
-  surface: palette.whiteCanvas,
-  surfaceTinted: palette.skyWash,
-  hairline: palette.mistHairline,
-  divider: palette.ashDivider,
+  background: palette.paperWhite,
+  surface: palette.paperWhite,
+  /** Fundo do cartão neutro — usado com moderação; a maioria dos cartões é branca com borda. */
+  surfaceNeutral: palette.mistGray,
+  surfaceTinted: palette.indigoWash,
+  hairline: '#E5E7EB',
+  divider: '#E5E7EB',
 
-  text: palette.portraitInk,
-  textBody: palette.graphiteBody,
+  text: palette.inkBlack,
+  textBody: palette.inkBlack,
+  textMuted: palette.slateGray,
+  placeholder: palette.smokeGray,
+  textOnDark: palette.paperWhite,
 
-  /**
-   * Texto auxiliar.
-   *
-   * Escurecido em relação ao `DESIGN.md` para atingir 4.5:1. Ver a justificativa
-   * completa em `palette.slateHelper`.
-   */
-  textMuted: palette.slateHelper,
-  textOnDark: palette.whiteCanvas,
+  brand: palette.indigo,
+  brandSecondary: palette.indigoDeep,
+  success: palette.successGreen,
 
-  brand: palette.portraitInk,
-  brandSecondary: palette.nauticalTeal,
-
-  /**
-   * Erro.
-   *
-   * `#FF4940` sobre branco dá apenas 3.3:1 —
-   * insuficiente para texto. Usado somente como **traço de borda** em campo
-   * inválido; a mensagem de erro em si vai em `portraitInk`, que tem contraste de
-   * sobra. Mensagem de erro ilegível é pior que não ter mensagem.
-   */
-  danger: palette.cherryRed,
-  disabled: palette.fogEdge,
+  /** Usado em borda de campo inválido e delta negativo — nunca em texto de leitura corrida. */
+  danger: palette.errorRed,
+  disabled: '#D1D5DB',
 };
 
 /**
- * Famílias tipográficas — sistema de duas vozes.
+ * Família tipográfica — uma voz só.
  *
- * `Switzer` e `Basier Circle` são comerciais; o `DESIGN.md` autoriza
- * substitutos. Escolhidos `Manrope` (geométrica, amigável, ótimos diacríticos
- * para pt-BR) e `PlusJakartaSans` (humanista geométrica que suporta o tracking
- * negativo agressivo sem virar mancha).
- *
- * **Não misture as duas no mesmo tamanho.** Switzer manda de 10 a 24px, Basier
- * de 31px para cima. Mistura no mesmo corpo parece erro de fallback de fonte.
+ * O padrão de referência não usa serifada em nenhum momento: título, corpo,
+ * número de saldo, tudo na mesma família sans, diferenciada por peso e
+ * tamanho. `Inter` cobre isso com a variação de peso que o sistema precisa
+ * (400 a 600) e suporte nativo a pt-BR.
  */
 export const fonts = {
-  ui: 'Manrope_400Regular',
-  uiMedium: 'Manrope_500Medium',
-  uiSemibold: 'Manrope_600SemiBold',
-  uiBold: 'Manrope_700Bold',
-  display: 'PlusJakartaSans_600SemiBold',
-  displayMedium: 'PlusJakartaSans_500Medium',
+  regular: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
 } as const;
 
-/**
- * Escala tipográfica.
- *
- * O tracking negativo cresce com o corpo — até −4.25px em 76px. Essa compressão
- * é a marca: ela faz o título travar num bloco escultural em vez de ficar uma
- * pilha solta de linhas.
- *
- * Os tamanhos de display foram reduzidos em relação ao `DESIGN.md`, que mira
- * página web de 1200px. Em tela de celular, 76px não cabe — a proporção e o
- * tracking foram preservados, o corpo foi reescalado.
- */
+/** Escala tipográfica — uma voz, com hierarquia por peso e tamanho. */
 export const type = {
-  caption: { fontFamily: fonts.ui, fontSize: 10, lineHeight: 15, letterSpacing: 1.4 },
-  captionBody: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 18 },
-  body: { fontFamily: fonts.ui, fontSize: 16, lineHeight: 24 },
-  bodyLg: { fontFamily: fonts.ui, fontSize: 18, lineHeight: 26 },
-  bodyStrong: { fontFamily: fonts.uiMedium, fontSize: 16, lineHeight: 24 },
-  subheading: { fontFamily: fonts.uiSemibold, fontSize: 20, lineHeight: 29, letterSpacing: -0.26 },
+  caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18 },
+  captionBody: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19 },
+  body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22 },
+  bodyLg: { fontFamily: fonts.regular, fontSize: 17, lineHeight: 24 },
+  bodyStrong: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22 },
+  subheading: { fontFamily: fonts.medium, fontSize: 17, lineHeight: 24 },
 
-  /** Rótulo eyebrow: caixa alta, 10px, tracking 0.14em. Só para etiqueta e badge. */
-  eyebrow: { fontFamily: fonts.uiSemibold, fontSize: 10, lineHeight: 15, letterSpacing: 1.4 },
+  /** Rótulo eyebrow: caixa alta, cinza terciário. Só para etiqueta e categoria. */
+  eyebrow: { fontFamily: fonts.medium, fontSize: 11, lineHeight: 15, letterSpacing: 0.6 },
 
-  headingSm: { fontFamily: fonts.display, fontSize: 24, lineHeight: 27, letterSpacing: -0.4 },
-  heading: { fontFamily: fonts.display, fontSize: 31, lineHeight: 34, letterSpacing: -0.9 },
-  headingLg: { fontFamily: fonts.display, fontSize: 38, lineHeight: 40, letterSpacing: -1.5 },
-  display: { fontFamily: fonts.display, fontSize: 44, lineHeight: 44, letterSpacing: -2.4 },
+  headingSm: { fontFamily: fonts.semibold, fontSize: 20, lineHeight: 26, letterSpacing: -0.2 },
+  heading: { fontFamily: fonts.semibold, fontSize: 24, lineHeight: 30, letterSpacing: -0.3 },
+  headingLg: { fontFamily: fonts.semibold, fontSize: 30, lineHeight: 36, letterSpacing: -0.4 },
+  display: { fontFamily: fonts.semibold, fontSize: 38, lineHeight: 44, letterSpacing: -0.6 },
 } as const;
 
-/** Escala de 4px, conforme a base do `DESIGN.md`. */
+/** Escala de 4px. */
 export const space = {
   4: 4,
   8: 8,
@@ -195,70 +144,68 @@ export const space = {
   32: 32,
   40: 40,
   48: 48,
-  56: 56,
   64: 64,
   80: 80,
+  96: 96,
+  124: 124,
+  128: 128,
+  160: 160,
 } as const;
 
 /**
  * Raios nomeados.
  *
- * A diferença entre cartão (24) e botão (28) é deliberada: o botão é
- * ligeiramente mais redondo que o cartão sobre o qual ele se apoia.
+ * Mais contidos que o sistema anterior — o padrão de referência usa cartão a
+ * 12–16px, não 24px, e é isso que faz a superfície branca com borda fina
+ * parecer "produto" em vez de "cartão de apresentação".
  */
 export const radius = {
-  inputs: 16,
-  cards: 24,
-  images: 24,
-  buttons: 28,
-  nav: 28,
+  inputs: 10,
+  cards: 12,
+  images: 10,
+  buttons: 9999,
+  smallCards: 8,
+  elevatedCards: 14,
   tags: 9999,
 } as const;
 
 /**
  * Elevação.
  *
- * Nunca uma sombra pesada: várias camadas finas com deslocamento negativo,
- * nenhuma passando de 8% de preto. Sombra mais escura que isso quebra a
- * linguagem de papel sobre papel.
- *
- * O React Native não aceita sombra em múltiplas camadas como o CSS, então cada
- * nível vira a camada mais próxima possível — mantendo o teto de opacidade.
+ * Sombra sutil o bastante para separar cartão de canvas sem pesar — o padrão
+ * de referência apoia a separação sobretudo na borda de 1px, e usa sombra só
+ * como reforço muito leve.
  */
 export const elevation = {
   none: {},
-  card: {
-    shadowColor: '#000000',
-    shadowOpacity: 0.03,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 1,
-  },
-  nav: {
-    shadowColor: '#000000',
+  floating: {
+    shadowColor: '#0F172A',
     shadowOpacity: 0.06,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  popover: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
   },
 } as const;
 
-/**
- * Alvos de toque.
- *
- * Não vem do `DESIGN.md`, que é um sistema web. 44pt é o mínimo praticável em
- * toque, e o check-in acontece com o pai segurando a criança no colo.
- */
+/** Alvos de toque. 44pt é o mínimo praticável em toque. */
 export const touch = {
   minTarget: 44,
-  comfortable: 52,
+  comfortable: 48,
 } as const;
 
 export const layout = {
   pageMaxWidth: 1200,
-  sectionGap: 80,
-  cardPadding: 16,
-  elementGap: 16,
+  sidebarWidth: 240,
+  sectionGap: 64,
+  cardPadding: 20,
+  elementGap: 8,
 } as const;
 
 export const motion = {

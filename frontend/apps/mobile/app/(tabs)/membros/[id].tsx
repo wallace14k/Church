@@ -2,18 +2,20 @@ import { describeError } from '@congrega/api-client/errors';
 import { getMember, type Member } from '@congrega/api-client/members';
 import { formatPhone } from '@congrega/core/validation';
 import { formatDate } from '@congrega/core/datetime';
-import { Button } from '@congrega/ui/Button';
+import { Avatar } from '@congrega/ui/Avatar';
 import { Card } from '@congrega/ui/Card';
+import { Button } from '@congrega/ui/Button';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { EyebrowPill } from '@congrega/ui/EyebrowPill';
 import { Screen } from '@congrega/ui/Screen';
 import { Text } from '@congrega/ui/Text';
 import { useTheme } from '@congrega/ui/theme';
+import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiClient } from '../../src/api';
+import { apiClient } from '../../../src/api';
 
 export default function FichaDeMembro() {
   const theme = useTheme();
@@ -44,9 +46,27 @@ export default function FichaDeMembro() {
     };
   }, [id]);
 
+  const voltar = (
+    <Pressable
+      onPress={() => router.back()}
+      accessibilityRole="button"
+      accessibilityLabel="Voltar"
+      hitSlop={8}
+      style={({ pressed }) => ({
+        width: theme.touch.minTarget,
+        height: theme.touch.minTarget,
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        opacity: pressed ? 0.6 : 1,
+      })}
+    >
+      <Feather name="chevron-left" size={26} color={theme.colors.text} />
+    </Pressable>
+  );
+
   if (carregando) {
     return (
-      <Screen style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <Screen wide style={{ alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={theme.colors.text} />
       </Screen>
     );
@@ -54,8 +74,9 @@ export default function FichaDeMembro() {
 
   if (erro !== null || membro === null) {
     return (
-      <Screen>
-        <View style={{ paddingTop: insets.top + theme.space[48] }}>
+      <Screen wide>
+        <View style={{ paddingTop: insets.top + theme.space[16] }}>{voltar}</View>
+        <View style={{ paddingTop: theme.space[32], maxWidth: 480 }}>
           <EmptyState
             title="Ficha não encontrada"
             description={erro ?? 'Este membro não existe ou não pertence à sua igreja.'}
@@ -67,21 +88,26 @@ export default function FichaDeMembro() {
   }
 
   return (
-    <Screen padded={false}>
+    <Screen padded={false} wide>
       <ScrollView
         contentContainerStyle={{
-          paddingTop: insets.top + theme.space[16],
+          paddingTop: insets.top + theme.space[8],
           paddingHorizontal: theme.space[24],
           paddingBottom: insets.bottom + theme.space[32],
-          gap: theme.space[16],
+          gap: theme.space[20],
+          maxWidth: 720,
+          width: '100%',
+          alignSelf: 'center',
         }}
       >
-        <View style={{ gap: theme.space[8] }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
-            <Text variant="eyebrow" tone="muted">FICHA DE MEMBRO</Text>
-            {membro.status !== 'Ativo' && <EyebrowPill label={membro.status} tone="peach" />}
+        {voltar}
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[16] }}>
+          <Avatar name={membro.fullName} size={64} />
+          <View style={{ flex: 1, gap: theme.space[4] }}>
+            {membro.status !== 'Ativo' && <EyebrowPill label={membro.status} tone="badge" />}
+            <Text variant="heading">{membro.fullName}</Text>
           </View>
-          <Text variant="heading">{membro.fullName}</Text>
         </View>
 
         <Card>
@@ -98,14 +124,11 @@ export default function FichaDeMembro() {
           <Campo rotulo="Família" valor={membro.familyName} />
         </Card>
 
-        <Card tinted="sky">
-          <Text variant="eyebrow" tone="muted">EM CONSTRUÇÃO</Text>
-          <Text variant="captionBody" tone="muted">
-            Editar cadastro, histórico de contribuições e presença entram nas próximas etapas.
-          </Text>
-        </Card>
+        <Button label="Editar membro" onPress={() => router.push(`/membros/editar/${membro.id}`)} />
 
-        <Button label="Voltar" variant="outline" onPress={() => router.back()} />
+        <Text variant="captionBody" tone="muted">
+          Histórico de contribuições e presença chegam nas próximas etapas.
+        </Text>
       </ScrollView>
     </Screen>
   );

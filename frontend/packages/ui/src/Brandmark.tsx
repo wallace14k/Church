@@ -1,9 +1,8 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from './theme';
 
 export interface BrandmarkProps {
-  /** Altura total da marca em pontos. Abaixo de 20 a barra de latão some. */
+  /** Altura total da marca em pontos. */
   readonly size?: number;
   /** Sobre superfície escura, a cruz inverte para branco. */
   readonly onDark?: boolean;
@@ -12,13 +11,20 @@ export interface BrandmarkProps {
 /**
  * Marca do Congrega, desenhada em vez de importada como imagem.
  *
- * A cruz é geometria simples — dois retângulos — e a barra é o gradiente de
- * latão. Desenhar dispensa carregar um PNG para cada densidade de tela, mantém a
- * marca nítida em qualquer tamanho, e faz a cor vir do tema: se a tinta mudar, a
- * marca acompanha sem ninguém precisar reexportar arquivo.
+ * A cruz é geometria simples — dois retângulos — e a barra abaixo dela é o
+ * terceiro traço. Desenhar dispensa carregar um PNG para cada densidade de
+ * tela, mantém a marca nítida em qualquer tamanho, e faz a cor vir do tema: se
+ * a tinta mudar, a marca acompanha sem ninguém precisar reexportar arquivo.
  *
  * O PNG continua existindo para ícone de app e favicon, onde o sistema
- * operacional exige bitmap.
+ * operacional exige bitmap — esse ícone não muda com a troca de sistema de
+ * design da tela, só a versão desenhada aqui dentro do app.
+ *
+ * **A barra perdeu o gradiente de latão** na troca do sistema Portrait para o
+ * Steep: a disciplina do `DESIGN_new.md` é quase-monocromática, sem espaço
+ * para uma segunda cor de assinatura além do pêssego, e o pêssego não faz
+ * sentido como traço de marca sobre fundo escuro. A marca agora é um traço só,
+ * na mesma tinta do resto do sistema.
  *
  * <b>Proporções</b> derivadas do ícone: a cruz ocupa 74% da altura, a barra fica
  * nos 12% inferiores, e o travessão está a 36% do topo. Fixá-las aqui é o que
@@ -68,11 +74,8 @@ export function Brandmark({ size = 28, onDark = false }: BrandmarkProps) {
         ]}
       />
 
-      {/* Barra de latão — a assinatura, com o brilho no meio. */}
-      <LinearGradient
-        colors={[...theme.brass]}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
+      {/* Barra inferior — mesmo traço da cruz, sem cor de assinatura. */}
+      <View
         style={[
           styles.absoluto,
           {
@@ -81,6 +84,7 @@ export function Brandmark({ size = 28, onDark = false }: BrandmarkProps) {
             left: (size * 0.62 - size * 0.52) / 2,
             bottom: 0,
             borderRadius: size,
+            backgroundColor: cor,
           },
         ]}
       />

@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiClient } from '../../src/api';
+import { apiClient } from '../../../src/api';
 
 /** Só dígitos, no máximo 11 — o backend guarda sem formatação. */
 function apenasDigitos(valor: string): string {
@@ -94,7 +94,7 @@ export default function NovoMembro() {
   }
 
   return (
-    <Screen padded={false}>
+    <Screen padded={false} wide>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{
@@ -102,6 +102,9 @@ export default function NovoMembro() {
             paddingHorizontal: theme.space[24],
             paddingBottom: insets.bottom + theme.space[48],
             gap: theme.space[16],
+            maxWidth: 480,
+            width: '100%',
+            alignSelf: 'center',
           }}
           keyboardShouldPersistTaps="handled"
         >

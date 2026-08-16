@@ -6,11 +6,11 @@ export interface ButtonProps {
   readonly label: string;
   readonly onPress: () => void;
   /**
-   * `outline` desenha borda em tinta principal; `ghost` é só texto.
-   *
-   * Não existe variante preenchida. Botão colorido preenchido está na lista de
-   * proibições do `DESIGN.md` — a ação primária é o `SignatureButton`, e todo o
-   * resto é contorno ou texto puro.
+   * `outline` é a pílula secundária — preenchida em cinza-névoa, sem borda.
+   * O padrão de referência não usa botão com contorno: a segunda ênfase de
+   * uma linha de ações ("Cancel", "Retake", "Back", "Skip") é sempre uma
+   * pílula cinza clara ao lado da pílula índigo. `ghost` é o link de texto
+   * puro, sem fundo — a ação de menor ênfase da tela.
    */
   readonly variant?: 'outline' | 'ghost';
   readonly loading?: boolean;
@@ -38,14 +38,17 @@ export function Button({
       accessibilityState={{ disabled: inativo, busy: loading }}
       style={({ pressed }) => [
         styles.button,
-        {
+        variant === 'outline' && {
           minHeight: theme.touch.comfortable,
           borderRadius: theme.radius.buttons,
-          paddingHorizontal: theme.space[24],
-          borderWidth: variant === 'outline' ? 1 : 0,
-          borderColor: theme.colors.text,
-          opacity: inativo ? 0.45 : pressed ? 0.7 : 1,
+          paddingHorizontal: theme.space[20],
+          backgroundColor: theme.colors.surfaceNeutral,
         },
+        variant === 'ghost' && {
+          minHeight: theme.touch.minTarget,
+          paddingVertical: theme.space[4],
+        },
+        { opacity: inativo ? 0.45 : pressed ? 0.7 : 1 },
         style,
       ]}
     >

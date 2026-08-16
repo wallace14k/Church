@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useRef, useState } from 'react';
 import {
+  Platform,
   StyleSheet,
   Text as RNText,
   TextInput,
@@ -64,8 +65,21 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
 
       if (next !== raw) {
         // A transformação encurtou ou reescreveu o texto (ex.: usuário colou
-        // "123 456" no campo de OTP). Reescreve no nativo sem re-render.
-        innerRef.current?.setNativeProps({ text: next });
+        // "123 456" no campo de OTP, ou a máscara de data inseriu uma barra).
+        // Reescreve no nativo sem re-render.
+        //
+        // react-native-web não implementa `setNativeProps` no ref do
+        // TextInput — chamá-lo direto derruba a tela em qualquer campo com
+        // `transform` (data, telefone, código OTP) a partir da primeira tecla
+        // que a máscara reescreve. O próprio react-native-web usa
+        // `node.value = ...` internamente para `TextInput.clear()`; é o
+        // equivalente correto para escrever no input sem passar por estado.
+        if (Platform.OS === 'web') {
+          const node = innerRef.current as unknown as { value?: string } | null;
+          if (node) node.value = next;
+        } else {
+          innerRef.current?.setNativeProps({ text: next });
+        }
       }
 
       lastValue.current = next;
@@ -104,7 +118,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           setIsFocused(false);
           inputProps.onBlur?.(event);
         }}
-        placeholderTextColor={theme.colors.textMuted}
+        placeholderTextColor={theme.colors.placeholder}
         style={[
           theme.type.body,
           styles.input,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { brass, colors, palette, touch, type } from './tokens';
+import { colors, palette, touch, type } from './tokens';
 
 /** Luminância relativa conforme WCAG 2.1. */
 function luminance(hex: string): number {
@@ -26,59 +26,31 @@ describe('contraste do texto', () => {
     ['tinta principal sobre canvas', colors.text, colors.background, AA_NORMAL],
     ['corpo sobre canvas', colors.textBody, colors.background, AA_NORMAL],
     ['auxiliar sobre canvas', colors.textMuted, colors.background, AA_NORMAL],
-    ['tinta sobre lavagem azul', colors.text, palette.skyWash, AA_NORMAL],
-    ['tinta sobre lavagem menta', colors.text, palette.mintWash, AA_NORMAL],
-    ['tinta sobre lavagem pêssego', colors.text, palette.peachWash, AA_NORMAL],
-    ['tinta secundária sobre canvas', colors.brandSecondary, colors.background, AA_NORMAL],
+    ['tinta sobre cartão neutro', colors.text, palette.mistGray, AA_NORMAL],
+    ['branco sobre índigo (botão primário)', palette.paperWhite, palette.indigo, AA_NORMAL],
+    ['índigo profundo sobre canvas (link)', palette.indigoDeep, colors.background, AA_NORMAL],
+    ['verde de sucesso sobre canvas', palette.successGreen, colors.background, AA_NORMAL],
   ])('%s atende WCAG AA', (_nome, frente, fundo, minimo) => {
     expect(contraste(frente, fundo)).toBeGreaterThanOrEqual(minimo);
   });
 
   it('texto auxiliar passa por margem estreita, e isso está registrado', () => {
-    // 4.63:1. O DESIGN.md indica #797979 e o valor cumpre o mínimo — mas sem
-    // folga. Se este token for usado abaixo de 14px, o requisito não muda e o
-    // texto continua conforme; se alguém clarear a cor "para suavizar", quebra.
     const razao = contraste(colors.textMuted, colors.background);
     expect(razao).toBeGreaterThanOrEqual(AA_NORMAL);
-    expect(razao).toBeLessThan(5.5);
-  });
-});
-
-describe('gradiente de assinatura — latão', () => {
-  it('é simétrico: escuro nas pontas, claro no meio', () => {
-    // Não é enfeite. Metal escovado concentra o brilho no meio; um gradiente
-    // linear de escuro para claro leria como degradê de interface, não como
-    // latão. A simetria é o que faz a borda parecer material.
-    expect(brass).toHaveLength(3);
-    expect(brass[0]).toBe(brass[2]);
-    expect(luminance(brass[1]!)).toBeGreaterThan(luminance(brass[0]!));
+    expect(razao).toBeLessThan(5.2);
   });
 
-  it('a parada profunda é visível como traço sobre o canvas', () => {
-    // A borda do botão primário precisa se destacar do branco. 4.5:1 é folgado
-    // para um traço de 1,5px, e garante que a assinatura não suma em tela sob
-    // luz forte — que é a condição de uso no salão da igreja.
-    expect(contraste(brass[0]!, colors.background)).toBeGreaterThanOrEqual(AA_NORMAL);
+  it('rótulo terciário (ash gray) atende o mínimo de texto grande, não o de leitura corrida', () => {
+    // Reservado a tag/categoria — nunca a texto de corpo, que exige 4.5:1.
+    expect(contraste(palette.ashGray, colors.background)).toBeGreaterThanOrEqual(AA_GRANDE);
+    expect(contraste(palette.ashGray, colors.background)).toBeLessThan(AA_NORMAL);
   });
 
-  it('a parada clara NÃO serve como cor de texto', () => {
-    // Documenta por que o latão é exclusivamente traço e preenchimento
-    // decorativo: 1.74:1 sobre branco é ilegível. Se alguém tentar usar
-    // `palette.brassLight` em texto, este teste explica o motivo da recusa.
-    expect(contraste(palette.brassLight, colors.background)).toBeLessThan(AA_GRANDE);
-  });
-
-  it('o latão brilha sobre a tinta principal, para uso invertido', () => {
-    // Cenário de marca sobre superfície escura — cabeçalho ou splash. Aqui o
-    // latão claro tem contraste de sobra, o oposto do que acontece no branco.
-    expect(contraste(palette.brassLight, colors.text)).toBeGreaterThanOrEqual(AA_NORMAL);
-  });
-
-  it('o vermelho de erro só serve como traço, não como texto', () => {
-    // Por isso `colors.danger` é usado em borda de campo inválido, e a mensagem
-    // em si vai em tinta principal.
-    expect(contraste(colors.danger, colors.background)).toBeLessThan(AA_NORMAL);
-    expect(contraste(colors.danger, colors.background)).toBeGreaterThanOrEqual(AA_GRANDE);
+  it('o vermelho de erro atende AA — mas continua restrito a traço, por convenção', () => {
+    // Passa como texto (4.74:1), mas a mensagem de erro em si vai em tinta
+    // principal e o vermelho fica só na borda do campo — consistência com o
+    // resto da interface importa mais que a margem de contraste permitir mais.
+    expect(contraste(colors.danger, colors.background)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 });
 
@@ -96,9 +68,7 @@ describe('escala tipográfica', () => {
     }
   });
 
-  it('separa as duas vozes por tamanho, sem sobreposição', () => {
-    // Regra do DESIGN.md: a face de interface manda até 24px, a de display de 24
-    // para cima. Misturar as duas no mesmo corpo parece erro de fallback.
+  it('a hierarquia de heading nunca é menor que a de corpo', () => {
     const interfaceMax = Math.max(
       type.body.fontSize,
       type.bodyLg.fontSize,
@@ -116,10 +86,15 @@ describe('escala tipográfica', () => {
   });
 
   it('comprime o tracking conforme o corpo cresce', () => {
-    // A compressão é a marca: o título trava num bloco escultural em vez de
-    // ficar uma pilha solta.
     expect(type.display.letterSpacing).toBeLessThan(type.headingLg.letterSpacing);
     expect(type.headingLg.letterSpacing).toBeLessThan(type.heading.letterSpacing);
     expect(type.heading.letterSpacing).toBeLessThan(type.headingSm.letterSpacing);
+  });
+
+  it('usa uma família só — nenhuma variante escapa para fora de Inter', () => {
+    // Sistema de referência não mistura serifada com sans em nenhum momento.
+    for (const [nome, estilo] of Object.entries(type)) {
+      expect(estilo.fontFamily.startsWith('Inter_'), `${nome} não usa Inter`).toBe(true);
+    }
   });
 });

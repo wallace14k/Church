@@ -88,3 +88,34 @@ export function getMember(client: ApiClient, id: string): Promise<Member> {
 export function createMember(client: ApiClient, input: CreateMemberInput): Promise<Member> {
   return client.request<Member>('/api/v1/members', { method: 'POST', body: input });
 }
+
+/**
+ * Campos editáveis da ficha — subconjunto de {@link CreateMemberInput}.
+ *
+ * Espelha `UpdateMemberRequest` no backend: gênero, estado civil e as datas de
+ * vínculo/batismo ainda não têm campo na tela, e adicioná-los aqui sem a tela
+ * correspondente reabriria o problema que o `TODO.md` existe para evitar.
+ */
+export interface UpdateMemberInput {
+  readonly fullName: string;
+  readonly email?: string;
+  readonly phone?: string;
+  readonly birthDate?: string;
+  readonly addressStreet?: string;
+  readonly addressNumber?: string;
+  readonly addressDistrict?: string;
+  readonly addressCity?: string;
+  readonly addressState?: string;
+  readonly addressZip?: string;
+}
+
+export function updateMember(client: ApiClient, id: string, input: UpdateMemberInput): Promise<Member> {
+  return client.request<Member>(`/api/v1/members/${id}`, { method: 'PUT', body: input });
+}
+
+export function changeMemberStatus(client: ApiClient, id: string, status: MemberStatus): Promise<Member> {
+  return client.request<Member>(`/api/v1/members/${id}/status`, {
+    method: 'PUT',
+    body: { status },
+  });
+}

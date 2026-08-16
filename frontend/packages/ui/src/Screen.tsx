@@ -5,27 +5,35 @@ import { useTheme } from './theme';
 export interface ScreenProps {
   readonly children: ReactNode;
   readonly padded?: boolean;
+  /**
+   * `true` para telas que já vivem dentro de um contentor mais largo no web —
+   * a área de conteúdo da sidebar, por exemplo. Sem isso, `Screen` sempre
+   * comprime para a largura de celular no navegador, o que faria uma tela de
+   * dashboard com grade de cartões lado a lado ficar espremida numa coluna
+   * de 480px dentro de uma área que já tem 900px disponíveis.
+   */
+  readonly wide?: boolean;
   readonly style?: ViewStyle;
 }
 
-/** Largura de referência: a mesma faixa de celular para a qual o `HeroCollage`
- *  e a escala tipográfica foram calibrados. */
+/** Largura de referência para telas de fluxo (login, código) fora da sidebar. */
 const LARGURA_MOVEL = 480;
 
 /**
  * Canvas da tela.
  *
- * Branco puro, sempre. O `DESIGN.md` é explícito: a cor aparece apenas como
- * lavagem pastel em superfícies pequenas, **nunca** como fundo de seção.
+ * Branco puro, sempre — o `DESIGN_new.md` é um sistema quase-monocromático, e
+ * a página é a superfície mais neutra dele.
  *
- * No navegador, o conteúdo fica centrado numa coluna do tamanho de um celular.
- * Sem isso, `flex: 1` estica até a largura da janela — os cartões de foto do
- * `HeroCollage`, posicionados com `left: 0`/`right: 0`, iam parar a centenas de
- * pixels um do outro, e o formulário ficava colado na borda esquerda com o
- * resto da tela em branco. O app é feito para celular; a janela larga é só o
- * jeito de olhar para ele sem um aparelho por perto.
+ * No navegador, telas de fluxo (login, código — sem sidebar ainda, o usuário
+ * não está autenticado) ficam centradas numa coluna do tamanho de celular:
+ * sem isso, `flex: 1` estica até a largura da janela e o formulário fica
+ * colado na borda esquerda com o resto da tela em branco. Telas dentro da
+ * sidebar (`wide`) já recebem uma área de conteúdo dimensionada pelo shell —
+ * comprimi-las de novo aqui desperdiçaria o espaço que o layout de dashboard
+ * existe para usar.
  */
-export function Screen({ children, padded = true, style }: ScreenProps) {
+export function Screen({ children, padded = true, wide = false, style }: ScreenProps) {
   const theme = useTheme();
 
   const conteudo = (
@@ -34,7 +42,7 @@ export function Screen({ children, padded = true, style }: ScreenProps) {
         styles.screen,
         { backgroundColor: theme.colors.background },
         padded && { paddingHorizontal: theme.space[24] },
-        Platform.OS === 'web' && styles.colunaMovel,
+        Platform.OS === 'web' && !wide && styles.colunaMovel,
         style,
       ]}
     >
@@ -42,7 +50,7 @@ export function Screen({ children, padded = true, style }: ScreenProps) {
     </View>
   );
 
-  if (Platform.OS !== 'web') return conteudo;
+  if (Platform.OS !== 'web' || wide) return conteudo;
 
   return (
     <View style={[styles.molduraWeb, { backgroundColor: theme.colors.divider }]}>{conteudo}</View>

@@ -58,6 +58,23 @@ export async function verifyOtp(client: ApiClient, input: VerifyOtpInput): Promi
   return session;
 }
 
+export interface TenantSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly status: string;
+}
+
+/**
+ * Igrejas em que o usuário tem vínculo ativo.
+ *
+ * Alimenta a tela de seleção e o nome exibido no início. Funciona mesmo sem
+ * tenant selecionado — é exatamente o caso de quem tem duas igrejas e ainda
+ * não escolheu qual usar nesta sessão.
+ */
+export async function listAvailableTenants(client: ApiClient): Promise<readonly TenantSummary[]> {
+  return client.request<readonly TenantSummary[]>('/api/v1/auth/tenants');
+}
+
 /**
  * Troca a igreja ativa sem refazer o login.
  *

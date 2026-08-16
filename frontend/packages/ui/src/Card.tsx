@@ -1,29 +1,34 @@
 import type { ReactNode } from 'react';
-import { Pressable, View, type ViewStyle } from 'react-native';
+import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from './theme';
 
 export interface CardProps {
   readonly children: ReactNode;
   readonly onPress?: () => void;
-  readonly tinted?: 'mint' | 'sky' | 'peach';
-  readonly style?: ViewStyle;
+  /**
+   * `default` é o cartão do sistema inteiro: branco, borda de 1px, sombra
+   * quase imperceptível — o padrão de referência não distingue "cartão
+   * estático" de "artefato flutuante", os dois são a mesma superfície.
+   * `muted` é o preenchimento cinza-névoa, reservado para bloco secundário
+   * dentro de um cartão (ex.: resumo de card de crédito dentro da ficha).
+   */
+  readonly variant?: 'default' | 'muted';
+  /**
+   * Realce indigo — o único acento cromático do sistema, usado em blocos que
+   * precisam se destacar (texto de certificação legal, aviso). Raro de
+   * propósito.
+   */
+  readonly tinted?: 'indigo';
+  readonly style?: StyleProp<ViewStyle>;
   readonly accessibilityLabel?: string;
 }
 
-/**
- * Cartão.
- *
- * Superfície branca, raio 24, e um hairline de 1px no lugar de sombra. O
- * `DESIGN.md` prefere o fio à sombra quando a superfície precisa de separação —
- * é o que mantém a linguagem de papel sobre papel.
- */
-export function Card({ children, onPress, tinted, style, accessibilityLabel }: CardProps) {
+/** Cartão — branco com borda fina, a superfície padrão do sistema. */
+export function Card({ children, onPress, variant = 'default', tinted, style, accessibilityLabel }: CardProps) {
   const theme = useTheme();
 
-  const fundo =
-    tinted === 'mint' ? '#D7FFE2'
-    : tinted === 'sky' ? '#E8F1FF'
-    : tinted === 'peach' ? '#FFEBD6'
+  const fundo = tinted === 'indigo' ? theme.colors.surfaceTinted
+    : variant === 'muted' ? theme.colors.surfaceNeutral
     : theme.colors.surface;
 
   const conteudo = (
@@ -32,11 +37,12 @@ export function Card({ children, onPress, tinted, style, accessibilityLabel }: C
         {
           backgroundColor: fundo,
           borderRadius: theme.radius.cards,
-          borderWidth: 1,
+          borderWidth: variant === 'default' && tinted === undefined ? 1 : 0,
           borderColor: theme.colors.hairline,
           padding: theme.space[16],
           gap: theme.space[4],
         },
+        variant === 'default' && tinted === undefined && theme.elevation.floating,
         style,
       ]}
     >

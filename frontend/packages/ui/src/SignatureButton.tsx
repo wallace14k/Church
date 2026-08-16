@@ -1,5 +1,4 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, type ViewStyle } from 'react-native';
 import { Text } from './Text';
 import { useTheme } from './theme';
 
@@ -11,27 +10,18 @@ export interface SignatureButtonProps {
   readonly style?: ViewStyle;
 }
 
-/** Espessura da borda de gradiente, conforme o `DESIGN.md`. */
-const BORDER_WIDTH = 1.5;
-
 /**
- * Botão de ação primária — o elemento de assinatura do sistema.
+ * Botão de ação primária.
  *
- * Pílula transparente com borda de 1,5px em gradiente de latão, texto em tinta
- * principal. É **o único elemento com cor saturada da interface**.
+ * Pílula preenchida em índigo — a cor de marca do padrão de referência (o
+ * "Send" azul-arroxeado do dashboard, o "Submit Application" do formulário).
+ * É o elemento de maior peso visual da interface: **use no máximo um por
+ * tela**, senão duas ações competem pela mesma atenção e nenhuma vence.
  *
- * <b>Use no máximo um por tela.</b> O `DESIGN.md` é explícito, e a razão é
- * direta: o arco-íris só funciona como assinatura enquanto for raro. Dois deles
- * na mesma tela e nenhum é especial.
- *
- * <b>Nunca preencha com o gradiente.</b> Botão colorido preenchido está na lista
- * de proibições — a ação primária é sempre contorno, e a secundária é texto puro
- * sem fundo nem borda.
- *
- * <b>Implementação:</b> o React Native não tem borda com gradiente. A técnica é
- * um gradiente ocupando todo o botão com um retângulo branco por dentro,
- * recuado pela espessura da borda. O raio interno é o externo menos a espessura,
- * senão os cantos ficam com filete grosso e o resto fino.
+ * Mantém o nome do componente (era a assinatura em latão do sistema Portrait,
+ * depois o preenchimento em tinta do Steep) porque o papel é sempre o mesmo —
+ * a ação primária da tela — independente de qual sistema visual está em vigor.
+ * Renomear a cada troca obrigaria a tocar toda tela sem ganho real.
  */
 export function SignatureButton({
   label,
@@ -51,52 +41,28 @@ export function SignatureButton({
       accessibilityLabel={label}
       accessibilityState={{ disabled: inativo, busy: loading }}
       style={({ pressed }) => [
+        styles.button,
         {
-          borderRadius: theme.radius.buttons,
           minHeight: theme.touch.comfortable,
-          // Opacidade é o único recurso de estado aqui: mudar a cor do gradiente
-          // no toque quebraria a assinatura, e escurecer a borda a apagaria.
-          opacity: inativo ? 0.45 : pressed ? 0.75 : 1,
+          borderRadius: theme.radius.buttons,
+          paddingHorizontal: theme.space[20],
+          backgroundColor: theme.colors.brand,
+          opacity: inativo ? 0.45 : pressed ? 0.8 : 1,
         },
         style,
       ]}
     >
-      <LinearGradient
-        colors={[...theme.brass]}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={[styles.gradient, { borderRadius: theme.radius.buttons }]}
-      >
-        <View
-          style={[
-            styles.inner,
-            {
-              backgroundColor: theme.colors.background,
-              borderRadius: theme.radius.buttons - BORDER_WIDTH,
-              paddingHorizontal: theme.space[24],
-            },
-          ]}
-        >
-          {loading ? (
-            <ActivityIndicator color={theme.colors.text} />
-          ) : (
-            <Text variant="bodyStrong">{label}</Text>
-          )}
-        </View>
-      </LinearGradient>
+      {loading ? (
+        <ActivityIndicator color={theme.colors.textOnDark} />
+      ) : (
+        <Text variant="bodyStrong" tone="onDark">
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    padding: BORDER_WIDTH,
-  },
-  inner: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 0,
-    paddingVertical: 12,
-  },
+  button: { alignItems: 'center', justifyContent: 'center' },
 });

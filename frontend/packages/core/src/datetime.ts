@@ -78,6 +78,31 @@ function plural(count: number, singular: string, plural_: string): string {
   return count === 1 ? singular : plural_;
 }
 
+const MESES = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+] as const;
+
+/**
+ * `31 de dezembro` — dia e mês de um aniversário, sem ano.
+ *
+ * Recebe a data ISO (`DateOnly` do backend, ex. `"1980-12-31"`) como texto e lê
+ * os dígitos direto da string, sem passar por `Date`. `birthDate` não carrega
+ * horário nem fuso — construir um `Date` a partir dele interpretaria a
+ * meia-noite como UTC, e formatar num fuso atrás de UTC devolveria o dia
+ * anterior. Um aniversariante do dia 1º apareceria no card do dia 31 do mês
+ * passado.
+ */
+export function formatBirthday(isoDate: string): string {
+  const partes = /^(\d{4})-(\d{2})-(\d{2})/u.exec(isoDate);
+  if (partes === null) {
+    throw new TypeError(`Data inválida: ${isoDate}`);
+  }
+
+  const [, , mes, dia] = partes;
+  return `${Number(dia)} de ${MESES[Number(mes) - 1]}`;
+}
+
 function toDate(value: Date | string): Date {
   const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) {

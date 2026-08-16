@@ -1,5 +1,6 @@
 import type { Member } from '@congrega/api-client/members';
 import { formatPhone } from '@congrega/core/validation';
+import { Avatar } from '@congrega/ui/Avatar';
 import { Card } from '@congrega/ui/Card';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { EyebrowPill } from '@congrega/ui/EyebrowPill';
@@ -13,7 +14,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useMembers } from '../../src/useMembers';
+import { useMembers } from '../../../src/useMembers';
 
 export default function ListaDeMembros() {
   const theme = useTheme();
@@ -22,12 +23,15 @@ export default function ListaDeMembros() {
   const { membros, total, carregando, carregandoMais, erro, temMais, carregarMais } = useMembers(busca);
 
   return (
-    <Screen padded={false}>
+    <Screen padded={false} wide>
       <View
         style={{
           paddingTop: insets.top + theme.space[16],
           paddingHorizontal: theme.space[24],
           gap: theme.space[16],
+          maxWidth: theme.layout.pageMaxWidth,
+          width: '100%',
+          alignSelf: 'center',
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
@@ -54,6 +58,10 @@ export default function ListaDeMembros() {
           // num campo que já é secundário na tela.
           clearButtonMode="while-editing"
         />
+
+        {membros.length > 0 && (
+          <SignatureButton label="Cadastrar membro" onPress={() => router.push('/membros/novo')} />
+        )}
       </View>
 
       {carregando ? (
@@ -69,7 +77,7 @@ export default function ListaDeMembros() {
           />
         </View>
       ) : membros.length === 0 ? (
-        <View style={{ paddingHorizontal: theme.space[24] }}>
+        <View style={{ paddingHorizontal: theme.space[24], paddingTop: theme.space[16] }}>
           {busca.length > 0 ? (
             <EmptyState
               title="Ninguém com esse nome"
@@ -99,7 +107,10 @@ export default function ListaDeMembros() {
           contentContainerStyle={{
             paddingHorizontal: theme.space[24],
             paddingTop: theme.space[16],
-            paddingBottom: insets.bottom + theme.space[80],
+            paddingBottom: insets.bottom + theme.space[24],
+            maxWidth: theme.layout.pageMaxWidth,
+            width: '100%',
+            alignSelf: 'center',
           }}
           ItemSeparatorComponent={() => <View style={{ height: theme.space[8] }} />}
           onEndReached={carregarMais}
@@ -120,19 +131,6 @@ export default function ListaDeMembros() {
             )
           }
         />
-      )}
-
-      {membros.length > 0 && (
-        <View
-          style={{
-            position: 'absolute',
-            left: theme.space[24],
-            right: theme.space[24],
-            bottom: insets.bottom + theme.space[16],
-          }}
-        >
-          <SignatureButton label="Cadastrar membro" onPress={() => router.push('/membros/novo')} />
-        </View>
       )}
     </Screen>
   );
@@ -158,19 +156,23 @@ function LinhaDeMembro({ membro }: { readonly membro: Member }) {
       style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
     >
       <Card>
-        <View style={{ gap: theme.space[4] }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
-            <Text variant="bodyStrong" style={{ flexShrink: 1 }} numberOfLines={1}>
-              {membro.fullName}
-            </Text>
-            {membro.status !== 'Ativo' && <EyebrowPill label={membro.status} tone="peach" />}
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[12] }}>
+          <Avatar name={membro.fullName} />
 
-          {detalhes.length > 0 && (
-            <Text variant="captionBody" tone="muted" numberOfLines={1}>
-              {detalhes.join(' · ')}
-            </Text>
-          )}
+          <View style={{ flex: 1, gap: theme.space[4] }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
+              <Text variant="bodyStrong" style={{ flexShrink: 1 }} numberOfLines={1}>
+                {membro.fullName}
+              </Text>
+              {membro.status !== 'Ativo' && <EyebrowPill label={membro.status} tone="badge" />}
+            </View>
+
+            {detalhes.length > 0 && (
+              <Text variant="captionBody" tone="muted" numberOfLines={1}>
+                {detalhes.join(' · ')}
+              </Text>
+            )}
+          </View>
         </View>
       </Card>
     </Pressable>

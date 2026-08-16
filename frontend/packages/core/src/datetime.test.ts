@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daysUntil, describeRenewal, formatDate, formatTime } from './datetime';
+import { daysUntil, describeRenewal, formatBirthday, formatDate, formatTime } from './datetime';
 
 describe('formatação no fuso de negócio', () => {
   it('formata data e hora em America/Sao_Paulo', () => {
@@ -17,6 +17,20 @@ describe('formatação no fuso de negócio', () => {
 
   it('recusa data inválida em vez de exibir "Invalid Date"', () => {
     expect(() => formatDate('não é data')).toThrow(TypeError);
+  });
+});
+
+describe('formatBirthday', () => {
+  it('lê dia e mês direto da string, sem passar por Date', () => {
+    // Se isto passasse por `new Date('...')`, a meia-noite viraria UTC e um
+    // fuso atrás de UTC devolveria o dia anterior — exatamente o bug que a
+    // implementação evita não usando Date aqui.
+    expect(formatBirthday('1980-12-31')).toBe('31 de dezembro');
+    expect(formatBirthday('2000-01-01')).toBe('1 de janeiro');
+  });
+
+  it('recusa string que não é data ISO', () => {
+    expect(() => formatBirthday('31/12/1980')).toThrow(TypeError);
   });
 });
 

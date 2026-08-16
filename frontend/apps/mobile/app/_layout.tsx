@@ -1,16 +1,10 @@
 import { ThemeProvider } from '@congrega/ui/theme';
 import {
-  Manrope_400Regular,
-  Manrope_500Medium,
-  Manrope_600SemiBold,
-  Manrope_700Bold,
-  useFonts as useManrope,
-} from '@expo-google-fonts/manrope';
-import {
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  useFonts as useJakarta,
-} from '@expo-google-fonts/plus-jakarta-sans';
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  useFonts as useInter,
+} from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
@@ -22,17 +16,9 @@ export default function RootLayout() {
   // React Native cair na fonte do sistema em silêncio — sem erro no console, e a
   // identidade visual simplesmente não aparece.
   //
-  // Manrope substitui Switzer, Plus Jakarta Sans substitui Basier Circle. Ambos
-  // os substitutos são autorizados pelo DESIGN.md; os originais são comerciais.
-  const [manropeOk] = useManrope({
-    Manrope_400Regular,
-    Manrope_500Medium,
-    Manrope_600SemiBold,
-    Manrope_700Bold,
-  });
-  const [jakartaOk] = useJakarta({ PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold });
-
-  const fontesProntas = manropeOk && jakartaOk;
+  // Uma família só (Inter), do corpo ao título — o padrão de referência não usa
+  // serifada em nenhum momento.
+  const [fontesProntas] = useInter({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold });
 
   return (
     <SafeAreaProvider>
@@ -54,7 +40,7 @@ export default function RootLayout() {
               backgroundColor: '#FFFFFF',
             }}
           >
-            <ActivityIndicator color="#08304C" />
+            <ActivityIndicator color="#171923" />
           </View>
         )}
       </ThemeProvider>

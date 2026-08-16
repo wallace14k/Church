@@ -18,7 +18,10 @@
     "./PhotoCard": "./src/PhotoCard.tsx",
     "./EmptyState": "./src/EmptyState.tsx",
     "./SignatureButton": "./src/SignatureButton.tsx",
-    "./Brandmark": "./src/Brandmark.tsx"
+    "./Brandmark": "./src/Brandmark.tsx",
+    "./Avatar": "./src/Avatar.tsx",
+    "./StatCard": "./src/StatCard.tsx",
+    "./Sidebar": "./src/Sidebar.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -26,7 +29,6 @@
   },
   "peerDependencies": {
     "react": ">=19",
-    "react-native": ">=0.79",
-    "expo-linear-gradient": "*"
+    "react-native": ">=0.79"
   }
 }
