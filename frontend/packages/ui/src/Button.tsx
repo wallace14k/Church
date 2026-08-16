@@ -9,7 +9,7 @@ export interface ButtonProps {
    * `outline` desenha borda em tinta principal; `ghost` é só texto.
    *
    * Não existe variante preenchida. Botão colorido preenchido está na lista de
-   * proibições do `DESIGN.md` — a ação primária é o `RainbowButton`, e todo o
+   * proibições do `DESIGN.md` — a ação primária é o `SignatureButton`, e todo o
    * resto é contorno ou texto puro.
    */
   readonly variant?: 'outline' | 'ghost';

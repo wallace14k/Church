@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { colors, palette, rainbow, touch, type } from './tokens';
+import { brass, colors, palette, touch, type } from './tokens';
 
 /** Luminância relativa conforme WCAG 2.1. */
 function luminance(hex: string): number {
@@ -44,19 +44,34 @@ describe('contraste do texto', () => {
   });
 });
 
-describe('gradiente de assinatura', () => {
-  it('tem as seis paradas do espectro', () => {
-    expect(rainbow).toHaveLength(6);
-    rainbow.forEach((parada) => expect(parada).toMatch(/^#[0-9A-F]{6}$/u));
+describe('gradiente de assinatura — latão', () => {
+  it('é simétrico: escuro nas pontas, claro no meio', () => {
+    // Não é enfeite. Metal escovado concentra o brilho no meio; um gradiente
+    // linear de escuro para claro leria como degradê de interface, não como
+    // latão. A simetria é o que faz a borda parecer material.
+    expect(brass).toHaveLength(3);
+    expect(brass[0]).toBe(brass[2]);
+    expect(luminance(brass[1]!)).toBeGreaterThan(luminance(brass[0]!));
   });
 
-  it('nenhuma parada do espectro serve como cor de TEXTO sobre o canvas', () => {
-    // Este teste documenta o porquê da regra do DESIGN.md: o arco-íris é borda e
-    // preenchimento de uma palavra em display, nunca cor de corpo de texto.
-    // Nenhuma parada atinge 4.5:1 sobre branco — usá-las em texto pequeno seria
-    // ilegível, não uma questão de gosto.
-    const aprovadas = rainbow.filter((cor) => contraste(cor, colors.background) >= AA_NORMAL);
-    expect(aprovadas).toHaveLength(0);
+  it('a parada profunda é visível como traço sobre o canvas', () => {
+    // A borda do botão primário precisa se destacar do branco. 4.5:1 é folgado
+    // para um traço de 1,5px, e garante que a assinatura não suma em tela sob
+    // luz forte — que é a condição de uso no salão da igreja.
+    expect(contraste(brass[0]!, colors.background)).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+
+  it('a parada clara NÃO serve como cor de texto', () => {
+    // Documenta por que o latão é exclusivamente traço e preenchimento
+    // decorativo: 1.74:1 sobre branco é ilegível. Se alguém tentar usar
+    // `palette.brassLight` em texto, este teste explica o motivo da recusa.
+    expect(contraste(palette.brassLight, colors.background)).toBeLessThan(AA_GRANDE);
+  });
+
+  it('o latão brilha sobre a tinta principal, para uso invertido', () => {
+    // Cenário de marca sobre superfície escura — cabeçalho ou splash. Aqui o
+    // latão claro tem contraste de sobra, o oposto do que acontece no branco.
+    expect(contraste(palette.brassLight, colors.text)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 
   it('o vermelho de erro só serve como traço, não como texto', () => {

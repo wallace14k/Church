@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { colors, elevation, layout, motion, radius, rainbow, space, touch, type } from './tokens';
+import { colors, elevation, layout, motion, radius, brass, space, touch, type } from './tokens';
 
 export interface Theme {
   readonly colors: typeof colors;
@@ -10,10 +10,10 @@ export interface Theme {
   readonly touch: typeof touch;
   readonly motion: typeof motion;
   readonly layout: typeof layout;
-  readonly rainbow: typeof rainbow;
+  readonly brass: typeof brass;
 }
 
-const theme: Theme = { colors, type, space, radius, elevation, touch, motion, layout, rainbow };
+const theme: Theme = { colors, type, space, radius, elevation, touch, motion, layout, brass };
 
 /**
  * Tema do Congrega.

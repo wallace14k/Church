@@ -11,13 +11,13 @@
     "./theme": "./src/theme.tsx",
     "./Text": "./src/Text.tsx",
     "./Button": "./src/Button.tsx",
-    "./RainbowButton": "./src/RainbowButton.tsx",
     "./TextField": "./src/TextField.tsx",
     "./Card": "./src/Card.tsx",
     "./EyebrowPill": "./src/EyebrowPill.tsx",
     "./Screen": "./src/Screen.tsx",
     "./PhotoCard": "./src/PhotoCard.tsx",
-    "./EmptyState": "./src/EmptyState.tsx"
+    "./EmptyState": "./src/EmptyState.tsx",
+    "./SignatureButton": "./src/SignatureButton.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

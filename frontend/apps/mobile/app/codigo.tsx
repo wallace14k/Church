@@ -1,6 +1,6 @@
 import { describeError } from '@congrega/api-client/errors';
 import { OTP_LENGTH, isCompleteOtp, sanitizeOtpInput } from '@congrega/core/validation';
-import { RainbowButton } from '@congrega/ui/RainbowButton';
+import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Screen } from '@congrega/ui/Screen';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
@@ -104,7 +104,7 @@ export default function Codigo() {
           inputStyle={{ letterSpacing: 8 }}
         />
 
-        <RainbowButton
+        <SignatureButton
           label={enviando ? 'Entrando' : 'Entrar'}
           onPress={() => void confirmar(codigo.current)}
           loading={enviando}

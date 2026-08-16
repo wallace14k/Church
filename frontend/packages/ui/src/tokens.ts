@@ -3,8 +3,12 @@
  *
  * Direção definida em `DESIGN.md`: canvas branco, uma única tinta azul-marinho
  * carregando todo o texto e toda linha estrutural, e cor aparecendo apenas como
- * lavagem pastel em superfícies pequenas ou como o gradiente arco-íris de
- * assinatura.
+ * lavagem pastel em superfícies pequenas ou como o gradiente de assinatura.
+ *
+ * **Desvio do `DESIGN.md`:** a assinatura é **latão**, não o arco-íris original.
+ * A troca foi decisão do cliente, e o motivo é de leitura: cruz preenchida com
+ * arco-íris carrega, para o público-alvo, um significado que não é o pretendido.
+ * A *regra* de uso permanece idêntica — o que muda é a cor, não a disciplina.
  *
  * **A regra que organiza a paleta:** dois azuis e um gradiente. Qualquer matiz
  * nova dilui a assinatura — é o primeiro item da lista de proibições do
@@ -50,19 +54,36 @@ export const palette = {
   skyWash: '#E8F1FF',
   peachWash: '#FFEBD6',
 
-  /** Vermelho do espectro, reaproveitado para erro. Ver nota em `colors.danger`. */
+  /** Latão, do tom profundo ao claro. Ver `brass`. */
+  brassDeep: '#8F7118',
+  brass: '#C9A227',
+  brassLight: '#E3C158',
+
+  /** Vermelho de erro. Ver nota em `colors.danger`. */
   cherryRed: '#FF4940',
 } as const;
 
 /**
- * Paradas do gradiente de assinatura, do azul ao verde.
+ * Paradas do gradiente de assinatura — latão.
  *
- * Usado em **três contextos, e só nesses**: borda de 1,5px de um único CTA por
- * tela, preenchimento de uma palavra em itálico por título, e o quadradinho da
- * marca. Promover o arco-íris a preenchimento de botão transforma o produto em
- * outra marca.
+ * Substitui o arco-íris do `DESIGN.md` por decisão do cliente. A regra de uso
+ * permanece intacta: **três contextos, e só esses** — borda de 1,5px de um único
+ * botão primário por tela, preenchimento de uma palavra em itálico por título, e
+ * o traço da marca. A disciplina é o que faz a assinatura funcionar; a cor é o
+ * que ela diz.
+ *
+ * O latão vem do mundo material da igreja brasileira: aplique de parede, numeral
+ * do quadro de hinos, dourado da encadernação do hinário.
+ *
+ * A sequência **escuro → claro → escuro** não é enfeite: é como metal escovado
+ * se comporta sob luz, com o brilho concentrado no meio. Um gradiente linear de
+ * escuro para claro leria como degradê de interface, não como latão.
+ *
+ * Contraste sobre o canvas branco: 4.62:1 na parada profunda, 1.74:1 na clara.
+ * Só a profunda serviria como texto — por isso o latão é **exclusivamente
+ * traço e preenchimento decorativo**, nunca cor de leitura.
  */
-export const rainbow = ['#26C0FF', '#E600C2', '#FF4940', '#FFA130', '#FFC837', '#00CC3D'] as const;
+export const brass = ['#8F7118', '#E3C158', '#8F7118'] as const;
 
 export interface ColorScheme {
   readonly background: string;
@@ -93,10 +114,8 @@ export const colors: ColorScheme = {
   /**
    * Texto auxiliar.
    *
-   * O `DESIGN.md` indica `#797979`, que dá 4.63:1 sobre branco — passa no WCAG AA
-   * por margem estreita. Mantido porque é a direção, e porque o teste de
-   * contraste confirma o mínimo. Se algum dia esse texto for usado abaixo de
-   * 14px, o requisito sobe e este token precisa escurecer.
+   * Escurecido em relação ao `DESIGN.md` para atingir 4.5:1. Ver a justificativa
+   * completa em `palette.slateHelper`.
    */
   textMuted: palette.slateHelper,
   textOnDark: palette.whiteCanvas,
@@ -107,7 +126,7 @@ export const colors: ColorScheme = {
   /**
    * Erro.
    *
-   * `#FF4940` é a parada vermelha do espectro, e sobre branco dá apenas 3.3:1 —
+   * `#FF4940` sobre branco dá apenas 3.3:1 —
    * insuficiente para texto. Usado somente como **traço de borda** em campo
    * inválido; a mensagem de erro em si vai em `portraitInk`, que tem contraste de
    * sobra. Mensagem de erro ilegível é pior que não ter mensagem.

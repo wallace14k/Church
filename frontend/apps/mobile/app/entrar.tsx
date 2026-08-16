@@ -1,6 +1,6 @@
 import { isProbablyEmail, normalizeEmail } from '@congrega/core/validation';
 import { describeError } from '@congrega/api-client/errors';
-import { RainbowButton } from '@congrega/ui/RainbowButton';
+import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Screen } from '@congrega/ui/Screen';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
@@ -93,7 +93,7 @@ export default function Entrar() {
           autoFocus
         />
 
-        <RainbowButton
+        <SignatureButton
           label={enviando ? 'Enviando' : 'Enviar código'}
           onPress={() => void enviar()}
           loading={enviando}

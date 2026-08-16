@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from '
 import { Text } from './Text';
 import { useTheme } from './theme';
 
-export interface RainbowButtonProps {
+export interface SignatureButtonProps {
   readonly label: string;
   readonly onPress: () => void;
   readonly loading?: boolean;
@@ -17,8 +17,8 @@ const BORDER_WIDTH = 1.5;
 /**
  * Botão de ação primária — o elemento de assinatura do sistema.
  *
- * Pílula transparente com borda de 1,5px em gradiente arco-íris, texto em tinta
- * principal. É **o único elemento saturado da interface**.
+ * Pílula transparente com borda de 1,5px em gradiente de latão, texto em tinta
+ * principal. É **o único elemento com cor saturada da interface**.
  *
  * <b>Use no máximo um por tela.</b> O `DESIGN.md` é explícito, e a razão é
  * direta: o arco-íris só funciona como assinatura enquanto for raro. Dois deles
@@ -33,13 +33,13 @@ const BORDER_WIDTH = 1.5;
  * recuado pela espessura da borda. O raio interno é o externo menos a espessura,
  * senão os cantos ficam com filete grosso e o resto fino.
  */
-export function RainbowButton({
+export function SignatureButton({
   label,
   onPress,
   loading = false,
   disabled = false,
   style,
-}: RainbowButtonProps) {
+}: SignatureButtonProps) {
   const theme = useTheme();
   const inativo = disabled || loading;
 
@@ -62,7 +62,7 @@ export function RainbowButton({
       ]}
     >
       <LinearGradient
-        colors={[...theme.rainbow]}
+        colors={[...theme.brass]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={[styles.gradient, { borderRadius: theme.radius.buttons }]}
