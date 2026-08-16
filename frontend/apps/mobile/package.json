@@ -13,6 +13,9 @@
   "dependencies": {
     "@congrega/core": "*",
     "@congrega/ui": "*",
+    "@expo-google-fonts/bricolage-grotesque": "^0.4.1",
+    "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
+    "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
     "expo": "~57.0.13",
     "expo-constants": "~57.0.11",
     "expo-font": "~57.0.1",

@@ -1,0 +1,26 @@
+{
+  "name": "@congrega/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema de design do Congrega — tokens e primitivos",
+  "type": "module",
+  "//": "Sem barril, pelo mesmo motivo do @congrega/core: subpath export obriga o",
+  "//_2": "consumidor a declarar o que usa e mantém o bundle honesto.",
+  "exports": {
+    "./tokens": "./src/tokens.ts",
+    "./theme": "./src/theme.tsx",
+    "./Text": "./src/Text.tsx",
+    "./Button": "./src/Button.tsx",
+    "./TextField": "./src/TextField.tsx",
+    "./NumberPlate": "./src/NumberPlate.tsx",
+    "./Screen": "./src/Screen.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-native": ">=0.79"
+  }
+}

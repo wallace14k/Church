@@ -1,0 +1,21 @@
+{
+  "name": "@congrega/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tipos, regras e formatação compartilhados entre os apps Congrega",
+  "type": "module",
+  "//": "SEM barril. A skill react-native-best-practices trata barrel exports como",
+  "//_2": "problema CRÍTICO de bundle: importar de um índice arrasta o módulo inteiro",
+  "//_3": "para o bundle mesmo que o app use uma função. Subpath exports fazem o",
+  "//_4": "consumidor declarar exatamente o que precisa: @congrega/core/money.",
+  "exports": {
+    "./money": "./src/money.ts",
+    "./identity": "./src/identity.ts",
+    "./validation": "./src/validation.ts",
+    "./datetime": "./src/datetime.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}

@@ -427,3 +427,22 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# ---------------------------------------------------------------------------
+# Monorepo do frontend
+# ---------------------------------------------------------------------------
+# A regra `**/[Pp]ackages/*` mais acima vem do template do Visual Studio, onde
+# serve para ignorar a pasta de restore do NuGet. Ela tambem casava com
+# frontend/packages/, engolindo em silencio o codigo de @congrega/core,
+# @congrega/ui e @congrega/api-client: o `git add` nao reclamava e os arquivos
+# simplesmente nao entravam no commit. Um commit chegou a alegar "56 testes
+# passando" sem que os testes estivessem no repositorio.
+!frontend/packages/
+!frontend/packages/**
+
+# A negacao acima e ampla de proposito, entao o que precisa continuar ignorado
+# vem DEPOIS dela — em .gitignore, a ultima regra que casa e a que vale.
+frontend/**/node_modules/
+frontend/apps/*/dist/
+frontend/apps/*/.expo/
+frontend/**/.vite/

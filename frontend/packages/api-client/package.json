@@ -1,0 +1,30 @@
+{
+  "name": "@congrega/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cliente tipado da API Congrega, com rotação de token",
+  "type": "module",
+  "exports": {
+    "./client": "./src/client.ts",
+    "./auth": "./src/auth.ts",
+    "./token-storage": "./src/token-storage.ts",
+    "./errors": "./src/errors.ts",
+    "./token-storage.native": "./src/token-storage.native.ts",
+    "./token-storage.web": "./src/token-storage.web.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@congrega/core": "*"
+  },
+  "peerDependencies": {
+    "expo-secure-store": "*"
+  },
+  "peerDependenciesMeta": {
+    "expo-secure-store": {
+      "optional": true
+    }
+  }
+}
