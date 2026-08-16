@@ -113,6 +113,8 @@ builder.Services.AddRateLimiter(options =>
 // -----------------------------------------------------------------------------
 // Erros padronizados (RFC 7807)
 // -----------------------------------------------------------------------------
+builder.Services.AddExceptionHandler<BadRequestExceptionHandler>();
+
 builder.Services.AddProblemDetails(options =>
 {
     options.CustomizeProblemDetails = context =>
@@ -203,6 +205,7 @@ app.UseMiddleware<TenantContextMiddleware>();   // DEPOIS de autenticar: precisa
 app.UseAuthorization();                         // DEPOIS do contexto: as policies o consultam
 
 app.MapAuthEndpoints();
+app.MapMemberEndpoints();
 
 app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions

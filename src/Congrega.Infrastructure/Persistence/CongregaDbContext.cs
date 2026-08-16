@@ -2,6 +2,7 @@ using System.Text.Json;
 using Congrega.Application.Abstractions;
 using Congrega.Domain.Billing;
 using Congrega.Domain.Common;
+using Congrega.Domain.Congregation;
 using Congrega.Domain.Identity;
 using Congrega.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -38,12 +39,38 @@ public sealed class CongregaDbContext(
     internal DbSet<Role> Roles => Set<Role>();
     internal DbSet<Permission> Permissions => Set<Permission>();
     internal DbSet<Subscription> Subscriptions => Set<Subscription>();
+    internal DbSet<Member> Members => Set<Member>();
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
+    /// <summary>
+    /// Normalização de texto para busca, mapeada para a função <c>congrega_unaccent</c>
+    /// do PostgreSQL.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Existe para que a consulta use <b>exatamente</b> a mesma expressão do índice
+    /// de trigramas <c>ix_members_busca</c>. Chamar <c>unaccent()</c> direto geraria
+    /// uma expressão diferente e o índice — que custa escrita em toda inserção —
+    /// nunca seria usado.
+    /// </para>
+    /// <para>
+    /// O corpo lança porque o método nunca executa em .NET: o EF Core o traduz para
+    /// SQL. Chamá-lo fora de uma consulta é erro de programação, e falhar alto é
+    /// melhor que devolver um resultado que não corresponde ao do banco.
+    /// </para>
+    /// </remarks>
+    public static string Unaccent(string texto) =>
+        throw new NotSupportedException(
+            "Congrega.Unaccent só pode ser usada dentro de uma consulta LINQ traduzida para SQL.");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("public");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CongregaDbContext).Assembly);
+
+        modelBuilder
+            .HasDbFunction(typeof(CongregaDbContext).GetMethod(nameof(Unaccent), [typeof(string)])!)
+            .HasName("congrega_unaccent");
 
         ConfigureGlobalQueryFilters(modelBuilder);
 
@@ -73,6 +100,11 @@ public sealed class CongregaDbContext(
             .HasQueryFilter(m =>
                 tenantContext.IsCrossTenantOperation ||
                 tenantContext.TenantId == null ||
+                m.TenantId == tenantContext.TenantId);
+
+        modelBuilder.Entity<Member>()
+            .HasQueryFilter(m =>
+                tenantContext.IsCrossTenantOperation ||
                 m.TenantId == tenantContext.TenantId);
 
         modelBuilder.Entity<Subscription>()

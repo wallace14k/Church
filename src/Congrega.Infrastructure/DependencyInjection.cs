@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Congrega.Application.Abstractions;
+using Congrega.Domain.Congregation;
 using Congrega.Domain.Identity;
 using Congrega.Infrastructure.Locking;
 using Congrega.Infrastructure.Persistence;
@@ -89,6 +90,7 @@ public static class DependencyInjection
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IMembershipRepository, MembershipRepository>();
         services.AddScoped<ISubscriptionTierProvider, SubscriptionTierProvider>();
+        services.AddScoped<IMemberRepository, MemberRepository>();
 
         services.AddSingleton<ISecretHasher, SecretHasher>();
         services.AddSingleton<IOtpGenerator, OtpGenerator>();
