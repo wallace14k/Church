@@ -7,7 +7,7 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Congrega.Api.Middleware;
 
 /// <summary>Contexto da requisição corrente. Registrado como <c>scoped</c>.</summary>
-internal sealed class RequestTenantContext : ITenantContext
+internal sealed class RequestTenantContext : ITenantContext, IAuthenticationContextWriter
 {
     public long? TenantId { get; private set; }
     public long? UserId { get; private set; }
@@ -28,6 +28,20 @@ internal sealed class RequestTenantContext : ITenantContext
         UserId = userId;
         TenantId = tenantId;
     }
+
+    /// <summary>
+    /// Usado por <c>VerifyOtpHandler</c>/<c>RefreshSessionHandler</c> — endpoints
+    /// anônimos em que a identidade só existe depois de validar OTP ou refresh
+    /// token, e não há claim de JWT para o middleware ler.
+    /// </summary>
+    /// <remarks>
+    /// Não mexe em <see cref="TenantId"/>: nesse instante o tenant ainda não foi
+    /// resolvido (é o próprio handler chamador que vai resolvê-lo, consultando
+    /// <c>memberships</c> por este <c>UserId</c> logo em seguida). As policies com
+    /// <c>OR user_id = ...</c> (<c>memberships</c>, <c>subscriptions</c>,
+    /// <c>payments</c>, <c>notification_queue</c>) já bastam para essa consulta.
+    /// </remarks>
+    public void SetAuthenticatedUser(long userId) => UserId = userId;
 }
 
 internal sealed class HostEnvironmentAccessor(IWebHostEnvironment environment) : IHostEnvironmentAccessor

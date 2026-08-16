@@ -76,6 +76,7 @@ public sealed class VerifyOtpHandler(
     IOutbox outbox,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider,
+    IAuthenticationContextWriter authContext,
     ILogger<VerifyOtpHandler> logger)
 {
     public async Task<VerifyOtpResult> HandleAsync(
@@ -138,6 +139,12 @@ public sealed class VerifyOtpHandler(
 
         user.MarkEmailVerified(now);
         user.RecordLogin(now);
+
+        // Identidade confirmada pelo OTP, não por claim: este endpoint é anônimo,
+        // então o middleware nunca populou o contexto. Sem isto, o interceptor de
+        // conexão manda app.user_id vazio, e ListActiveTenantsAsync — que resolve
+        // o tenant abaixo — voltaria vazia mesmo para quem tem vínculo ativo.
+        authContext.SetAuthenticatedUser(user.Id);
 
         var membership = await ResolveMembershipAsync(user.Id, command.TenantPublicId, cancellationToken);
         var tier = await tierProvider.GetActiveTierAsync(user.Id, cancellationToken);

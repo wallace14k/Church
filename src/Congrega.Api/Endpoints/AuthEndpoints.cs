@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using Congrega.Application.Abstractions;
 using Congrega.Application.Identity;
+using Congrega.Domain.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
@@ -32,6 +34,22 @@ public sealed record RefreshRequest
 {
     public string? RefreshToken { get; init; }
     public Guid? SwitchToTenantId { get; init; }
+}
+
+/// <summary>
+/// Uma igreja disponível para o usuário selecionar.
+/// </summary>
+/// <remarks>
+/// Sem <c>TenantId</c> numérico: o cliente só precisa do <c>public_id</c> para
+/// pedir a troca em <c>/refresh</c>. Expor a chave sequencial aqui não teria uso
+/// nenhum e ainda vazaria contagem de tenants — o mesmo motivo que já vale para
+/// todo identificador que aparece em payload.
+/// </remarks>
+public sealed record TenantSummaryResponse
+{
+    public required Guid Id { get; init; }
+    public required string Name { get; init; }
+    public required string Status { get; init; }
 }
 
 /// <summary>
@@ -74,6 +92,36 @@ public static class AuthEndpoints
         group.MapPost("/refresh", RefreshAsync)
             .WithSummary("Rotaciona o refresh token e reemite o access token")
             .AllowAnonymous();
+
+        group.MapGet("/tenants", ListTenantsAsync)
+            .WithSummary("Lista as igrejas em que o usuário tem vínculo ativo")
+            .RequireAuthorization();
+    }
+
+    /// <summary>
+    /// Igrejas disponíveis para o usuário trocar de contexto.
+    /// </summary>
+    /// <remarks>
+    /// Não exige tenant selecionado — ao contrário, é o que alimenta a tela de
+    /// seleção quando não há nenhum: o usuário com duas igrejas termina o login
+    /// sem tenant (ver <c>ResolveMembershipAsync</c>) e precisa desta lista para
+    /// escolher uma antes de chamar <c>/refresh</c> com <c>SwitchToTenantId</c>.
+    /// </remarks>
+    private static async Task<IResult> ListTenantsAsync(
+        ITenantContext tenant,
+        IMembershipRepository memberships,
+        CancellationToken cancellationToken)
+    {
+        // UserId sempre presente: RequireAuthorization() já recusou a requisição
+        // sem token válido antes de o pipeline chegar aqui.
+        var tenants = await memberships.ListActiveTenantsAsync(tenant.UserId!.Value, cancellationToken);
+
+        return TypedResults.Ok(tenants.Select(t => new TenantSummaryResponse
+        {
+            Id = t.PublicId,
+            Name = t.Name,
+            Status = t.Status.ToString(),
+        }).ToList());
     }
 
     /// <summary>

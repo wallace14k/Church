@@ -12,16 +12,35 @@
 
 - [x] Monorepo, solution .NET, workspaces do frontend
 - [x] DDL PostgreSQL completo (26 tabelas)
-- [x] Docker Compose com Postgres 17, schema e seed aplicados na criação do volume
+- [x] Docker Compose com Postgres 17; schema vem das migrations do EF Core
 - [x] Seed de papéis e permissões (5 papéis, 9 permissões, 16 concessões)
 - [x] Logging estruturado com Serilog + correlation ID atravessando as camadas
 - [x] Dockerfile multi-stage non-root e manifests Kubernetes
-- [ ] **Migrations do EF Core** — `db/*.sql` é a fonte hoje, mas não há linha do tempo
-      versionada. Sem elas não há caminho de atualização de schema em produção.
+- [x] **Migrations do EF Core** — baseline executa `db/*.sql` em ordem (RLS, índices
+      parciais, funções e checks entram como `Sql()`, já que o modelo mapeia 11 das
+      26 tabelas); seed de roles/permissions em migration própria. Verificado: banco
+      criado do zero tem a mesma contagem de tabelas, policies, índices, funções e
+      checks que o banco de desenvolvimento. `db/005_baseline_aplicado.sql` adota
+      bancos existentes sem reexecutar o DDL.
 - [ ] CI: build, teste, lint e SAST em pipeline
-- [ ] Testes de integração com Testcontainers
-- [ ] **Teste que prova o isolamento cross-tenant** com o Global Query Filter desligado —
-      é o portão de saída da Onda 1 no doc 06, e continua aberto
+- [x] **Testes de integração com Testcontainers** — `Congrega.Infrastructure.IntegrationTests`,
+      Postgres 17 real em container, migrado pelo mesmo `Database.MigrateAsync()` da produção
+- [x] **Teste que prova o isolamento cross-tenant** com o Global Query Filter desligado —
+      portão de saída da Onda 1, fechado. Achado real ao escrevê-lo: `congrega_app` e
+      `congrega_worker` (ADR-006) nunca tinham sido criadas — a API rodava com a
+      credencial dona das tabelas, que o Postgres deixa atravessar RLS por padrão. O
+      RLS inteiro era decorativo; só o Global Query Filter isolava de verdade. Corrigido
+      pelas migrations `AppRoles` e `MembershipsSelfServiceRls` (esta última fecha um
+      segundo bug: a policy de `memberships` só liberava por `tenant_id`, e o login
+      resolve o tenant *antes* de selecioná-lo — precisa também de `OR user_id`, como
+      `subscriptions`/`payments`/`notification_queue` já tinham). Também exigiu
+      `IAuthenticationContextWriter`: `VerifyOtpHandler`/`RefreshSessionHandler` rodam em
+      endpoints anônimos e não tinham como informar ao interceptor de conexão qual
+      usuário acabou de autenticar — sem isso, `app.user_id` chegava vazio ao Postgres e
+      a resolução de tenant no login voltava silenciosamente vazia sob RLS real.
+      Verificado com API e Workers reconectados às novas roles: login, `/auth/tenants`
+      e Outbox continuam funcionando; 118 testes passam (65 domínio + 50 aplicação + 3
+      integração).
 
 ## Onda 1 — Identidade e tenancy
 
@@ -36,7 +55,11 @@
       drenadas em um ciclo, e um OTP novo entregue em ~4,4 s
 - [ ] Adaptador real de e-mail (`IEmailSender`) — o de desenvolvimento existe e
       escreve no log; produção falha no startup sem um real, de propósito
-- [ ] Endpoint de troca de igreja exposto na API (a lógica existe no handler)
+- [x] **Endpoint de troca de igreja exposto na API** — `GET /api/v1/auth/tenants`
+      lista as igrejas com vínculo ativo (alimenta a tela de seleção); a troca em si
+      já existia em `POST /api/v1/auth/refresh` com `SwitchToTenantId`. Verificado
+      contra PostgreSQL real: usuário com duas igrejas recebe a lista correta,
+      usuário sem vínculo recebe `[]`, requisição sem token recebe `401`
 - [ ] MFA para papéis administrativos (Fase 2, ver doc 05)
 
 ## Onda 2 — Núcleo do ChMS
@@ -143,11 +166,13 @@
 | Item | Estado |
 |---|---|
 | `dotnet build` | 0 avisos, 0 erros |
-| `dotnet test` | 115 testes |
+| `dotnet test` | 118 testes (65 domínio + 50 aplicação + 3 integração/Testcontainers) |
 | `npm run typecheck` | 4 pacotes limpos |
 | `npm run test` | 84 testes |
 | `expo-doctor` | 21/21 |
-| Login ponta a ponta | verificado contra PostgreSQL real |
+| Login ponta a ponta | verificado contra PostgreSQL real, com `congrega_app` |
+| Isolamento cross-tenant | **verificado com RLS real** — GQF desligado não vaza (Testcontainers) |
 | Motor de retenção | verificado em execução |
-| Dispatcher do Outbox | verificado em execução — fila drenada |
+| Dispatcher do Outbox | verificado em execução — fila drenada, com `congrega_worker` |
 | Membros | listar, buscar, detalhar e cadastrar verificados |
+| `/auth/tenants` | verificado contra PostgreSQL real |

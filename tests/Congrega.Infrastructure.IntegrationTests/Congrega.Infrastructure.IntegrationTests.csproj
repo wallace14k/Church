@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Congrega.Domain\Congrega.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Congrega.Application\Congrega.Application.csproj" />
+    <ProjectReference Include="..\..\src\Congrega.Infrastructure\Congrega.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <!--
+      Container Postgres 17 de verdade, não um provider in-memory. RLS é
+      comportamento do PostgreSQL — um double não teria como reproduzi-lo, e um
+      teste que finge provar isolamento sem RLS de verdade seria pior que não
+      ter o teste: daria falsa confiança sobre exatamente o risco (R5) que ele
+      existe para mitigar.
+    -->
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

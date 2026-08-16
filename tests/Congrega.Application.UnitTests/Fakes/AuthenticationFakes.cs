@@ -261,3 +261,16 @@ internal sealed class FakeUnitOfWork : IUnitOfWork
         return Task.FromResult(1);
     }
 }
+
+/// <summary>
+/// Registra o usuário que o handler informou como autenticado, para o teste
+/// poder afirmar que isso aconteceu <b>antes</b> da consulta a memberships — sem
+/// Postgres de verdade, não há RLS para provar a ordem, então a asserção fica na
+/// sequência de chamadas.
+/// </summary>
+internal sealed class FakeAuthenticationContextWriter : IAuthenticationContextWriter
+{
+    public long? AssignedUserId { get; private set; }
+
+    public void SetAuthenticatedUser(long userId) => AssignedUserId = userId;
+}

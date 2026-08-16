@@ -33,6 +33,7 @@ builder.Services.AddMemoryCache();
 
 builder.Services.AddScoped<RequestTenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<RequestTenantContext>());
+builder.Services.AddScoped<IAuthenticationContextWriter>(sp => sp.GetRequiredService<RequestTenantContext>());
 
 builder.Services.AddScoped<RequestOtpHandler>();
 builder.Services.AddScoped<VerifyOtpHandler>();

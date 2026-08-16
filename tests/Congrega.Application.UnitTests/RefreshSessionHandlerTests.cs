@@ -20,11 +20,13 @@ public sealed class RefreshSessionHandlerTests
     private readonly FakeTokenIssuer _tokenIssuer = new();
     private readonly FakeOutbox _outbox = new();
     private readonly FakeUnitOfWork _unitOfWork = new();
+    private readonly FakeAuthenticationContextWriter _authContext = new();
 
     private RefreshSessionHandler CreateHandler() => new(
         _refreshTokens, _users, _memberships,
         _hasher, _tokenIssuer, new FakeTierProvider(), _outbox, _unitOfWork,
         new FakeTimeProvider(Now),
+        _authContext,
         NullLogger<RefreshSessionHandler>.Instance);
 
     private User SeedUser(long id = 10)

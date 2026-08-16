@@ -51,6 +51,7 @@ public sealed class RefreshSessionHandler(
     IOutbox outbox,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider,
+    IAuthenticationContextWriter authContext,
     ILogger<RefreshSessionHandler> logger)
 {
     public async Task<RefreshSessionResult> HandleAsync(
@@ -97,6 +98,12 @@ public sealed class RefreshSessionHandler(
                 SessionTerminated = true
             };
         }
+
+        // Identidade confirmada pelo hash do refresh token, não por claim: este
+        // endpoint é anônimo, então o middleware nunca populou o contexto. Sem
+        // isto, a busca de tenants abaixo e a revalidação de membership mandariam
+        // app.user_id vazio ao Postgres e voltariam vazias por RLS.
+        authContext.SetAuthenticatedUser(user.Id);
 
         // Troca de igreja aproveitando a rotação: mantém a family e, com ela, a
         // detecção de reuso. Emitir uma family nova a cada troca de contexto

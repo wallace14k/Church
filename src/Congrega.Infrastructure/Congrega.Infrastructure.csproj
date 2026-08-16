@@ -48,4 +48,11 @@
                       LogicalName="Congrega.Db.900_seed.sql" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- O teste de isolamento cross-tenant precisa do DbSet<Member> interno para
+         provar, com IgnoreQueryFilters(), que o RLS segura o que o Global Query
+         Filter deixaria passar. -->
+    <InternalsVisibleTo Include="Congrega.Infrastructure.IntegrationTests" />
+  </ItemGroup>
+
 </Project>
