@@ -127,8 +127,14 @@ internal sealed class MemberRepository(CongregaDbContext db, TimeProvider timePr
 
         var hoje = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
 
-        var itens = await source
-            .OrderBy(m => m.FullName)
+        // Aniversariante ordena por dia do mês, não por nome: quem pergunta "quem
+        // faz aniversário este mês" quer saber quem vem primeiro, não uma lista
+        // alfabética que mistura dia 3 com dia 28.
+        IOrderedQueryable<Member> ordenado = query.BirthdayMonth is not null
+            ? source.OrderBy(m => m.BirthDate!.Value.Day).ThenBy(m => m.FullName)
+            : source.OrderBy(m => m.FullName);
+
+        var itens = await ordenado
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(m => new

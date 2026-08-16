@@ -11,9 +11,9 @@ import { Redirect, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useDashboard } from '../../src/useDashboard';
-import { useSession } from '../../src/session';
-import { useTenants } from '../../src/useTenants';
+import { useDashboard } from '../../../src/useDashboard';
+import { useSession } from '../../../src/session';
+import { useTenants } from '../../../src/useTenants';
 
 const NOME_DO_PAPEL: Record<Role, string> = {
   [ROLES.churchAdmin]: 'Administração',
@@ -112,7 +112,20 @@ export default function Inicio() {
 
             {dashboard.aniversariantes.length > 0 && (
               <View style={{ gap: theme.space[12] }}>
-                <Text variant="subheading">Aniversariantes de {MESES[agora.getMonth()]}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text variant="subheading">Aniversariantes de {MESES[agora.getMonth()]}</Text>
+                  <Pressable
+                    onPress={() => router.push('/inicio/aniversariantes')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Ver todos os aniversariantes do mês"
+                    hitSlop={8}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                  >
+                    <Text variant="captionBody" style={{ color: theme.colors.brand }}>
+                      Ver todos
+                    </Text>
+                  </Pressable>
+                </View>
 
                 <View style={{ gap: theme.space[8] }}>
                   {dashboard.aniversariantes.map((membro) => (

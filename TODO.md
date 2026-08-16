@@ -94,7 +94,15 @@
       continua mostrando; status inválido dá 400, membro inexistente dá 404.
       8 testes novos de domínio (`MemberTests`).
 - [ ] Famílias: agrupar membros, tela de família
-- [ ] Aniversariantes do mês (o índice existe, falta a tela)
+- [x] **Aniversariantes do mês** — tela própria (`inicio/aniversariantes.tsx`),
+      empilhada sobre o painel de início na mesma pilha ("ver todos" no card do
+      painel). Ordenação corrigida no caminho: `MemberRepository.ListAsync`
+      ordenava por nome mesmo com `birthdayMonth` — útil para achar alguém, inútil
+      para saber quem faz aniversário primeiro. Agora ordena por dia do mês quando
+      o filtro está ativo. Verificado contra PostgreSQL real com nomes escolhidos
+      de propósito para divergir da ordem alfabética ("Abel", dia 30, aparece por
+      último; "Zulmira", dia 28, aparece antes dele) — não é coincidência de
+      alfabeto batendo com data.
 - [ ] Importar lista de membros de planilha — é o primeiro dia de uso de toda igreja
 
 ### Financeiro
@@ -206,5 +214,6 @@
 | Motor de retenção | verificado em execução |
 | Dispatcher do Outbox | verificado em execução — fila drenada, com `congrega_worker` |
 | Membros | listar, buscar, detalhar, cadastrar, **editar e inativar** verificados |
+| Aniversariantes do mês | tela própria verificada; ordenação por dia confirmada contra PostgreSQL real |
 | `/auth/tenants` | verificado contra PostgreSQL real |
 | Bundle web (Metro) | recompila limpo a cada troca de design; sidebar e telas confirmadas no bundle |

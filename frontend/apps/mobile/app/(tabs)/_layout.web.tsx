@@ -52,12 +52,12 @@ export default function TabsLayoutWeb() {
           {
             key: 'inicio',
             label: 'Início',
-            active: pathname === '/inicio',
+            active: pathname.startsWith('/inicio'),
             icon: (
               <Feather
                 name="home"
                 size={18}
-                color={pathname === '/inicio' ? theme.colors.brand : theme.colors.textMuted}
+                color={pathname.startsWith('/inicio') ? theme.colors.brand : theme.colors.textMuted}
               />
             ),
             onPress: () => router.push('/inicio'),
