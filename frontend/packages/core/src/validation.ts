@@ -67,3 +67,27 @@ export function formatCpf(input: string): string {
   const base = parts.join('.');
   return verifier.length > 0 ? `${base}-${verifier}` : base;
 }
+
+/**
+ * Formata telefone brasileiro a partir dos dígitos.
+ *
+ * O backend guarda apenas dígitos — formatação é responsabilidade da interface.
+ * Aceita fixo (10 dígitos) e celular (11), e devolve o valor cru quando o
+ * tamanho não bate: número estrangeiro ou incompleto deve aparecer como está, e
+ * não ser mutilado por uma máscara que não serve para ele.
+ */
+export function formatPhone(digits: string | null | undefined): string {
+  if (!digits) return '';
+
+  const limpo = digits.replace(/\D/gu, '');
+
+  if (limpo.length === 11) {
+    return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 7)}-${limpo.slice(7)}`;
+  }
+
+  if (limpo.length === 10) {
+    return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 6)}-${limpo.slice(6)}`;
+  }
+
+  return digits;
+}

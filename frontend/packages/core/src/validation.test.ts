@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatPhone,
   formatCpf,
   isCompleteOtp,
   isProbablyEmail,
@@ -81,5 +82,25 @@ describe('formatCpf', () => {
     expect(formatCpf('529982')).toBe('529.982');
     expect(formatCpf('529982247')).toBe('529.982.247');
     expect(formatCpf('52998224725')).toBe('529.982.247-25');
+  });
+});
+
+describe('formatPhone', () => {
+  it('formata celular e fixo', () => {
+    expect(formatPhone('11987654321')).toBe('(11) 98765-4321');
+    expect(formatPhone('1133334444')).toBe('(11) 3333-4444');
+  });
+
+  it('devolve o valor cru quando o tamanho não bate', () => {
+    // Número estrangeiro ou incompleto deve aparecer como está. Aplicar uma
+    // máscara que não serve produz um número errado com cara de certo.
+    expect(formatPhone('123')).toBe('123');
+    expect(formatPhone('+351912345678')).toBe('+351912345678');
+  });
+
+  it('trata ausência sem quebrar', () => {
+    expect(formatPhone(null)).toBe('');
+    expect(formatPhone(undefined)).toBe('');
+    expect(formatPhone('')).toBe('');
   });
 });

@@ -1,5 +1,6 @@
 import { ROLES, type Role } from '@congrega/core/identity';
 import { Button } from '@congrega/ui/Button';
+import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Screen } from '@congrega/ui/Screen';
 import { Text } from '@congrega/ui/Text';
 import { useTheme } from '@congrega/ui/theme';
@@ -87,6 +88,10 @@ export default function Inicio() {
             Esta tela existe hoje para confirmar que a autenticação funciona ponta a ponta.
           </Text>
         </View>
+
+        {temIgreja && (
+          <SignatureButton label="Ver membros" onPress={() => router.push('/membros')} />
+        )}
 
         <Button
           label="Sair da conta"

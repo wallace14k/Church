@@ -10,7 +10,8 @@
     "./token-storage": "./src/token-storage.ts",
     "./errors": "./src/errors.ts",
     "./token-storage.native": "./src/token-storage.native.ts",
-    "./token-storage.web": "./src/token-storage.web.ts"
+    "./token-storage.web": "./src/token-storage.web.ts",
+    "./members": "./src/members.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

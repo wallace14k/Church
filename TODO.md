@@ -46,8 +46,8 @@
 - [x] Domínio `Member` com vínculo opcional a conta de login
 - [x] Busca insensível a acento e caixa, com índice de trigramas
 - [x] API: listar, detalhar, cadastrar
-- [ ] **Telas de membros** — lista com busca, ficha, formulário de cadastro.
-      A API está pronta e testada, e nada disso aparece na interface.
+- [x] **Telas de membros** — lista com busca e paginação infinita, ficha e
+      formulário de cadastro, verificados contra a API real
 - [ ] Editar e inativar membro (API + tela)
 - [ ] Famílias: agrupar membros, tela de família
 - [ ] Aniversariantes do mês (o índice existe, falta a tela)
@@ -110,9 +110,11 @@
 - [x] Storage de token divergindo por plataforma
 - [x] Fluxo de autenticação: entrar, código, início
 - [x] Marca desenhada e ícone do app em todos os tamanhos
-- [ ] **Navegação principal** — o app não tem como sair da tela de início
-- [ ] Estados de carregamento e erro padronizados nas listagens
-- [ ] `FlashList` nas listas longas (a skill de performance exige, e não há lista ainda)
+- [x] Atalho de início para membros (navegação completa ainda pendente — não há
+      barra de abas nem caminho para as demais áreas)
+- [x] Estados de carregamento, erro e vazio na lista de membros
+- [ ] Padronizar esses estados nas demais listagens quando existirem
+- [x] `FlashList` na lista de membros
 - [ ] Backoffice em React DOM — ver discordância **D2** em `docs/00-premissas.md`
 
 ## Decisões pendentes — bloqueiam trabalho
@@ -143,8 +145,9 @@
 | `dotnet build` | 0 avisos, 0 erros |
 | `dotnet test` | 115 testes |
 | `npm run typecheck` | 4 pacotes limpos |
-| `npm run test` | 81 testes |
+| `npm run test` | 84 testes |
 | `expo-doctor` | 21/21 |
 | Login ponta a ponta | verificado contra PostgreSQL real |
 | Motor de retenção | verificado em execução |
 | Dispatcher do Outbox | verificado em execução — fila drenada |
+| Membros | listar, buscar, detalhar e cadastrar verificados |
