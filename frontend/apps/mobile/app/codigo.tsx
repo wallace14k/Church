@@ -1,6 +1,6 @@
 import { describeError } from '@congrega/api-client/errors';
 import { OTP_LENGTH, isCompleteOtp, sanitizeOtpInput } from '@congrega/core/validation';
-import { Button } from '@congrega/ui/Button';
+import { RainbowButton } from '@congrega/ui/RainbowButton';
 import { Screen } from '@congrega/ui/Screen';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
@@ -69,13 +69,13 @@ export default function Codigo() {
     <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1, paddingTop: insets.top + theme.space.xxxl }}
+        style={{ flex: 1, paddingTop: insets.top + theme.space[48] }}
       >
-        <View style={{ gap: theme.space.sm, marginBottom: theme.space.xxl }}>
-          <Text variant="eyebrow" tone="accent">
+        <View style={{ gap: theme.space[8], marginBottom: theme.space[32] }}>
+          <Text variant="eyebrow" tone="muted">
             VERIFICAÇÃO
           </Text>
-          <Text variant="display">Digite o código</Text>
+          <Text variant="headingLg">Digite o código</Text>
           <Text variant="body" tone="muted">
             Enviamos {OTP_LENGTH} dígitos para {email}. O código vale por 10 minutos.
           </Text>
@@ -104,11 +104,11 @@ export default function Codigo() {
           inputStyle={{ letterSpacing: 8 }}
         />
 
-        <Button
+        <RainbowButton
           label={enviando ? 'Entrando' : 'Entrar'}
           onPress={() => void confirmar(codigo.current)}
           loading={enviando}
-          style={{ marginTop: theme.space.xl }}
+          style={{ marginTop: theme.space[24] }}
         />
 
         <Pressable
@@ -116,9 +116,9 @@ export default function Codigo() {
           disabled={segundos > 0}
           accessibilityRole="button"
           accessibilityState={{ disabled: segundos > 0 }}
-          style={{ marginTop: theme.space.lg, minHeight: theme.touch.minTarget, justifyContent: 'center' }}
+          style={{ marginTop: theme.space[16], minHeight: theme.touch.minTarget, justifyContent: 'center' }}
         >
-          <Text variant="caption" tone={segundos > 0 ? 'muted' : 'accent'}>
+          <Text variant="caption" tone="muted">
             {segundos > 0 ? `Reenviar código em ${segundos}s` : 'Reenviar código'}
           </Text>
         </Pressable>

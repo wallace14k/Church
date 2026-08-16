@@ -78,11 +78,11 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
   const borderColor = hasError
     ? theme.colors.danger
     : isFocused
-      ? theme.colors.brand
-      : theme.colors.border;
+      ? theme.colors.text
+      : theme.colors.divider;
 
   return (
-    <View style={[styles.container, { gap: theme.space.xs }, containerStyle]}>
+    <View style={[styles.container, { gap: theme.space[4] }, containerStyle]}>
       <RNText style={[theme.type.eyebrow, { color: theme.colors.textMuted }]}>
         {label.toUpperCase()}
       </RNText>
@@ -110,8 +110,8 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           styles.input,
           {
             minHeight: theme.touch.comfortable,
-            paddingHorizontal: theme.space.md,
-            borderRadius: theme.radius.md,
+            paddingHorizontal: theme.space[12],
+            borderRadius: theme.radius.inputs,
             borderColor,
             backgroundColor: theme.colors.surface,
             color: theme.colors.text,
@@ -125,8 +125,18 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
       />
 
       {(hasError || hint !== undefined) && (
+        // A mensagem de erro vai em TINTA PRINCIPAL, não no vermelho do espectro.
+        // `colors.danger` mede 3.3:1 sobre o canvas — insuficiente para texto, e
+        // mensagem de erro ilegível é pior que não ter mensagem. O vermelho fica
+        // onde funciona: na borda do campo, que é forma e não leitura.
+        //
+        // Isso também atende quem não distingue vermelho: a informação não
+        // depende da cor, está no texto e na borda.
         <RNText
-          style={[theme.type.caption, { color: hasError ? theme.colors.danger : theme.colors.textMuted }]}
+          style={[
+            theme.type.captionBody,
+            { color: hasError ? theme.colors.text : theme.colors.textMuted },
+          ]}
         >
           {hasError ? error : hint}
         </RNText>

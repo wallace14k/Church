@@ -11,8 +11,10 @@
     "./theme": "./src/theme.tsx",
     "./Text": "./src/Text.tsx",
     "./Button": "./src/Button.tsx",
+    "./RainbowButton": "./src/RainbowButton.tsx",
     "./TextField": "./src/TextField.tsx",
-    "./NumberPlate": "./src/NumberPlate.tsx",
+    "./Card": "./src/Card.tsx",
+    "./EyebrowPill": "./src/EyebrowPill.tsx",
     "./Screen": "./src/Screen.tsx"
   },
   "scripts": {
@@ -21,6 +23,7 @@
   },
   "peerDependencies": {
     "react": ">=19",
-    "react-native": ">=0.79"
+    "react-native": ">=0.79",
+    "expo-linear-gradient": "*"
   }
 }

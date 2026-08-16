@@ -9,11 +9,10 @@ export interface ScreenProps {
 }
 
 /**
- * Container de tela.
+ * Canvas da tela.
  *
- * Aplica o fundo do tema. Sem ele, telas herdam o fundo transparente do RN e o
- * tema escuro mostra faixas brancas nas bordas durante a transição de navegação —
- * defeito que só aparece no aparelho, nunca no snapshot.
+ * Branco puro, sempre. O `DESIGN.md` é explícito: a cor aparece apenas como
+ * lavagem pastel em superfícies pequenas, **nunca** como fundo de seção.
  */
 export function Screen({ children, padded = true, style }: ScreenProps) {
   const theme = useTheme();
@@ -23,7 +22,7 @@ export function Screen({ children, padded = true, style }: ScreenProps) {
       style={[
         styles.screen,
         { backgroundColor: theme.colors.background },
-        padded && { paddingHorizontal: theme.space.xl, paddingVertical: theme.space.lg },
+        padded && { paddingHorizontal: theme.space[24] },
         style,
       ]}
     >
@@ -32,8 +31,4 @@ export function Screen({ children, padded = true, style }: ScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-});
+const styles = StyleSheet.create({ screen: { flex: 1 } });

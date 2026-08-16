@@ -35,22 +35,22 @@ export default function Inicio() {
     <Screen padded={false}>
       <ScrollView
         contentContainerStyle={{
-          paddingTop: insets.top + theme.space.xl,
-          paddingBottom: insets.bottom + theme.space.xxl,
-          paddingHorizontal: theme.space.xl,
-          gap: theme.space.xl,
+          paddingTop: insets.top + theme.space[24],
+          paddingBottom: insets.bottom + theme.space[32],
+          paddingHorizontal: theme.space[24],
+          gap: theme.space[24],
         }}
       >
-        <View style={{ gap: theme.space.xs }}>
-          <Text variant="eyebrow" tone="accent">
+        <View style={{ gap: theme.space[4] }}>
+          <Text variant="eyebrow" tone="muted">
             {temIgreja ? 'SUA IGREJA' : 'CONGREGA+'}
           </Text>
-          <Text variant="display">Início</Text>
+          <Text variant="headingLg">Início</Text>
         </View>
 
         {temIgreja ? (
-          <View style={{ gap: theme.space.sm }}>
-            <Text variant="heading">Você está atuando em uma igreja</Text>
+          <View style={{ gap: theme.space[8] }}>
+            <Text variant="subheading">Você está atuando em uma igreja</Text>
             <Text variant="body" tone="muted">
               {session.roles.length > 0
                 ? session.roles.map((papel) => NOME_DO_PAPEL[papel as Role] ?? papel).join(' · ')
@@ -58,8 +58,8 @@ export default function Inicio() {
             </Text>
           </View>
         ) : (
-          <View style={{ gap: theme.space.sm }}>
-            <Text variant="heading">Sua conta não está vinculada a uma igreja</Text>
+          <View style={{ gap: theme.space[8] }}>
+            <Text variant="subheading">Sua conta não está vinculada a uma igreja</Text>
             {/* Estado válido, não erro: o assinante Congrega+ é cidadão de
                 primeira classe. O texto explica o que ele TEM, não o que falta. */}
             <Text variant="body" tone="muted">
@@ -71,11 +71,11 @@ export default function Inicio() {
 
         <View
           style={{
-            gap: theme.space.md,
-            padding: theme.space.lg,
-            borderRadius: theme.radius.lg,
+            gap: theme.space[12],
+            padding: theme.space[16],
+            borderRadius: theme.radius.cards,
             borderWidth: 1,
-            borderColor: theme.colors.border,
+            borderColor: theme.colors.hairline,
             backgroundColor: theme.colors.surface,
           }}
         >
@@ -90,7 +90,7 @@ export default function Inicio() {
 
         <Button
           label="Sair da conta"
-          variant="secondary"
+          variant="outline"
           onPress={() => {
             void sair().then(() => router.replace('/entrar'));
           }}

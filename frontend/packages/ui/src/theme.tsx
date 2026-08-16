@@ -1,53 +1,35 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
-import { darkColors, lightColors, motion, radius, space, touch, type, type ColorScheme } from './tokens';
+import { colors, elevation, layout, motion, radius, rainbow, space, touch, type } from './tokens';
 
 export interface Theme {
-  readonly colors: ColorScheme;
+  readonly colors: typeof colors;
   readonly type: typeof type;
   readonly space: typeof space;
   readonly radius: typeof radius;
+  readonly elevation: typeof elevation;
   readonly touch: typeof touch;
   readonly motion: typeof motion;
-  readonly isDark: boolean;
+  readonly layout: typeof layout;
+  readonly rainbow: typeof rainbow;
 }
 
-function buildTheme(isDark: boolean): Theme {
-  return {
-    colors: isDark ? darkColors : lightColors,
-    type,
-    space,
-    radius,
-    touch,
-    motion,
-    isDark,
-  };
-}
+const theme: Theme = { colors, type, space, radius, elevation, touch, motion, layout, rainbow };
 
 /**
- * Tema padrão claro.
+ * Tema do Congrega.
  *
- * Existe para que `useTheme` funcione fora do provider — em teste unitário e em
- * Storybook, sobretudo. A alternativa comum é lançar quando falta o provider,
- * o que transforma um esquecimento de setup em tela branca no primeiro frame.
+ * **Claro apenas.** O `DESIGN.md` define `theme: light` e proíbe introduzir
+ * matiz nova — um modo escuro exigiria inventar uma paleta inteira fora da
+ * direção. Melhor não ter modo escuro do que ter um que contradiz a marca.
+ *
+ * O provider existe mesmo com um tema único: mantém o ponto de extensão e evita
+ * que cada componente importe os tokens direto, o que tornaria um futuro segundo
+ * tema uma refatoração em vez de uma configuração.
  */
-const ThemeContext = createContext<Theme>(buildTheme(false));
+const ThemeContext = createContext<Theme>(theme);
 
-export interface ThemeProviderProps {
-  readonly children: ReactNode;
-  /** Força o esquema. Sem isso, segue a preferência do sistema. */
-  readonly forceScheme?: 'light' | 'dark';
-}
-
-export function ThemeProvider({ children, forceScheme }: ThemeProviderProps) {
-  const systemScheme = useColorScheme();
-  const isDark = forceScheme === undefined ? systemScheme === 'dark' : forceScheme === 'dark';
-
-  // Sem o memo, todo componente que lê o tema re-renderiza a cada render do
-  // provider, porque o objeto seria novo por identidade. É o vazamento de
-  // performance mais comum em Context de tema.
-  const value = useMemo(() => buildTheme(isDark), [isDark]);
-
+export function ThemeProvider({ children }: { readonly children: ReactNode }) {
+  const value = useMemo(() => theme, []);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 

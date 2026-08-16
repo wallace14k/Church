@@ -1,6 +1,6 @@
 import { isProbablyEmail, normalizeEmail } from '@congrega/core/validation';
 import { describeError } from '@congrega/api-client/errors';
-import { Button } from '@congrega/ui/Button';
+import { RainbowButton } from '@congrega/ui/RainbowButton';
 import { Screen } from '@congrega/ui/Screen';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
@@ -57,13 +57,13 @@ export default function Entrar() {
     <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1, paddingTop: insets.top + theme.space.xxxl }}
+        style={{ flex: 1, paddingTop: insets.top + theme.space[48] }}
       >
-        <View style={{ gap: theme.space.sm, marginBottom: theme.space.xxl }}>
-          <Text variant="eyebrow" tone="accent">
+        <View style={{ gap: theme.space[8], marginBottom: theme.space[32] }}>
+          <Text variant="eyebrow" tone="muted">
             CONGREGA
           </Text>
-          <Text variant="display">Bom te ver por aqui</Text>
+          <Text variant="headingLg">Bom te ver por aqui</Text>
           <Text variant="body" tone="muted">
             Informe seu e-mail e enviaremos um código de acesso. Não precisa de senha.
           </Text>
@@ -90,14 +90,14 @@ export default function Entrar() {
           autoFocus
         />
 
-        <Button
+        <RainbowButton
           label={enviando ? 'Enviando' : 'Enviar código'}
           onPress={() => void enviar()}
           loading={enviando}
-          style={{ marginTop: theme.space.xl }}
+          style={{ marginTop: theme.space[24] }}
         />
 
-        <Text variant="caption" tone="muted" style={{ marginTop: theme.space.lg }}>
+        <Text variant="caption" tone="muted" style={{ marginTop: theme.space[16] }}>
           Ao continuar, você concorda com os termos de uso e com a política de privacidade.
         </Text>
       </KeyboardAvoidingView>

@@ -1,29 +1,28 @@
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 import { useTheme } from './theme';
-import type { type as typeScale } from './tokens';
+import type { type as escala } from './tokens';
 
-export type TextVariant = keyof typeof typeScale;
+export type TextVariant = keyof typeof escala;
 
 export interface TextProps extends RNTextProps {
   readonly variant?: TextVariant;
-  readonly tone?: 'default' | 'muted' | 'onBrand' | 'danger' | 'accent';
+  readonly tone?: 'ink' | 'body' | 'muted' | 'onDark';
 }
 
 /**
  * Texto do sistema.
  *
- * Existe para que nenhuma tela precise saber o nome de uma fonte ou um valor de
- * cor. Componente que escreve `fontSize: 17` à mão é como uma escala tipográfica
- * morre — um commit por vez.
+ * O tom padrão é `ink` — a tinta azul-marinho única que carrega todo o texto da
+ * interface. `body` existe só para copy sobre lavagem pastel, onde a tinta
+ * principal fica fria demais.
  */
-export function Text({ variant = 'body', tone = 'default', style, ...rest }: TextProps) {
+export function Text({ variant = 'body', tone = 'ink', style, ...rest }: TextProps) {
   const theme = useTheme();
 
   const color =
     tone === 'muted' ? theme.colors.textMuted
-    : tone === 'onBrand' ? theme.colors.textOnBrand
-    : tone === 'danger' ? theme.colors.danger
-    : tone === 'accent' ? theme.colors.accent
+    : tone === 'body' ? theme.colors.textBody
+    : tone === 'onDark' ? theme.colors.textOnDark
     : theme.colors.text;
 
   return <RNText {...rest} style={[theme.type[variant], { color }, style]} />;
