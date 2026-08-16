@@ -32,9 +32,10 @@
 - [x] RBAC + policy-based, com `Premium.Content` fora do escopo de tenant
 - [x] Global Query Filters + RLS + interceptor de contexto
 - [x] Verificado ponta a ponta contra PostgreSQL real
-- [ ] **Dispatcher do Outbox** — as mensagens são gravadas e ninguém as lê.
-      **O código OTP não chega ao usuário.** Maior buraco funcional aberto.
-- [ ] Adaptador real de e-mail (`IEmailSender`) — hoje só existe o de desenvolvimento
+- [x] **Dispatcher do Outbox** — verificado em execução: 47 mensagens represadas
+      drenadas em um ciclo, e um OTP novo entregue em ~4,4 s
+- [ ] Adaptador real de e-mail (`IEmailSender`) — o de desenvolvimento existe e
+      escreve no log; produção falha no startup sem um real, de propósito
 - [ ] Endpoint de troca de igreja exposto na API (a lógica existe no handler)
 - [ ] MFA para papéis administrativos (Fase 2, ver doc 05)
 
@@ -122,7 +123,8 @@
       falta a decisão formal, porque reverter depois exige migração de dados
 - [ ] **App React DOM separado para o backoffice (D2)** — define a estrutura do monorepo
 - [ ] **Fornecedor de mídia** — migrar 100 TB depois custa o egress que se queria evitar
-- [ ] **Provedor de e-mail transacional** — bloqueia o dispatcher do Outbox
+- [ ] **Provedor de e-mail transacional** — o dispatcher já funciona; falta o
+      adaptador real para o e-mail sair de verdade em produção
 - [ ] **Parecer jurídico** sobre Arts. 11 e 14 da LGPD
 
 ## Imagens
@@ -139,9 +141,10 @@
 | Item | Estado |
 |---|---|
 | `dotnet build` | 0 avisos, 0 erros |
-| `dotnet test` | 106 testes |
+| `dotnet test` | 115 testes |
 | `npm run typecheck` | 4 pacotes limpos |
 | `npm run test` | 81 testes |
 | `expo-doctor` | 21/21 |
 | Login ponta a ponta | verificado contra PostgreSQL real |
 | Motor de retenção | verificado em execução |
+| Dispatcher do Outbox | verificado em execução — fila drenada |

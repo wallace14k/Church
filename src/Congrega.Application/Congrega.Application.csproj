@@ -19,4 +19,16 @@
     <PackageReference Include="Polly.Core" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      Expõe membros internal para o projeto de testes.
+
+      Usado para cobrir `OutboxProcessor.CalcularBackoff`, que é detalhe de
+      implementação e não deve virar API pública só para ser testado — mas cujo
+      comportamento (crescimento exponencial, jitter, teto) precisa de teste,
+      porque errar ali produz rajada contra um provedor já instável.
+    -->
+    <InternalsVisibleTo Include="Congrega.Application.UnitTests" />
+  </ItemGroup>
+
 </Project>

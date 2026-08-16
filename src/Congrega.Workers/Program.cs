@@ -2,6 +2,7 @@ using System.Globalization;
 using Congrega.Application.Abstractions;
 using Congrega.Application.Retention;
 using Congrega.Domain.Retention;
+using Congrega.Infrastructure;
 using Congrega.Infrastructure.Locking;
 using Congrega.Infrastructure.Notifications;
 using Congrega.Infrastructure.Persistence;
@@ -100,9 +101,15 @@ builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
 builder.Services.AddScoped<RetentionScanner>();
 
 // -----------------------------------------------------------------------------
+// Outbox
+// -----------------------------------------------------------------------------
+builder.Services.AddCongregaOutbox(builder.Configuration, builder.Environment.IsDevelopment());
+
+// -----------------------------------------------------------------------------
 // Workers
 // -----------------------------------------------------------------------------
 builder.Services.AddHostedService<RetentionBackgroundService>();
+builder.Services.AddHostedService<OutboxDispatcherService>();
 
 // -----------------------------------------------------------------------------
 // Health checks
