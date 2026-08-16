@@ -17,6 +17,35 @@
          mesmo com o using de DependencyInjection presente. -->
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Os scripts DDL viajam DENTRO do assembly.
+
+      A migration de baseline os executa em ordem. Embutir, em vez de ler do
+      disco, garante que aplicar o schema em produção não dependa de a pasta
+      `db/` ter sido copiada junto com o binário — o tipo de detalhe que só
+      aparece no primeiro deploy, e no pior momento.
+
+      O nome lógico é prefixado por número para deixar a ordem explícita: os
+      arquivos são incrementais, e aplicar `002_members` antes de `schema`
+      falharia por falta da tabela `tenants`.
+    -->
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/schema.sql"
+                      LogicalName="Congrega.Db.010_schema.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/002_members.sql"
+                      LogicalName="Congrega.Db.020_members.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/003_busca_sem_acento.sql"
+                      LogicalName="Congrega.Db.030_busca.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/004_outbox_dead_letter.sql"
+                      LogicalName="Congrega.Db.040_outbox.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/seed.sql"
+                      LogicalName="Congrega.Db.900_seed.sql" />
   </ItemGroup>
 
 </Project>

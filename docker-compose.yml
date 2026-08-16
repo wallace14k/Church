@@ -1,6 +1,12 @@
 # PostgreSQL local para desenvolvimento.
 #
 #   docker compose up -d
+#   dotnet ef database update --project src/Congrega.Infrastructure \
+#                             --startup-project src/Congrega.Infrastructure
+#
+# São dois passos porque o schema vem das migrations, não de um script montado no
+# contêiner. Um banco já existente, criado antes das migrations, é adotado com
+# `psql -f db/005_baseline_aplicado.sql` em vez do `database update`.
 #
 # A senha vem do .env (gerado junto com os User Secrets da API, e ignorado pelo
 # git), então o mesmo valor serve para o banco e para a aplicação sem precisar
@@ -32,10 +38,15 @@ services:
       - '5432:5432'
     volumes:
       - congrega-pgdata:/var/lib/postgresql/data
-      # Aplicado uma única vez, na criação do volume. Para reaplicar depois de
-      # mudar o schema: docker compose down -v && docker compose up -d
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      # Sem docker-entrypoint-initdb.d: o schema vem das migrations.
+      #
+      # Havia dois caminhos criando o mesmo banco, e eles divergiram — o mount
+      # aplicava só schema.sql e seed.sql, então um volume novo nascia sem a
+      # tabela `members`, sem a função `congrega_unaccent` e sem a coluna
+      # `dead_lettered_at`, todas adicionadas em scripts posteriores. Ninguém
+      # notava porque ninguém recria o volume com frequência.
+      #
+      # Agora existe um caminho só, o mesmo em desenvolvimento e em produção.
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U congrega -d congrega']
       interval: 5s
