@@ -41,6 +41,19 @@
       Verificado com API e Workers reconectados às novas roles: login, `/auth/tenants`
       e Outbox continuam funcionando; 118 testes passam (65 domínio + 50 aplicação + 3
       integração).
+- [x] **Segundo bug de RLS, achado ao testar `/api/v1/members` de verdade** —
+      `TenantContextMiddleware` consultava `memberships.FindActiveAsync` para
+      validar a claim de tenant *antes* de atribuir `UserId` ao contexto da
+      requisição. Com RLS real, essa consulta específica ia com `app.user_id`
+      vazio, a policy `tenant_id = ... OR user_id = ...` nunca casava, e **todo
+      usuário autenticado passava a ser tratado como sem vínculo em toda
+      requisição** — um 403 em qualquer endpoint com `TenantScopedRequirement`,
+      para qualquer um. Não apareceu nos testes anteriores porque
+      `/auth/tenants` não exige tenant e o login usa outro caminho, já corrigido
+      com `IAuthenticationContextWriter`. Corrigido chamando
+      `tenantContext.Assign(userId, tenantId: null)` antes da consulta de
+      membership, não só depois. Verificado: `GET`/`POST`/`PUT /members` voltam
+      a responder 200/201 com o mesmo usuário que antes dava 403.
 
 ## Onda 1 — Identidade e tenancy
 
@@ -71,7 +84,15 @@
 - [x] API: listar, detalhar, cadastrar
 - [x] **Telas de membros** — lista com busca e paginação infinita, ficha e
       formulário de cadastro, verificados contra a API real
-- [ ] Editar e inativar membro (API + tela)
+- [x] **Editar e inativar membro (API + tela)** — `PUT /api/v1/members/{id}` edita
+      nome/e-mail/telefone/nascimento/endereço via `Member.UpdateProfile` (domínio
+      já tinha o método, nunca chamado); `PUT /api/v1/members/{id}/status` ativa,
+      inativa, marca transferido ou falecido via `Member.ChangeStatus`. Tela modal
+      de edição reaproveita o formulário de cadastro, mais um botão de
+      inativar/reativar na base. Verificado contra PostgreSQL real: editar altera
+      os campos e some da listagem padrão só depois de inativar, `status=Todos`
+      continua mostrando; status inválido dá 400, membro inexistente dá 404.
+      8 testes novos de domínio (`MemberTests`).
 - [ ] Famílias: agrupar membros, tela de família
 - [ ] Aniversariantes do mês (o índice existe, falta a tela)
 - [ ] Importar lista de membros de planilha — é o primeiro dia de uso de toda igreja
@@ -128,13 +149,23 @@
 ## Frontend — transversal
 
 - [x] Monorepo com `@congrega/core`, `@congrega/ui`, `@congrega/api-client`
-- [x] Sistema de design Portrait com assinatura em latão
+- [x] Sistema de design — trocado duas vezes nesta sessão: Portrait (marinho +
+      latão) → Steep (serifada + pêssego, `DESIGN_new.md`) → o sistema atual,
+      inspirado no padrão de dashboard SaaS que o cliente pediu para seguir
+      (sans-serif único, acento índigo, cartão branco com borda fina). Tokens de
+      contraste WCAG AA recalculados e testados a cada troca.
+- [x] **Sidebar de verdade no web** (`(tabs)/_layout.web.tsx`, resolvido por
+      extensão de plataforma do Metro) — recolhe para só ícones com dica
+      flutuante no hover, estado lembrado via `localStorage`; celular continua
+      com barra de abas nativa (`(tabs)/_layout.tsx`, sem `.web`). Seletor de
+      igreja no topo usa o `/auth/tenants` real.
 - [x] Cliente de API com renovação em voo única
 - [x] Storage de token divergindo por plataforma
 - [x] Fluxo de autenticação: entrar, código, início
 - [x] Marca desenhada e ícone do app em todos os tamanhos
-- [x] Atalho de início para membros (navegação completa ainda pendente — não há
-      barra de abas nem caminho para as demais áreas)
+- [x] **Painel de início com dados reais** — contagem de membros e
+      aniversariantes do mês (`useDashboard`), não mais um aviso de "em
+      construção"
 - [x] Estados de carregamento, erro e vazio na lista de membros
 - [ ] Padronizar esses estados nas demais listagens quando existirem
 - [x] `FlashList` na lista de membros
@@ -166,7 +197,7 @@
 | Item | Estado |
 |---|---|
 | `dotnet build` | 0 avisos, 0 erros |
-| `dotnet test` | 118 testes (65 domínio + 50 aplicação + 3 integração/Testcontainers) |
+| `dotnet test` | 126 testes (73 domínio + 50 aplicação + 3 integração/Testcontainers) |
 | `npm run typecheck` | 4 pacotes limpos |
 | `npm run test` | 84 testes |
 | `expo-doctor` | 21/21 |
@@ -174,5 +205,6 @@
 | Isolamento cross-tenant | **verificado com RLS real** — GQF desligado não vaza (Testcontainers) |
 | Motor de retenção | verificado em execução |
 | Dispatcher do Outbox | verificado em execução — fila drenada, com `congrega_worker` |
-| Membros | listar, buscar, detalhar e cadastrar verificados |
+| Membros | listar, buscar, detalhar, cadastrar, **editar e inativar** verificados |
 | `/auth/tenants` | verificado contra PostgreSQL real |
+| Bundle web (Metro) | recompila limpo a cada troca de design; sidebar e telas confirmadas no bundle |

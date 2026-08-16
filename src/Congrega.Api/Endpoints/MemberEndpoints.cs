@@ -56,6 +56,42 @@ public sealed record CreateMemberRequest
     [MaxLength(2000)] public string? Notes { get; init; }
 }
 
+/// <summary>
+/// Campos editáveis pela ficha.
+/// </summary>
+/// <remarks>
+/// Um subconjunto de <see cref="CreateMemberRequest"/> — gênero, estado civil,
+/// data de vínculo e batismo ainda não têm campo na tela de edição. Adicionar
+/// aqui sem a tela correspondente reabriria o mesmo problema que o `TODO.md`
+/// já flagra: contrato que compila mas nunca é exercitado.
+/// </remarks>
+public sealed record UpdateMemberRequest
+{
+    [Required, MaxLength(200), MinLength(2)]
+    public required string FullName { get; init; }
+
+    [EmailAddress, MaxLength(254)]
+    public string? Email { get; init; }
+
+    [MaxLength(20)]
+    public string? Phone { get; init; }
+
+    public DateOnly? BirthDate { get; init; }
+
+    [MaxLength(200)] public string? AddressStreet { get; init; }
+    [MaxLength(20)]  public string? AddressNumber { get; init; }
+    [MaxLength(100)] public string? AddressDistrict { get; init; }
+    [MaxLength(100)] public string? AddressCity { get; init; }
+    [MaxLength(2)]   public string? AddressState { get; init; }
+    [MaxLength(9)]   public string? AddressZip { get; init; }
+}
+
+public sealed record ChangeMemberStatusRequest
+{
+    [Required]
+    public required string Status { get; init; }
+}
+
 public static class MemberEndpoints
 {
     public static void MapMemberEndpoints(this IEndpointRouteBuilder app)
@@ -73,6 +109,14 @@ public static class MemberEndpoints
         group.MapPost("/", CreateAsync)
             .RequireAuthorization(Policies.MembersWrite)
             .WithSummary("Cadastra um membro");
+
+        group.MapPut("/{id:guid}", UpdateAsync)
+            .RequireAuthorization(Policies.MembersWrite)
+            .WithSummary("Edita nome, contato, nascimento e endereço de um membro");
+
+        group.MapPut("/{id:guid}/status", ChangeStatusAsync)
+            .RequireAuthorization(Policies.MembersWrite)
+            .WithSummary("Ativa, inativa ou marca transferido/falecido um membro");
     }
 
     private static async Task<IResult> ListAsync(
@@ -205,6 +249,123 @@ public static class MemberEndpoints
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return TypedResults.Created($"/api/v1/members/{membro.PublicId}", new MemberResponse
+        {
+            Id = membro.PublicId,
+            FullName = membro.FullName,
+            Email = membro.Email,
+            Phone = membro.Phone,
+            BirthDate = membro.BirthDate,
+            Age = membro.AgeOn(DateOnly.FromDateTime(agora.UtcDateTime)),
+            Status = membro.Status.ToString(),
+        });
+    }
+
+    private static async Task<IResult> UpdateAsync(
+        Guid id,
+        [FromBody] UpdateMemberRequest request,
+        IMemberRepository members,
+        IUnitOfWork unitOfWork,
+        ITenantContext tenant,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        if (tenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        var membro = await members.FindByPublicIdAsync(id, cancellationToken);
+
+        // 404, não 403: mesmo raciocínio do GetAsync — o Global Query Filter já
+        // esconde membro de outro tenant, e diferenciar aqui vazaria que o
+        // identificador existe em algum lugar.
+        if (membro is null)
+        {
+            return TypedResults.Problem(
+                title: "Membro não encontrado",
+                detail: "Este membro não existe ou não pertence à sua igreja.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+
+        var agora = timeProvider.GetUtcNow();
+
+        try
+        {
+            membro.UpdateProfile(
+                fullName: request.FullName,
+                email: request.Email,
+                phone: request.Phone,
+                birthDate: request.BirthDate,
+                address: new Address
+                {
+                    Street = request.AddressStreet,
+                    Number = request.AddressNumber,
+                    District = request.AddressDistrict,
+                    City = request.AddressCity,
+                    State = request.AddressState?.ToUpperInvariant(),
+                    ZipCode = request.AddressZip,
+                },
+                now: agora);
+        }
+        catch (ArgumentException ex)
+        {
+            return TypedResults.Problem(
+                title: "Dados inválidos",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(new MemberResponse
+        {
+            Id = membro.PublicId,
+            FullName = membro.FullName,
+            Email = membro.Email,
+            Phone = membro.Phone,
+            BirthDate = membro.BirthDate,
+            Age = membro.AgeOn(DateOnly.FromDateTime(agora.UtcDateTime)),
+            Status = membro.Status.ToString(),
+        });
+    }
+
+    private static async Task<IResult> ChangeStatusAsync(
+        Guid id,
+        [FromBody] ChangeMemberStatusRequest request,
+        IMemberRepository members,
+        IUnitOfWork unitOfWork,
+        ITenantContext tenant,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        if (tenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        if (!Enum.TryParse<MemberStatus>(request.Status, ignoreCase: true, out var novoStatus))
+        {
+            return TypedResults.Problem(
+                title: "Status inválido",
+                detail: "Use Ativo, Inativo, Transferido ou Falecido.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var membro = await members.FindByPublicIdAsync(id, cancellationToken);
+
+        if (membro is null)
+        {
+            return TypedResults.Problem(
+                title: "Membro não encontrado",
+                detail: "Este membro não existe ou não pertence à sua igreja.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+
+        var agora = timeProvider.GetUtcNow();
+        membro.ChangeStatus(novoStatus, agora);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(new MemberResponse
         {
             Id = membro.PublicId,
             FullName = membro.FullName,

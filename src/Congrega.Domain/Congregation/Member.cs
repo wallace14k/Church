@@ -160,6 +160,40 @@ public sealed class Member : AggregateRoot
         UpdatedAt = now;
     }
 
+    /// <summary>
+    /// Atualiza os campos que a ficha permite editar, num só limite transacional.
+    /// </summary>
+    /// <remarks>
+    /// Cobre exatamente os campos que a tela de cadastro já coleta — nome,
+    /// e-mail, telefone, nascimento, endereço. Reúne a validação de
+    /// <see cref="Rename"/> e <see cref="UpdateContact"/> mais a checagem de
+    /// data futura que <see cref="Register"/> já fazia, para editar não abrir
+    /// uma porta que cadastrar fecha.
+    /// </remarks>
+    public void UpdateProfile(
+        string fullName,
+        string? email,
+        string? phone,
+        DateOnly? birthDate,
+        Address address,
+        DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fullName);
+
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        if (birthDate is { } nascimento && nascimento > today)
+        {
+            throw new ArgumentException("Data de nascimento não pode ser futura.", nameof(birthDate));
+        }
+
+        FullName = NormalizeName(fullName);
+        Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant();
+        Phone = NormalizePhone(phone);
+        BirthDate = birthDate;
+        Address = address;
+        UpdatedAt = now;
+    }
+
     /// <summary>Liga o registro a uma conta de login.</summary>
     /// <remarks>
     /// Não sobrescreve um vínculo existente: se o membro já tem conta, associar

@@ -95,6 +95,16 @@ internal sealed class TenantContextMiddleware(RequestDelegate next)
             return;
         }
 
+        // Informa o próprio usuário ANTES de consultar memberships. Sem isso,
+        // o interceptor de conexão manda app.user_id vazio para esta consulta
+        // específica — a policy de RLS (tenant_id = ... OR user_id = ...) nunca
+        // casa, e todo usuário autenticado passaria a ser tratado como
+        // "sem vínculo" em toda requisição, mesmo com claim e token corretos.
+        // É o mesmo bug que IAuthenticationContextWriter fechou no login,
+        // reaparecendo aqui porque este middleware faz sua própria consulta
+        // antes de a atribuição final acontecer.
+        tenantContext.Assign(userId, tenantId: null);
+
         long? effectiveTenantId = null;
 
         if (claimedTenantId is { } tenantId)
