@@ -132,6 +132,12 @@ CREATE TABLE refresh_tokens (
     token_hash    BYTEA       NOT NULL,              -- SHA-256 do valor opaco
     family_id     UUID        NOT NULL,              -- agrupa a cadeia de rotação
     parent_id     BIGINT,                            -- token que originou este
+
+    -- Tenant selecionado nesta sessão. NULL para assinante Congrega+ sem igreja.
+    -- Guardado aqui para que a rotação reemita o access token com o mesmo tenant;
+    -- sem isso, um usuário com duas igrejas cairia silenciosamente na errada a
+    -- cada renovação. A troca explícita atualiza esta coluna preservando a family.
+    selected_tenant_id BIGINT,
     issued_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at    TIMESTAMPTZ NOT NULL,
     used_at       TIMESTAMPTZ,                       -- preenchido na rotação
@@ -142,6 +148,7 @@ CREATE TABLE refresh_tokens (
 
     CONSTRAINT fk_refresh_user   FOREIGN KEY (user_id)   REFERENCES users (id) ON DELETE CASCADE,
     CONSTRAINT fk_refresh_parent FOREIGN KEY (parent_id) REFERENCES refresh_tokens (id) ON DELETE SET NULL,
+    CONSTRAINT fk_refresh_tenant FOREIGN KEY (selected_tenant_id) REFERENCES tenants (id) ON DELETE SET NULL,
     CONSTRAINT uq_refresh_hash   UNIQUE (token_hash)
 );
 

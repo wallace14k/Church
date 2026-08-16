@@ -140,13 +140,33 @@ public sealed class RequestOtpHandlerTests
     }
 
     [Fact]
-    public async Task Tudo_e_persistido_em_uma_unica_transacao()
+    public async Task Usuario_existente_persiste_codigo_e_outbox_em_uma_unica_transacao()
     {
+        _users.Seed(User.Register("joao@igreja.com", "João", Now).WithId(10));
+
         await CreateHandler().HandleAsync(
-            new RequestOtpCommand { Email = "novo@igreja.com" }, CancellationToken.None);
+            new RequestOtpCommand { Email = "joao@igreja.com" }, CancellationToken.None);
 
         // Código e mensagem de Outbox no mesmo commit: não existe estado em que o
         // código foi gravado e o e-mail nunca sairá, nem o inverso.
         Assert.Equal(1, _unitOfWork.SaveCallCount);
+    }
+
+    [Fact]
+    public async Task Conta_nova_exige_um_commit_a_mais_para_materializar_o_id()
+    {
+        await CreateHandler().HandleAsync(
+            new RequestOtpCommand { Email = "novo@igreja.com" }, CancellationToken.None);
+
+        // Duas transações, e isso é correto — não uma regressão.
+        //
+        // A chave do usuário é gerada pelo banco, então `user.Id` só existe depois
+        // do INSERT. Como o código OTP referencia o usuário por valor, e não por
+        // propriedade de navegação, o EF não tem como propagar a chave: emitir o
+        // código antes de salvar gravaria `user_id = 0` e violaria a FK.
+        //
+        // Este teste existe porque o bug passou por toda a revisão de código e só
+        // apareceu na primeira execução real contra o PostgreSQL.
+        Assert.Equal(2, _unitOfWork.SaveCallCount);
     }
 }

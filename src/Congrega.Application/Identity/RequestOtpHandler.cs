@@ -60,6 +60,20 @@ public sealed class RequestOtpHandler(
             user = User.Register(normalizedEmail, command.FullName ?? DeriveNameFromEmail(normalizedEmail), now);
             users.Add(user);
             userCreated = true;
+
+            // Persiste o usuário ANTES de emitir o código, para que o Id exista.
+            //
+            // A chave é gerada pelo banco (`GENERATED ALWAYS AS IDENTITY`), então
+            // `user.Id` é 0 até o INSERT acontecer. Como `EmailVerificationCode`
+            // referencia o usuário por valor — e não por propriedade de navegação,
+            // decisão deliberada para manter o agregado sem grafo de objetos — o
+            // EF não tem como propagar a chave gerada para a FK. O resultado seria
+            // `user_id = 0` e violação de `fk_evc_user` em todo primeiro cadastro.
+            //
+            // O custo é uma ida a mais ao banco, e apenas no primeiro acesso de
+            // cada pessoa. A transação separada é benigna: um usuário criado sem
+            // código é inofensivo — a próxima solicitação emite um.
+            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
         if (!user.CanAuthenticate())
@@ -84,7 +98,10 @@ public sealed class RequestOtpHandler(
         // A contagem vem do banco, e não de IMemoryCache, porque o limite precisa ser
         // global: com três réplicas, um contador em memória transformaria o limite de
         // 5 em 15 na prática.
-        if (user.Id != 0)
+        // A conta recém-criada já tem Id (foi persistida acima), mas nunca terá
+        // códigos anteriores. Pular a contagem economiza uma consulta no caminho
+        // mais sensível do funil: o primeiro acesso de alguém ao produto.
+        if (!userCreated)
         {
             int recentCodes = await codes.CountIssuedSinceAsync(
                 user.Id, OtpPurpose.Login, now - EmailRateWindow, cancellationToken);

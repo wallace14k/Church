@@ -31,9 +31,13 @@ internal sealed class SubscriptionTierProvider(CongregaDbContext db) : ISubscrip
         // valendo de propósito: o usuário pagou pelo período corrente e cortar o
         // acesso no primeiro erro de cobrança é a forma mais rápida de transformar
         // uma falha de cartão em cancelamento.
+        // O alias "Value" é exigência do `SqlQuery<T>`: ele projeta o resultado em
+        // uma coluna com esse nome exato. Sem o alias, o PostgreSQL responde
+        // `42703: column s.Value does not exist` — erro que só aparece em
+        // execução, porque a consulta é montada como string.
         return await db.Database
             .SqlQuery<string?>($"""
-                SELECT p.code
+                SELECT p.code AS "Value"
                   FROM subscriptions s
                   JOIN plans p ON p.id = s.plan_id
                  WHERE s.user_id = {userId}

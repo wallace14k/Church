@@ -1,0 +1,47 @@
+# PostgreSQL local para desenvolvimento.
+#
+#   docker compose up -d
+#
+# A senha vem do .env (gerado junto com os User Secrets da API, e ignorado pelo
+# git), então o mesmo valor serve para o banco e para a aplicação sem precisar
+# ser copiado à mão nem aparecer em terminal.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: congrega-postgres
+    environment:
+      POSTGRES_DB: congrega
+      POSTGRES_USER: congrega
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      # Ordenação pt-BR via ICU, não via locale do sistema operacional.
+      #
+      # `--locale=pt_BR.UTF-8` seria o caminho óbvio e falha nesta imagem: Alpine
+      # usa musl e não traz locales gerados. O provider ICU vem embutido no
+      # PostgreSQL e independe do SO — a mesma ordenação em Alpine, Debian e no
+      # Supabase.
+      #
+      # O efeito prático: "Ângela" ordena junto de "Angela", e não depois de
+      # "Zacarias". Numa lista de membros isso é a diferença entre achar a pessoa
+      # e concluir que ela não está cadastrada.
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale-provider=icu --icu-locale=pt-BR --locale=C.UTF-8'
+    ports:
+      # 5432 direto. Em produção a API usa conexão direta para o advisory lock
+      # de sessão e o pooler para o resto; em desenvolvimento não há pooler, e
+      # as duas strings de conexão apontam para cá.
+      - '5432:5432'
+    volumes:
+      - congrega-pgdata:/var/lib/postgresql/data
+      # Aplicado uma única vez, na criação do volume. Para reaplicar depois de
+      # mudar o schema: docker compose down -v && docker compose up -d
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U congrega -d congrega']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  congrega-pgdata:

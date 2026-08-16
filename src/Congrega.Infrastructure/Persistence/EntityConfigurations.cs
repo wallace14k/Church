@@ -1,7 +1,9 @@
+using System.Net;
 using Congrega.Domain.Identity;
 using Congrega.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Congrega.Infrastructure.Persistence;
 
@@ -59,9 +61,24 @@ internal sealed class EmailVerificationCodeConfiguration : IEntityTypeConfigurat
         builder.Property(c => c.ExpiresAt).HasColumnName("expires_at");
         builder.Property(c => c.ConsumedAt).HasColumnName("consumed_at");
         builder.Property(c => c.CreatedAt).HasColumnName("created_at");
-        builder.Property(c => c.RequestIp).HasColumnName("request_ip");
+        builder.Property(c => c.RequestIp).HasColumnName("request_ip").HasConversion(InetConverter.StringToIp);
 
         builder.HasIndex(c => new { c.UserId, c.ExpiresAt });
+
+        // Relacionamento sem propriedade de navegação.
+        //
+        // Não é enfeite de modelagem: sem ele o EF não sabe que o código depende
+        // do usuário, insere os dois na ordem de descoberta e grava `user_id = 0`
+        // no primeiro cadastro — porque o Id do usuário novo só existe depois do
+        // INSERT. Declarado o relacionamento, o EF ordena as instruções e propaga
+        // a chave gerada para a FK.
+        //
+        // Declarar sem navegação mantém o agregado limpo: `EmailVerificationCode`
+        // continua sem conhecer `User`, e o domínio segue sem grafo de objetos.
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(c => c.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Ignore(c => c.DomainEvents);
     }
@@ -86,15 +103,52 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
         builder.Property(t => t.RevokedAt).HasColumnName("revoked_at");
         builder.Property(t => t.RevokedReason).HasColumnName("revoked_reason").HasConversion<short?>();
         builder.Property(t => t.DeviceLabel).HasColumnName("device_label").HasMaxLength(120);
-        builder.Property(t => t.IpAddress).HasColumnName("ip_address");
+        builder.Property(t => t.IpAddress).HasColumnName("ip_address").HasConversion(InetConverter.StringToIp);
 
         // Busca por hash é o caminho quente do /auth/refresh: uma requisição por
         // cliente a cada 15 minutos. Único também impede colisão de valor gerado.
         builder.HasIndex(t => t.TokenHash).IsUnique();
         builder.HasIndex(t => t.FamilyId);
 
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(t => t.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.Ignore(t => t.DomainEvents);
     }
+}
+
+/// <summary>
+/// Converte entre o <c>string</c> do domínio e o tipo <c>inet</c> do PostgreSQL.
+/// </summary>
+/// <remarks>
+/// <para>
+/// O domínio guarda endereço IP como texto, porque não tem motivo para conhecer
+/// <c>System.Net</c>. O banco usa <c>inet</c>, que é o tipo correto: valida o
+/// endereço na escrita, ocupa menos espaço e permite consulta por sub-rede —
+/// útil para investigar um incidente de segurança.
+/// </para>
+/// <para>
+/// Sem este conversor o Npgsql envia o parâmetro como <c>text</c> e o PostgreSQL
+/// recusa com <c>42804: column "request_ip" is of type inet but expression is of
+/// type text</c>. O erro só aparece em execução — nenhum teste unitário de
+/// domínio o alcança, porque não há banco envolvido.
+/// </para>
+/// <para>
+/// Endereço malformado vira <c>null</c> em vez de derrubar a requisição: o IP é
+/// dado de auditoria, e perder a auditoria de uma requisição é muito melhor do
+/// que impedir o usuário de entrar por causa de um cabeçalho de proxy estranho.
+/// </para>
+/// </remarks>
+internal static class InetConverter
+{
+    public static readonly ValueConverter<string?, IPAddress?> StringToIp = new(
+        texto => texto == null ? null : ParseOrNull(texto),
+        ip => ip == null ? null : ip.ToString());
+
+    private static IPAddress? ParseOrNull(string texto) =>
+        IPAddress.TryParse(texto, out var endereco) ? endereco : null;
 }
 
 internal sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
