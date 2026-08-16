@@ -6,11 +6,22 @@
     "exactOptionalPropertyTypes": true,
     "jsx": "react-jsx",
     "paths": {
-      "@congrega/core/*": ["../../packages/core/src/*"],
-      "@congrega/ui/*": ["../../packages/ui/src/*"],
-      "@congrega/api-client/*": ["../../packages/api-client/src/*"]
+      "@congrega/core/*": [
+        "../../packages/core/src/*"
+      ],
+      "@congrega/ui/*": [
+        "../../packages/ui/src/*"
+      ],
+      "@congrega/api-client/*": [
+        "../../packages/api-client/src/*"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

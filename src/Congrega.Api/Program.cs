@@ -128,9 +128,55 @@ builder.Services.AddProblemDetails(options =>
     };
 });
 
+// -----------------------------------------------------------------------------
+// CORS
+// -----------------------------------------------------------------------------
+// O app web roda em outra origem (porta do Metro em desenvolvimento, domínio
+// próprio em produção). Sem esta política o navegador barra a chamada no
+// preflight, e o usuário vê "sem conexão com o servidor" mesmo com a API no ar —
+// o POST nem chega a ser enviado.
+//
+// ATENÇÃO: CORS não é mecanismo de autenticação. Ele diz ao NAVEGADOR quais
+// origens podem ler a resposta; não impede ninguém de chamar a API por curl ou
+// por um cliente nativo. A autorização continua sendo do JWT e das policies.
+const string WebCorsPolicy = "congrega-web";
+
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(WebCorsPolicy, policy =>
+    {
+        policy
+            .WithOrigins(allowedOrigins)
+            .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
+            .WithHeaders("Content-Type", "Authorization", "X-Congrega-Client", "X-Correlation-Id")
+            // Obrigatório porque o cliente web usa `credentials: 'include'` para
+            // que o cookie HttpOnly do refresh viaje. E é justamente por causa
+            // disso que as origens precisam ser explícitas: a especificação
+            // proíbe combinar credenciais com `Access-Control-Allow-Origin: *`,
+            // e o navegador rejeita a resposta se alguém tentar.
+            .AllowCredentials()
+            // Devolve o correlation ID para o cliente poder exibi-lo numa tela de
+            // erro. Sem expor explicitamente, o JavaScript não enxerga o header.
+            .WithExposedHeaders("X-Correlation-Id")
+            .SetPreflightMaxAge(TimeSpan.FromHours(1));
+    });
+});
+
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+if (allowedOrigins.Length == 0)
+{
+    // Falha visível em vez de silenciosa: sem origens, toda chamada do navegador
+    // seria bloqueada e o sintoma apareceria como problema de rede no cliente.
+    Log.Warning(
+        "Cors:AllowedOrigins está vazio. Nenhuma origem de navegador poderá consumir a API.");
+}
 
 // -----------------------------------------------------------------------------
 // Pipeline — a ordem é significativa
@@ -144,6 +190,12 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
+
+// CORS ANTES do rate limiter e da autenticação. O preflight OPTIONS é anônimo e
+// não carrega token: se passar pelo limitador ou pelo pipeline de autenticação,
+// volta 405 ou 401 e o navegador aborta a requisição real.
+app.UseCors(WebCorsPolicy);
+
 app.UseRateLimiter();
 
 app.UseAuthentication();
