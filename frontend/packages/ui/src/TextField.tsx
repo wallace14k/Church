@@ -93,56 +93,80 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
     ? theme.colors.danger
     : isFocused
       ? theme.colors.text
-      : theme.colors.divider;
+      : theme.colors.hairline;
 
   return (
-    <View style={[styles.container, { gap: theme.space[4] }, containerStyle]}>
-      <RNText style={[theme.type.eyebrow, { color: theme.colors.textMuted }]}>
+    <View style={[styles.container, { gap: theme.space[8] }, containerStyle]}>
+      {/* `caption` e não `eyebrow`: o eyebrow do sistema tem 10px, tamanho de
+          etiqueta de categoria. Rótulo de campo de formulário a 10px vira
+          decoração — e a §9 pede rótulo visível justamente para que ele seja
+          lido, não adivinhado pelo placeholder. */}
+      <RNText style={[theme.type.caption, { color: theme.colors.textMuted }]}>
         {label.toUpperCase()}
       </RNText>
 
-      <TextInput
-        {...inputProps}
-        ref={(node) => {
-          innerRef.current = node;
-          if (typeof forwardedRef === 'function') forwardedRef(node);
-          else if (forwardedRef) forwardedRef.current = node;
+      {/* Anel de foco. Fica num contentor externo com padding fixo de 2px, e
+          não na espessura da borda do campo: engrossar a borda no foco
+          deslocaria o texto 1px a cada clique, e o salto é visível numa
+          coluna de campos.
+
+          O anel é em TINTA, não no lima. Lima sobre canvas mede 1,19:1 — como
+          indicador de foco reprovaria os 3:1 da WCAG para componente não
+          textual, que é exatamente o caso de uso onde isso importa mais. */}
+      <View
+        style={{
+          padding: 2,
+          borderRadius: theme.radius.inputs + 2,
+          backgroundColor: isFocused ? theme.colors.text : 'transparent',
         }}
-        defaultValue={defaultValue}
-        onChangeText={handleChangeText}
-        onFocus={(event) => {
-          setIsFocused(true);
-          inputProps.onFocus?.(event);
-        }}
-        onBlur={(event) => {
-          setIsFocused(false);
-          inputProps.onBlur?.(event);
-        }}
-        placeholderTextColor={theme.colors.placeholder}
-        style={[
-          theme.type.body,
-          styles.input,
-          {
-            minHeight: theme.touch.comfortable,
-            paddingHorizontal: theme.space[12],
-            borderRadius: theme.radius.inputs,
-            borderColor,
-            backgroundColor: theme.colors.surface,
-            color: theme.colors.text,
-          },
-          inputStyle,
-        ]}
-        // Erro anunciado junto do campo: sem isso, o leitor de tela lê o campo e
-        // o erro como elementos independentes, e o usuário não liga um ao outro.
-        accessibilityLabel={label}
-        accessibilityHint={hasError ? error : hint}
-      />
+      >
+        <TextInput
+          {...inputProps}
+          ref={(node) => {
+            innerRef.current = node;
+            if (typeof forwardedRef === 'function') forwardedRef(node);
+            else if (forwardedRef) forwardedRef.current = node;
+          }}
+          defaultValue={defaultValue}
+          onChangeText={handleChangeText}
+          onFocus={(event) => {
+            setIsFocused(true);
+            inputProps.onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setIsFocused(false);
+            inputProps.onBlur?.(event);
+          }}
+          placeholderTextColor={theme.colors.placeholder}
+          style={[
+            theme.type.body,
+            styles.input,
+            {
+              minHeight: theme.touch.comfortable,
+              paddingHorizontal: theme.space[16],
+              borderRadius: theme.radius.inputs,
+              borderColor,
+              // Branco, mesmo quando o campo está sobre um cartão pergaminho:
+              // a §9 fixa `#ffffff` no campo, e é o que separa "área onde se
+              // escreve" de "superfície onde se lê".
+              backgroundColor: theme.colors.surfaceInner,
+              color: theme.colors.text,
+            },
+            inputStyle,
+          ]}
+          // Erro anunciado junto do campo: sem isso, o leitor de tela lê o campo
+          // e o erro como elementos independentes, e o usuário não liga um ao
+          // outro.
+          accessibilityLabel={label}
+          accessibilityHint={hasError ? error : hint}
+        />
+      </View>
 
       {(hasError || hint !== undefined) && (
-        // A mensagem de erro vai em TINTA PRINCIPAL, não no vermelho do espectro.
-        // `colors.danger` mede 3.3:1 sobre o canvas — insuficiente para texto, e
-        // mensagem de erro ilegível é pior que não ter mensagem. O vermelho fica
-        // onde funciona: na borda do campo, que é forma e não leitura.
+        // A mensagem de erro vai em TINTA PRINCIPAL, não no vermelho.
+        // `colors.danger` até passa em contraste, mas a §15 mantém a cor de
+        // estado como linguagem secundária: o vermelho fica na borda do campo,
+        // que é forma, e a leitura fica na tinta do resto da interface.
         //
         // Isso também atende quem não distingue vermelho: a informação não
         // depende da cor, está no texto e na borda.

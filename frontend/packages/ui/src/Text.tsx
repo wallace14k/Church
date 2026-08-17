@@ -6,15 +6,21 @@ export type TextVariant = keyof typeof escala;
 
 export interface TextProps extends RNTextProps {
   readonly variant?: TextVariant;
-  readonly tone?: 'ink' | 'body' | 'muted' | 'onDark';
+  /**
+   * `onAccent` é o texto sobre o lima — **tinta, não branco**. Existe como tom
+   * nomeado justamente para que ninguém precise lembrar disso: branco sobre
+   * lima mede 1,4:1, e é o erro natural de quem vem do sistema anterior, onde
+   * todo botão primário tinha texto branco.
+   */
+  readonly tone?: 'ink' | 'body' | 'muted' | 'onAccent' | 'onDark';
 }
 
 /**
  * Texto do sistema.
  *
- * O tom padrão é `ink` — a tinta azul-marinho única que carrega todo o texto da
- * interface. `body` existe só para copy sobre lavagem pastel, onde a tinta
- * principal fica fria demais.
+ * O tom padrão é `ink` — a tinta única que carrega todo o texto da interface.
+ * `muted` é o grafite do texto secundário; `body` existe para copy que precisa
+ * do mesmo peso da tinta principal sobre superfície tonal.
  */
 export function Text({ variant = 'body', tone = 'ink', style, ...rest }: TextProps) {
   const theme = useTheme();
@@ -22,6 +28,7 @@ export function Text({ variant = 'body', tone = 'ink', style, ...rest }: TextPro
   const color =
     tone === 'muted' ? theme.colors.textMuted
     : tone === 'body' ? theme.colors.textBody
+    : tone === 'onAccent' ? theme.colors.textOnAccent
     : tone === 'onDark' ? theme.colors.textOnDark
     : theme.colors.text;
 

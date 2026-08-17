@@ -1,0 +1,15 @@
+{
+  "//": "Porta de desenvolvimento FIXA. Sem este arquivo, o Kestrel caía no default 5000 enquanto o app (frontend/apps/mobile/app.json) chamava 5080 — o app web nunca alcancava a API, e o erro que aparecia era 'Sem conexao com o servidor'.",
+  "//_2": "5080 e o contrato com o cliente: mudar aqui exige mudar extra.apiBaseUrl junto. Em producao quem manda e ASPNETCORE_URLS/containerPort (8080 no k8s); este arquivo nao e publicado.",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5080",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

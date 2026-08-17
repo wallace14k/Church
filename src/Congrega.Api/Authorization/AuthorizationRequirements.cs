@@ -125,7 +125,31 @@ public static class Policies
 {
     public const string MembersRead = "Members.Read";
     public const string MembersWrite = "Members.Write";
+
+    /// <summary>
+    /// Ler o caixa e lançar nele são permissões distintas, e o seed já as separa
+    /// assim: <c>ChurchAdmin</c> recebe apenas <c>giving.read</c>, e só o
+    /// <c>Treasurer</c> recebe <c>giving.write</c>. Quem presta contas não é
+    /// necessariamente quem digita — e o pastor conseguir ver o fechamento sem
+    /// poder alterá-lo é exatamente a segregação que a igreja espera.
+    /// </summary>
+    public const string GivingRead = "Giving.Read";
     public const string GivingWrite = "Giving.Write";
+
+    /// <summary>
+    /// Qualquer pessoa com vínculo ativo na igreja, sem exigir permissão
+    /// específica.
+    /// </summary>
+    /// <remarks>
+    /// Existe para o calendário: a agenda da igreja é informação para a
+    /// congregação inteira, e o seed não tem — nem deveria ter — um
+    /// <c>events.read</c>, porque não há membro para quem faça sentido negar.
+    /// Escrever na agenda continua exigindo <c>events.write</c>, que o seed dá
+    /// a <c>ChurchAdmin</c> e <c>CellLeader</c>.
+    /// </remarks>
+    public const string TenantMember = "Tenant.Member";
+
+    public const string EventsWrite = "Events.Write";
     public const string ChildrenCheckout = "Children.Checkout";
     public const string PremiumContent = "Premium.Content";
     public const string BillingManage = "Billing.Manage";
@@ -134,7 +158,17 @@ public static class Policies
     {
         AddTenantPolicy(builder, MembersRead, Permissions.MembersRead);
         AddTenantPolicy(builder, MembersWrite, Permissions.MembersWrite);
+        AddTenantPolicy(builder, GivingRead, Permissions.GivingRead);
         AddTenantPolicy(builder, GivingWrite, Permissions.GivingWrite);
+        AddTenantPolicy(builder, EventsWrite, Permissions.EventsWrite);
+
+        // Sem PermissionRequirement: exige apenas identidade verificada e
+        // vínculo com a igreja corrente. O TenantScopedRequirement continua
+        // sendo validado contra o banco pelo middleware — a claim de tenant
+        // sozinha nunca basta.
+        builder.AddPolicy(TenantMember, policy => policy
+            .RequireAuthenticatedUser()
+            .AddRequirements(new EmailVerifiedRequirement(), new TenantScopedRequirement()));
         AddTenantPolicy(builder, ChildrenCheckout, Permissions.ChildrenCheckout);
         AddTenantPolicy(builder, BillingManage, Permissions.BillingManage);
 

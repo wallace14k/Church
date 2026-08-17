@@ -3,9 +3,13 @@ using Congrega.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 using Congrega.Infrastructure.Notifications;
 using Congrega.Application.Outbox;
+using Congrega.Domain.Billing;
+using Congrega.Domain.Calendar;
 using Congrega.Domain.Congregation;
+using Congrega.Domain.Giving;
 using Congrega.Domain.Identity;
 using Congrega.Infrastructure.Locking;
+using Congrega.Infrastructure.Payments;
 using Congrega.Infrastructure.Persistence;
 using Congrega.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +56,12 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services
+            .AddOptions<PaymentOptions>()
+            .Bind(configuration.GetSection(PaymentOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton(TimeProvider.System);
 
         // O interceptor é scoped porque depende de ITenantContext, que é da
@@ -94,12 +104,58 @@ public static class DependencyInjection
         services.AddScoped<IMembershipRepository, MembershipRepository>();
         services.AddScoped<ISubscriptionTierProvider, SubscriptionTierProvider>();
         services.AddScoped<IMemberRepository, MemberRepository>();
+        services.AddScoped<IFamilyRepository, FamilyRepository>();
+        services.AddScoped<IGivingCategoryRepository, GivingCategoryRepository>();
+        services.AddScoped<IGivingEntryRepository, GivingEntryRepository>();
+        services.AddScoped<IEventRepository, EventRepository>();
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<IEntitlementRepository, EntitlementRepository>();
+        services.AddScoped<ISubscriptionStore, SubscriptionStore>();
+        services.AddScoped<IPaymentWebhookRepository, PaymentWebhookRepository>();
+        services.AddScoped<IPlanRepository, PlanRepository>();
 
         services.AddSingleton<ISecretHasher, SecretHasher>();
         services.AddSingleton<IOtpGenerator, OtpGenerator>();
         services.AddSingleton<ITokenIssuer, JwtTokenIssuer>();
 
         services.AddSingleton<IDistributedLock, PostgresAdvisoryLock>();
+
+        // Verificação de assinatura de webhook. Scoped porque lê PaymentOptions
+        // e TimeProvider; sem estado próprio entre requisições.
+        services.AddScoped<IWebhookSignatureVerifier, WebhookSignatureVerifier>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registra o gateway de pagamento.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Extensão separada, com <paramref name="isDevelopment"/> <b>explícito</b>,
+    /// pelo mesmo desenho de <see cref="AddCongregaOutbox"/>: quem hospeda
+    /// decide, e a decisão fica visível na composição em vez de escondida numa
+    /// checagem de ambiente lá dentro.
+    /// </para>
+    /// <para>
+    /// <b>Em produção não há adaptador registrado</b> e a resolução falha no
+    /// startup — de propósito. Subir cobrando contra um gateway falso seria
+    /// muito pior do que não subir; é a mesma postura do <c>IEmailSender</c>,
+    /// registrada na premissa P8. Quando o adaptador Abacate.pay existir, ele
+    /// entra no <c>else</c> deste método.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddCongregaPayments(
+        this IServiceCollection services,
+        bool isDevelopment)
+    {
+        if (isDevelopment)
+        {
+            // Singleton: o estado das cobranças simuladas precisa sobreviver
+            // entre a criação e a consulta do fetch-on-notify.
+            services.AddSingleton<DevelopmentPaymentGateway>();
+            services.AddSingleton<IPaymentGateway>(sp => sp.GetRequiredService<DevelopmentPaymentGateway>());
+        }
 
         return services;
     }

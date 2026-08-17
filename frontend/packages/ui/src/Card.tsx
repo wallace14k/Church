@@ -4,31 +4,42 @@ import { useTheme } from './theme';
 
 export interface CardProps {
   readonly children: ReactNode;
-  readonly onPress?: () => void;
   /**
-   * `default` é o cartão do sistema inteiro: branco, borda de 1px, sombra
-   * quase imperceptível — o padrão de referência não distingue "cartão
-   * estático" de "artefato flutuante", os dois são a mesma superfície.
-   * `muted` é o preenchimento cinza-névoa, reservado para bloco secundário
-   * dentro de um cartão (ex.: resumo de card de crédito dentro da ficha).
+   * `default` é o cartão do sistema: **pergaminho sobre canvas branco**, raio
+   * de 28px, fio de 1px, sem sombra. `inner` é a superfície branca que vive
+   * *dentro* de um cartão — o chip de valor, a linha de lista — com o raio
+   * menor de 18px.
+   *
+   * A dupla de tons não é decorativa: a §6 proíbe sombra, então o que separa
+   * cartão de página é a diferença de tom. Pintar os dois de branco deixaria
+   * um fio de 1px como única separação.
    */
-  readonly variant?: 'default' | 'muted';
+  readonly variant?: 'default' | 'inner';
   /**
-   * Realce indigo — o único acento cromático do sistema, usado em blocos que
-   * precisam se destacar (texto de certificação legal, aviso). Raro de
-   * propósito.
+   * Preenchimento em lima. Reservado ao bloco que precisa ser **a** coisa da
+   * tela; raro de propósito, porque um segundo lima na mesma tela anula o
+   * primeiro. Texto dentro dele vai em `tone="onAccent"`.
    */
-  readonly tinted?: 'indigo';
+  readonly tone?: 'accent';
   readonly style?: StyleProp<ViewStyle>;
   readonly accessibilityLabel?: string;
+  readonly onPress?: () => void;
 }
 
-/** Cartão — branco com borda fina, a superfície padrão do sistema. */
-export function Card({ children, onPress, variant = 'default', tinted, style, accessibilityLabel }: CardProps) {
+/** Cartão — pergaminho com fio fino, a superfície padrão do sistema. */
+export function Card({
+  children,
+  onPress,
+  variant = 'default',
+  tone,
+  style,
+  accessibilityLabel,
+}: CardProps) {
   const theme = useTheme();
 
-  const fundo = tinted === 'indigo' ? theme.colors.surfaceTinted
-    : variant === 'muted' ? theme.colors.surfaceNeutral
+  const fundo =
+    tone === 'accent' ? theme.colors.surfaceAccent
+    : variant === 'inner' ? theme.colors.surfaceInner
     : theme.colors.surface;
 
   const conteudo = (
@@ -36,13 +47,18 @@ export function Card({ children, onPress, variant = 'default', tinted, style, ac
       style={[
         {
           backgroundColor: fundo,
-          borderRadius: theme.radius.cards,
-          borderWidth: variant === 'default' && tinted === undefined ? 1 : 0,
+          borderRadius: variant === 'inner' ? theme.radius.smallCards : theme.radius.cards,
+          // O fio existe só onde há pouca diferença de tom. Sobre lima ele
+          // sujaria o bloco, e sobre a superfície interna branca dentro de um
+          // cartão pergaminho o contraste tonal já resolve.
+          borderWidth: variant === 'default' && tone === undefined ? 1 : 0,
           borderColor: theme.colors.hairline,
-          padding: theme.space[16],
+          // 24px é o mínimo que o raio de 28px comporta sem a curva comer o
+          // conteúdo. Painel e cartão de métrica sobem para `panelPadding` por
+          // `style`; ver D3 no documento de design.
+          padding: theme.layout.cardPadding,
           gap: theme.space[4],
         },
-        variant === 'default' && tinted === undefined && theme.elevation.floating,
         style,
       ]}
     >

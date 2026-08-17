@@ -1,6 +1,7 @@
 import type { Member } from '@congrega/api-client/members';
 import { formatPhone } from '@congrega/core/validation';
 import { Avatar } from '@congrega/ui/Avatar';
+import { Button } from '@congrega/ui/Button';
 import { Card } from '@congrega/ui/Card';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { EyebrowPill } from '@congrega/ui/EyebrowPill';
@@ -8,6 +9,7 @@ import { Screen } from '@congrega/ui/Screen';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
+import { TextLink } from '@congrega/ui/TextLink';
 import { useTheme } from '@congrega/ui/theme';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
@@ -45,6 +47,8 @@ export default function ListaDeMembros() {
           {total > 0 && <EyebrowPill label={`${total} ${total === 1 ? 'pessoa' : 'pessoas'}`} />}
         </View>
 
+        <TextLink label="Ver famílias" onPress={() => router.push('/membros/familias')} />
+
         <TextField
           label="Buscar"
           placeholder="Nome, e-mail ou telefone"
@@ -60,7 +64,12 @@ export default function ListaDeMembros() {
         />
 
         {membros.length > 0 && (
-          <SignatureButton label="Cadastrar membro" onPress={() => router.push('/membros/novo')} />
+          <View style={{ flexDirection: 'row', gap: theme.space[8] }}>
+            <View style={{ flex: 1 }}>
+              <SignatureButton label="Cadastrar membro" onPress={() => router.push('/membros/novo')} />
+            </View>
+            <Button label="Importar" onPress={() => router.push('/membros/importar')} />
+          </View>
         )}
       </View>
 
@@ -89,9 +98,12 @@ export default function ListaDeMembros() {
           ) : (
             <EmptyState
               title="Sua igreja ainda não tem membros aqui"
-              description="Cadastre a primeira pessoa para começar a acompanhar a comunidade."
+              description="Cadastre a primeira pessoa, ou importe a lista que a igreja já tem numa planilha."
               action={
-                <SignatureButton label="Cadastrar membro" onPress={() => router.push('/membros/novo')} />
+                <View style={{ gap: theme.space[8], width: '100%', maxWidth: 320 }}>
+                  <SignatureButton label="Cadastrar membro" onPress={() => router.push('/membros/novo')} />
+                  <Button label="Importar planilha" onPress={() => router.push('/membros/importar')} />
+                </View>
               }
             />
           )}

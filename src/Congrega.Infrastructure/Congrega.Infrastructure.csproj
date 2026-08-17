@@ -44,6 +44,12 @@
                       LogicalName="Congrega.Db.030_busca.sql" />
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/004_outbox_dead_letter.sql"
                       LogicalName="Congrega.Db.040_outbox.sql" />
+    <!-- Fora do baseline de propósito: entra por migration própria, porque os
+         bancos existentes já rodaram o baseline e não o executariam de novo. -->
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/006_financeiro.sql"
+                      LogicalName="Congrega.Db.060_financeiro.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/007_eventos.sql"
+                      LogicalName="Congrega.Db.070_eventos.sql" />
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/seed.sql"
                       LogicalName="Congrega.Db.900_seed.sql" />
   </ItemGroup>

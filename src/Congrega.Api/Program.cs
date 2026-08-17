@@ -28,6 +28,12 @@ builder.Services.AddSerilog((services, configuration) => configuration
 // Infraestrutura e casos de uso
 // -----------------------------------------------------------------------------
 builder.Services.AddCongregaInfrastructure(builder.Configuration);
+
+// Gateway de pagamento. Em desenvolvimento entra o adaptador falso; em produção
+// nada é registrado e a resolução falha no startup, de propósito — ver a nota em
+// AddCongregaPayments.
+builder.Services.AddCongregaPayments(builder.Environment.IsDevelopment());
+
 builder.Services.AddSingleton<IHostEnvironmentAccessor, HostEnvironmentAccessor>();
 builder.Services.AddMemoryCache();
 
@@ -207,6 +213,9 @@ app.UseAuthorization();                         // DEPOIS do contexto: as polici
 
 app.MapAuthEndpoints();
 app.MapMemberEndpoints();
+app.MapFamilyEndpoints();
+app.MapGivingEndpoints();
+app.MapEventEndpoints();
 
 app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions

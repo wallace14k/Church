@@ -40,10 +40,16 @@ export interface SidebarProps {
 const LARGURA_RECOLHIDA = 68;
 
 /**
- * Sidebar fixa à esquerda — o padrão de mercado para dashboard web, no mesmo
- * tratamento do produto de referência: fundo branco (não cinza), item ativo
- * com lavagem índigo suave e ícone/texto na cor de marca, hover em
- * cinza-névoa. Hairline como único traço de separação, sem sombra.
+ * Sidebar fixa à esquerda — o padrão de mercado para dashboard web, no
+ * tratamento que a §10 pede: superfície pergaminho, item ativo com lavagem
+ * lima **sutil**, hover em branco, fio de 1px como único traço de separação e
+ * nenhuma sombra.
+ *
+ * O item ativo não usa lima cheio, e o rótulo não fica na cor de acento: lima
+ * sobre pergaminho como texto é ilegível, e lima cheio aqui competiria com o
+ * botão primário da tela. O que marca o item ativo é a superfície diluída mais
+ * a tinta no rótulo, contra o grafite dos inativos — duas pistas, nenhuma
+ * dependendo de percepção de cor.
  *
  * Só existe no navegador — no celular a navegação continua em barra de abas,
  * que é o padrão nativo esperado em iOS/Android. Ver `(tabs)/_layout.web.tsx`.
@@ -139,7 +145,7 @@ export function Sidebar({
                 paddingVertical: theme.space[8],
                 paddingHorizontal: theme.space[8],
                 borderRadius: theme.radius.smallCards,
-                backgroundColor: pressed || seletorAberto ? theme.colors.surfaceNeutral : 'transparent',
+                backgroundColor: pressed || seletorAberto ? theme.colors.surfaceInner : 'transparent',
               })}
             >
               <Text variant="bodyStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
@@ -157,10 +163,14 @@ export function Sidebar({
                 style={{
                   marginTop: theme.space[4],
                   borderRadius: theme.radius.smallCards,
-                  backgroundColor: theme.colors.surface,
+                  backgroundColor: theme.colors.surfaceInner,
                   borderWidth: 1,
                   borderColor: theme.colors.hairline,
                   overflow: 'hidden',
+                  // A exceção que a §6 abre: menu flutuante precisa se separar
+                  // do que está por baixo, e aqui não há diferença de tom para
+                  // fazer esse trabalho — o menu cobre a própria sidebar.
+                  ...theme.elevation.popover,
                 }}
               >
                 {tenants.map((tenant) => (
@@ -175,7 +185,7 @@ export function Sidebar({
                     style={({ pressed }) => ({
                       paddingVertical: theme.space[8],
                       paddingHorizontal: theme.space[12],
-                      backgroundColor: pressed ? theme.colors.surfaceNeutral : 'transparent',
+                      backgroundColor: pressed ? theme.colors.surfaceInner : 'transparent',
                     })}
                   >
                     <Text variant="captionBody" numberOfLines={1}>
@@ -258,9 +268,9 @@ function NavItemRow({ item, collapsed }: { readonly item: SidebarNavItem; readon
           paddingHorizontal: theme.space[8],
           borderRadius: theme.radius.smallCards,
           backgroundColor: item.active
-            ? theme.colors.surfaceTinted
+            ? theme.colors.surfaceAccentSoft
             : pressed
-              ? theme.colors.surfaceNeutral
+              ? theme.colors.surfaceInner
               : 'transparent',
         })}
       >
@@ -268,7 +278,7 @@ function NavItemRow({ item, collapsed }: { readonly item: SidebarNavItem; readon
         {!collapsed && (
           <Text
             variant="bodyStrong"
-            style={{ color: item.active ? theme.colors.brand : theme.colors.textMuted }}
+            style={{ color: item.active ? theme.colors.text : theme.colors.textMuted }}
           >
             {item.label}
           </Text>
@@ -286,8 +296,8 @@ function NavItemRow({ item, collapsed }: { readonly item: SidebarNavItem; readon
             marginLeft: theme.space[8],
             paddingVertical: theme.space[4],
             paddingHorizontal: theme.space[8],
-            borderRadius: theme.radius.smallCards / 2,
-            backgroundColor: theme.colors.text,
+            borderRadius: theme.radius.inputs,
+            backgroundColor: theme.colors.surfaceInverse,
             zIndex: 50,
             elevation: 8,
           }}

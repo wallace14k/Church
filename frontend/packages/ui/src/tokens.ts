@@ -1,135 +1,164 @@
 /**
  * Tokens de design do Congrega.
  *
- * Segunda troca de identidade visual nesta sessão: o cliente pediu para as
- * telas seguirem o padrão de referência de um dashboard SaaS real (Mercury) —
- * sans-serif do início ao fim, acento índigo, cartões brancos com borda fina
- * em vez de cartão cinza chapado, sidebar clara. O sistema anterior (Steep:
- * serifada + pêssego) foi substituído inteiro; nenhuma tela usa mais
- * `SourceSerif4`.
+ * Sistema visual **Perk**: lima elétrico sobre neutros quentes, tipografia em
+ * dois pesos só, cartão de 28px em pergaminho, hierarquia por contraste tonal
+ * — sem sombra. O documento completo, com as decisões e desvios, está em
+ * `docs/07-design-system.md`.
  *
- * A estrutura dos componentes (sidebar recolhível, cartão, avatar, stat card)
- * não mudou — só a superfície: cor, fonte, borda. É por isso que essa segunda
- * troca foi bem mais rápida que a primeira.
+ * Substitui o sistema Mercury (índigo sobre branco, Inter 600, cartão de 12px
+ * com sombra). A estrutura dos componentes não mudou; mudou a superfície.
+ *
+ * **A mudança que não é só de superfície:** o token `brand` foi renomeado para
+ * `surfaceAccent`. No sistema anterior o índigo servia como preenchimento *e*
+ * como cor de texto de link. O lima não pode servir às duas coisas — mede
+ * 1,19:1 sobre branco — e trocar só o valor mantendo o nome deixaria cada
+ * `color: colors.brand` invisível sem um único erro de compilação. Renomear
+ * quebra o build em cada uso e força uma decisão. Ver D1 no documento.
  */
 
 export const palette = {
-  /** Tinta principal. Todo texto e a maior parte dos traços de UI. */
-  inkBlack: '#171923',
-
-  /** Canvas — branco puro, o fundo dominante do sistema. */
-  paperWhite: '#FFFFFF',
-
-  /** Fundo da sidebar e de superfícies levemente destacadas do canvas. */
-  fogWhite: '#FAFAFB',
-
-  /** Preenchimento de input, hover de item de lista. */
-  mistGray: '#F3F4F6',
-
   /**
-   * Cor de link, texto auxiliar.
+   * Lima elétrico — o único acento cromático do sistema.
    *
-   * Escurecido para acessibilidade — mede 4.6:1 sobre branco, WCAG AA. Ver
-   * `tokens.test.ts`.
+   * **Só preenchimento.** Como texto ou como traço de estado reprova a WCAG
+   * (1,19:1 sobre branco). O teste em `tokens.test.ts` garante que nenhum
+   * token de texto receba este valor.
    */
-  slateGray: '#6B7280',
+  electricLime: '#BEFF50',
 
-  /** Rótulo terciário, categoria, texto de apoio pequeno. */
-  ashGray: '#8A8F98',
+  /** Lima diluído — item ativo de navegação. Único valor derivado (D5). */
+  limeWash: '#EEFBD5',
 
-  /** Texto de placeholder — o cinza mais claro com função. */
-  smokeGray: '#A1A5AE',
+  /** Tinta principal. Todo texto, título e ícone. */
+  offBlackInk: '#14140F',
+
+  /** Pergaminho — superfície de cartão e de sidebar. */
+  offWhiteCanvas: '#F5F5EB',
+
+  /** Canvas da página e superfície interna ao cartão. */
+  pureWhite: '#FFFFFF',
+
+  /** Bordas e divisores. */
+  ash: '#D2D2C8',
+
+  /** Texto secundário. Mede 5,15:1 sobre branco e 4,70:1 sobre pergaminho. */
+  graphite: '#6E6E64',
+
+  /** Ilha escura rara — dica flutuante da sidebar recolhida. */
+  deepCharcoal: '#30302A',
+
+  /** Traço estrutural tênue. */
+  stone: '#919183',
+
+  /** Placeholder e lavagem sutil. */
+  smoke: '#B9B9B7',
 
   /**
-   * Acento — a única cor saturada do sistema. Botão primário, link com peso,
-   * indicador de progresso, foco de campo.
+   * Estado — secundário à paleta de marca, nunca dominante (§15).
+   *
+   * Mantidos do sistema anterior de propósito: já têm contraste verificado, e
+   * trocá-los por tons quentes sem mandato do documento custaria contraste
+   * testado em troca de harmonia. Ver D7.
    */
-  indigo: '#5B5FEE',
-  indigoDeep: '#4338CA',
-  indigoWash: '#EEF0FF',
-
-  /** Positivo — variação/entrega concluída, checkmark de verificação. */
   successGreen: '#1A8245',
   successWash: '#E7F6EC',
-
-  /** Traço de campo inválido e delta negativo. */
   errorRed: '#D33B2C',
   errorWash: '#FDECEA',
 } as const;
 
 export interface ColorScheme {
+  /** Canvas da página — branco puro. */
   readonly background: string;
+  /** Cartão, painel, sidebar — pergaminho. */
   readonly surface: string;
-  readonly surfaceNeutral: string;
-  readonly surfaceTinted: string;
+  /** Superfície dentro de um cartão: chip de valor, linha de lista, campo. */
+  readonly surfaceInner: string;
+  /** Lima cheio — preenchimento de ação primária e de estado selecionado. */
+  readonly surfaceAccent: string;
+  /** Lima diluído — item ativo de navegação, onde o lima cheio competiria. */
+  readonly surfaceAccentSoft: string;
+  /** Ilha escura — dica flutuante. */
+  readonly surfaceInverse: string;
   readonly hairline: string;
   readonly divider: string;
   readonly text: string;
   readonly textBody: string;
   readonly textMuted: string;
   readonly placeholder: string;
+  /** Texto e ícone sobre lima. Tinta, nunca branco: branco sobre lima é 1,4:1. */
+  readonly textOnAccent: string;
+  /** Texto sobre a ilha escura. */
   readonly textOnDark: string;
-  readonly brand: string;
-  readonly brandSecondary: string;
   readonly success: string;
   readonly danger: string;
   readonly disabled: string;
 }
 
 export const colors: ColorScheme = {
-  background: palette.paperWhite,
-  surface: palette.paperWhite,
-  /** Fundo do cartão neutro — usado com moderação; a maioria dos cartões é branca com borda. */
-  surfaceNeutral: palette.mistGray,
-  surfaceTinted: palette.indigoWash,
-  hairline: '#E5E7EB',
-  divider: '#E5E7EB',
+  background: palette.pureWhite,
+  surface: palette.offWhiteCanvas,
+  surfaceInner: palette.pureWhite,
+  surfaceAccent: palette.electricLime,
+  surfaceAccentSoft: palette.limeWash,
+  surfaceInverse: palette.deepCharcoal,
 
-  text: palette.inkBlack,
-  textBody: palette.inkBlack,
-  textMuted: palette.slateGray,
-  placeholder: palette.smokeGray,
-  textOnDark: palette.paperWhite,
+  hairline: palette.ash,
+  divider: palette.ash,
 
-  brand: palette.indigo,
-  brandSecondary: palette.indigoDeep,
+  text: palette.offBlackInk,
+  textBody: palette.offBlackInk,
+  textMuted: palette.graphite,
+  placeholder: palette.graphite,
+  textOnAccent: palette.offBlackInk,
+  textOnDark: palette.offWhiteCanvas,
+
   success: palette.successGreen,
-
-  /** Usado em borda de campo inválido e delta negativo — nunca em texto de leitura corrida. */
+  /** Borda de campo inválido e delta negativo — nunca texto de leitura corrida. */
   danger: palette.errorRed,
-  disabled: '#D1D5DB',
+  disabled: palette.stone,
 };
 
 /**
- * Família tipográfica — uma voz só.
+ * Família tipográfica.
  *
- * O padrão de referência não usa serifada em nenhum momento: título, corpo,
- * número de saldo, tudo na mesma família sans, diferenciada por peso e
- * tamanho. `Inter` cobre isso com a variação de peso que o sistema precisa
- * (400 a 600) e suporte nativo a pt-BR.
+ * O documento prefere `OTSono` e declara Inter como fallback. OTSono não está
+ * disponível no projeto; Inter é o que o app carrega.
+ *
+ * **Dois pesos só.** A §3 proíbe 600 e 700 — o peso 600 foi removido daqui e
+ * do carregamento em `app/_layout.tsx`. Manter a fonte carregada convidaria ao
+ * uso. Ver D2.
  */
 export const fonts = {
   regular: 'Inter_400Regular',
   medium: 'Inter_500Medium',
-  semibold: 'Inter_600SemiBold',
 } as const;
 
-/** Escala tipográfica — uma voz, com hierarquia por peso e tamanho. */
+/**
+ * Escala tipográfica, derivada da tabela da §3.
+ *
+ * Os nomes das variantes são os do sistema anterior — renomeá-los obrigaria a
+ * tocar toda tela sem ganho. `caption` é o "Caption" do documento (com o
+ * tracking de 1.2px que ele pede); `captionBody` é o "Body Small", que é o
+ * texto de apoio corrido e por isso fica com tracking normal.
+ *
+ * `headingLg` para em 34 e `display` em 40: a §3 manda ficar na faixa de
+ * 28–40 em dashboard e reservar 60–90 para tratamento editorial, que nenhuma
+ * tela desta aplicação tem.
+ */
 export const type = {
-  caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18 },
-  captionBody: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19 },
-  body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22 },
-  bodyLg: { fontFamily: fonts.regular, fontSize: 17, lineHeight: 24 },
-  bodyStrong: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22 },
-  subheading: { fontFamily: fonts.medium, fontSize: 17, lineHeight: 24 },
+  eyebrow: { fontFamily: fonts.medium, fontSize: 10, lineHeight: 14, letterSpacing: 1 },
+  caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 16, letterSpacing: 1.2 },
+  captionBody: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 18 },
+  body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24 },
+  bodyLg: { fontFamily: fonts.regular, fontSize: 18, lineHeight: 27 },
+  bodyStrong: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 24 },
+  subheading: { fontFamily: fonts.medium, fontSize: 22, lineHeight: 26 },
 
-  /** Rótulo eyebrow: caixa alta, cinza terciário. Só para etiqueta e categoria. */
-  eyebrow: { fontFamily: fonts.medium, fontSize: 11, lineHeight: 15, letterSpacing: 0.6 },
-
-  headingSm: { fontFamily: fonts.semibold, fontSize: 20, lineHeight: 26, letterSpacing: -0.2 },
-  heading: { fontFamily: fonts.semibold, fontSize: 24, lineHeight: 30, letterSpacing: -0.3 },
-  headingLg: { fontFamily: fonts.semibold, fontSize: 30, lineHeight: 36, letterSpacing: -0.4 },
-  display: { fontFamily: fonts.semibold, fontSize: 38, lineHeight: 44, letterSpacing: -0.6 },
+  headingSm: { fontFamily: fonts.medium, fontSize: 24, lineHeight: 28, letterSpacing: -0.5 },
+  heading: { fontFamily: fonts.medium, fontSize: 28, lineHeight: 32, letterSpacing: -0.56 },
+  headingLg: { fontFamily: fonts.medium, fontSize: 34, lineHeight: 38, letterSpacing: -0.9 },
+  display: { fontFamily: fonts.medium, fontSize: 40, lineHeight: 44, letterSpacing: -1.2 },
 } as const;
 
 /** Escala de 4px. */
@@ -144,7 +173,9 @@ export const space = {
   32: 32,
   40: 40,
   48: 48,
+  60: 60,
   64: 64,
+  72: 72,
   80: 80,
   96: 96,
   124: 124,
@@ -153,40 +184,42 @@ export const space = {
 } as const;
 
 /**
- * Raios nomeados.
+ * Raios nomeados, da tabela da §5.
  *
- * Mais contidos que o sistema anterior — o padrão de referência usa cartão a
- * 12–16px, não 24px, e é isso que faz a superfície branca com borda fina
- * parecer "produto" em vez de "cartão de apresentação".
+ * Bem mais generosos que o sistema anterior (cartão de 12px): é o arredondamento
+ * grande, junto com a ausência de sombra, que dá a leitura de superfície chapada
+ * em vez de "cartão flutuante".
+ *
+ * `buttons` fica em pílula: a §5 aceita "28px ou tratamento de pílula", e a
+ * referência mostra pílula.
  */
 export const radius = {
-  inputs: 10,
-  cards: 12,
-  images: 10,
+  inputs: 8,
+  cards: 28,
+  /** Superfície interna ao cartão. */
+  smallCards: 18,
+  images: 18,
+  elevatedCards: 28,
   buttons: 9999,
-  smallCards: 8,
-  elevatedCards: 14,
   tags: 9999,
 } as const;
 
 /**
  * Elevação.
  *
- * Sombra sutil o bastante para separar cartão de canvas sem pesar — o padrão
- * de referência apoia a separação sobretudo na borda de 1px, e usa sombra só
- * como reforço muito leve.
+ * **Sem sombra por padrão** (§6): a hierarquia vem do contraste tonal entre
+ * canvas branco e cartão pergaminho. A variante `floating` do sistema anterior
+ * foi removida em vez de virar objeto vazio — um token chamado "floating" que
+ * não eleva nada é uma armadilha para o próximo a ler.
+ *
+ * `popover` sobrevive porque o documento abre a exceção justamente para menu
+ * flutuante: o seletor de igreja e a dica da sidebar recolhida precisam se
+ * separar do que está por baixo, e ali a borda sozinha não resolve.
  */
 export const elevation = {
   none: {},
-  floating: {
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
   popover: {
-    shadowColor: '#0F172A',
+    shadowColor: '#14140F',
     shadowOpacity: 0.1,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
@@ -204,8 +237,11 @@ export const layout = {
   pageMaxWidth: 1200,
   sidebarWidth: 240,
   sectionGap: 64,
-  cardPadding: 20,
-  elementGap: 8,
+  /** Linha de lista — o mínimo que o raio de 28px comporta. Ver D3. */
+  cardPadding: 24,
+  /** Cartão de métrica e painel — a faixa que a §8 pede. */
+  panelPadding: 32,
+  elementGap: 16,
 } as const;
 
 export const motion = {

@@ -1,18 +1,22 @@
-import { changeMemberStatus, getMember, updateMember, type Member } from '@congrega/api-client/members';
+import { assignMemberFamily, changeMemberStatus, getMember, updateMember, type Member } from '@congrega/api-client/members';
+import { createFamily, type Family } from '@congrega/api-client/families';
 import { describeError } from '@congrega/api-client/errors';
 import { isProbablyEmail } from '@congrega/core/validation';
 import { Button } from '@congrega/ui/Button';
+import { Chip } from '@congrega/ui/Chip';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { Screen } from '@congrega/ui/Screen';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
+import { TextLink } from '@congrega/ui/TextLink';
 import { useTheme } from '@congrega/ui/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiClient } from '../../../../src/api';
+import { useFamilies } from '../../../../src/useFamilies';
 
 /** Só dígitos, no máximo 11 — o backend guarda sem formatação. */
 function apenasDigitos(valor: string): string {
@@ -62,6 +66,12 @@ export default function EditarMembro() {
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [alternandoStatus, setAlternandoStatus] = useState(false);
+
+  const { familias, recarregar: recarregarFamilias } = useFamilies();
+  const [alterandoFamilia, setAlterandoFamilia] = useState(false);
+  const [mostrandoNovaFamilia, setMostrandoNovaFamilia] = useState(false);
+  const [criandoFamilia, setCriandoFamilia] = useState(false);
+  const nomeNovaFamilia = useRef('');
 
   useEffect(() => {
     let cancelado = false;
@@ -137,6 +147,38 @@ export default function EditarMembro() {
       setErroGeral(describeError(causa));
     } finally {
       setAlternandoStatus(false);
+    }
+  }
+
+  async function escolherFamilia(familyId: string | null) {
+    if (membro === null) return;
+
+    setAlterandoFamilia(true);
+    try {
+      const atualizado = await assignMemberFamily(apiClient, id ?? '', familyId);
+      setMembro(atualizado);
+    } catch (causa) {
+      setErroGeral(describeError(causa));
+    } finally {
+      setAlterandoFamilia(false);
+    }
+  }
+
+  async function criarEVincularFamilia() {
+    const nome = nomeNovaFamilia.current.trim();
+    if (nome.length < 2) return;
+
+    setCriandoFamilia(true);
+    try {
+      const familia = await createFamily(apiClient, nome);
+      recarregarFamilias();
+      await escolherFamilia(familia.id);
+      nomeNovaFamilia.current = '';
+      setMostrandoNovaFamilia(false);
+    } catch (causa) {
+      setErroGeral(describeError(causa));
+    } finally {
+      setCriandoFamilia(false);
     }
   }
 
@@ -236,6 +278,54 @@ export default function EditarMembro() {
             hint="Usada no relatório de aniversariantes"
           />
 
+          <View style={{ gap: theme.space[8] }}>
+            <Text variant="eyebrow" tone="muted">
+              FAMÍLIA
+            </Text>
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space[8] }}>
+              <Chip
+                label="Nenhuma"
+                selected={membro.familyName === null}
+                disabled={alterandoFamilia}
+                onPress={() => void escolherFamilia(null)}
+              />
+              {familias.map((familia: Family) => (
+                <Chip
+                  key={familia.id}
+                  label={familia.name}
+                  selected={familia.name === membro.familyName}
+                  disabled={alterandoFamilia}
+                  onPress={() => void escolherFamilia(familia.id)}
+                />
+              ))}
+            </View>
+
+            {mostrandoNovaFamilia ? (
+              <View style={{ flexDirection: 'row', gap: theme.space[8], alignItems: 'flex-end' }}>
+                <View style={{ flex: 1 }}>
+                  <TextField
+                    label="Nova família"
+                    placeholder="Família Silva"
+                    defaultValue=""
+                    onValueChange={(v) => {
+                      nomeNovaFamilia.current = v;
+                    }}
+                    autoCapitalize="words"
+                    autoFocus
+                  />
+                </View>
+                <Button
+                  label="Criar"
+                  loading={criandoFamilia}
+                  onPress={() => void criarEVincularFamilia()}
+                />
+              </View>
+            ) : (
+              <TextLink label="+ Nova família" onPress={() => setMostrandoNovaFamilia(true)} />
+            )}
+          </View>
+
           {erroGeral !== null && (
             <View
               style={{
@@ -290,3 +380,4 @@ export default function EditarMembro() {
     </Screen>
   );
 }
+

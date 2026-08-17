@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { daysUntil, describeRenewal, formatBirthday, formatDate, formatTime } from './datetime';
+import {
+  daysUntil,
+  describeRenewal,
+  formatBirthday,
+  formatDate,
+  formatTime,
+  monthName,
+  shiftMonth,
+  businessMonthRange,
+} from './datetime';
 
 describe('formatação no fuso de negócio', () => {
   it('formata data e hora em America/Sao_Paulo', () => {
@@ -71,5 +80,84 @@ describe('describeRenewal', () => {
     // e-mail diz "faltam 7 dias" e o app diz outra coisa, a mensagem perde
     // credibilidade justamente no momento de renovar.
     expect(describeRenewal('2026-08-22T12:00:00Z', now)).toBe('Vence em 7 dias');
+  });
+});
+
+describe('shiftMonth', () => {
+  it('anda para frente dentro do mesmo ano', () => {
+    expect(shiftMonth({ year: 2026, month: 3 }, 2)).toEqual({ year: 2026, month: 5 });
+  });
+
+  it('anda para trás dentro do mesmo ano', () => {
+    expect(shiftMonth({ year: 2026, month: 8 }, -3)).toEqual({ year: 2026, month: 5 });
+  });
+
+  it('vira o ano para trás em janeiro', () => {
+    expect(shiftMonth({ year: 2026, month: 1 }, -1)).toEqual({ year: 2025, month: 12 });
+  });
+
+  it('vira o ano para frente em dezembro', () => {
+    expect(shiftMonth({ year: 2026, month: 12 }, 1)).toEqual({ year: 2027, month: 1 });
+  });
+
+  it('atravessa o ano com passo maior que um mês', () => {
+    // O caso que a versão "soma no campo month e corrige com if" erra.
+    expect(shiftMonth({ year: 2026, month: 2 }, -5)).toEqual({ year: 2025, month: 9 });
+    expect(shiftMonth({ year: 2026, month: 11 }, 5)).toEqual({ year: 2027, month: 4 });
+  });
+
+  it('atravessa mais de um ano', () => {
+    expect(shiftMonth({ year: 2026, month: 6 }, 25)).toEqual({ year: 2028, month: 7 });
+    expect(shiftMonth({ year: 2026, month: 6 }, -25)).toEqual({ year: 2024, month: 5 });
+  });
+
+  it('passo zero devolve o mesmo período', () => {
+    expect(shiftMonth({ year: 2026, month: 8 }, 0)).toEqual({ year: 2026, month: 8 });
+  });
+});
+
+describe('monthName', () => {
+  it('nomeia os extremos', () => {
+    expect(monthName(1)).toBe('janeiro');
+    expect(monthName(12)).toBe('dezembro');
+  });
+
+  it('recusa mês fora do intervalo', () => {
+    expect(() => monthName(0)).toThrow(RangeError);
+    expect(() => monthName(13)).toThrow(RangeError);
+  });
+});
+
+describe('businessMonthRange', () => {
+  it('abre o mês na meia-noite de São Paulo, não de UTC', () => {
+    // Meia-noite de 1º de agosto em São Paulo (-03:00) é 03:00 UTC do mesmo
+    // dia. Usar Date.UTC direto começaria a janela três horas cedo demais e
+    // traria eventos do dia 31 do mês anterior.
+    const { from } = businessMonthRange({ year: 2026, month: 8 });
+    expect(from).toBe('2026-08-01T03:00:00.000Z');
+  });
+
+  it('fecha no primeiro instante do mês seguinte', () => {
+    const { to } = businessMonthRange({ year: 2026, month: 8 });
+    expect(to).toBe('2026-09-01T03:00:00.000Z');
+  });
+
+  it('vira o ano em dezembro', () => {
+    const { from, to } = businessMonthRange({ year: 2026, month: 12 });
+    expect(from).toBe('2026-12-01T03:00:00.000Z');
+    expect(to).toBe('2027-01-01T03:00:00.000Z');
+  });
+
+  it('a janela de um mês encosta na do seguinte, sem buraco nem sobreposição', () => {
+    // Semiaberto: o fim de agosto é exatamente o começo de setembro. Um evento
+    // não pode cair entre as duas janelas nem aparecer nas duas.
+    const agosto = businessMonthRange({ year: 2026, month: 8 });
+    const setembro = businessMonthRange({ year: 2026, month: 9 });
+    expect(agosto.to).toBe(setembro.from);
+  });
+
+  it('cobre fevereiro bissexto até o fim', () => {
+    const { to } = businessMonthRange({ year: 2028, month: 2 });
+    expect(to).toBe('2028-03-01T03:00:00.000Z');
   });
 });

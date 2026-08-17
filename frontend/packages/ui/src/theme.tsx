@@ -17,10 +17,11 @@ const theme: Theme = { colors, type, space, radius, elevation, touch, motion, la
 /**
  * Tema do Congrega.
  *
- * **Claro apenas.** O `DESIGN_new.md` define tema claro e proíbe introduzir
- * matiz nova além do par pêssego/sienna — um modo escuro exigiria inventar uma
- * paleta inteira fora da direção. Melhor não ter modo escuro do que ter um que
- * contradiz a marca.
+ * **Claro apenas.** O `docs/07-design-system.md` descreve um sistema de
+ * neutros quentes com um acento só, e reserva o escuro a "ilhas raras". Um
+ * modo escuro exigiria inventar uma paleta inteira fora da direção — e o lima,
+ * que é claro, deixaria de funcionar como acento sobre fundo escuro. Melhor
+ * não ter modo escuro do que ter um que contradiz a marca.
  *
  * O provider existe mesmo com um tema único: mantém o ponto de extensão e evita
  * que cada componente importe os tokens direto, o que tornaria um futuro segundo

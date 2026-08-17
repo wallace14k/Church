@@ -22,8 +22,8 @@ const LARGURA_MOVEL = 480;
 /**
  * Canvas da tela.
  *
- * Branco puro, sempre — o `DESIGN_new.md` é um sistema quase-monocromático, e
- * a página é a superfície mais neutra dele.
+ * Branco puro, sempre — a §2 coloca `#ffffff` como canvas primário, e é o tom
+ * mais claro do sistema que faz o cartão pergaminho aparecer sem sombra.
  *
  * No navegador, telas de fluxo (login, código — sem sidebar ainda, o usuário
  * não está autenticado) ficam centradas numa coluna do tamanho de celular:
@@ -52,8 +52,11 @@ export function Screen({ children, padded = true, wide = false, style }: ScreenP
 
   if (Platform.OS !== 'web' || wide) return conteudo;
 
+  // Moldura em pergaminho, não no cinza da borda: é a mesma inversão de tom do
+  // resto do sistema — a coluna de conteúdo é a superfície clara e o que a
+  // cerca é o tom quente, sem precisar de sombra para separar as duas.
   return (
-    <View style={[styles.molduraWeb, { backgroundColor: theme.colors.divider }]}>{conteudo}</View>
+    <View style={[styles.molduraWeb, { backgroundColor: theme.colors.surface }]}>{conteudo}</View>
   );
 }
 

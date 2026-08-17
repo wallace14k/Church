@@ -6,10 +6,10 @@ export interface EyebrowPillProps {
   readonly label: string;
   /**
    * `neutral` (padrão): só texto em caixa alta, sem fundo — para contagem e
-   * categoria, onde peso visual atrapalharia. `badge`: pílula com borda fina,
-   * o mesmo tratamento que o padrão de referência usa para papel de usuário
-   * ("Admin", "Employee") e etiqueta de estado ("Required") — cinza, não a
-   * cor de acento, porque nem todo estado é uma ênfase editorial.
+   * categoria, onde peso visual atrapalharia. `badge`: pílula com fio de 1px,
+   * o tratamento da referência para etiqueta de estado — em tom neutro, não no
+   * lima, porque nem todo estado é a ênfase da tela e o acento perde força a
+   * cada uso.
    */
   readonly tone?: 'neutral' | 'badge';
 }
@@ -29,10 +29,12 @@ export function EyebrowPill({ label, tone = 'neutral' }: EyebrowPillProps) {
     <View
       style={{
         alignSelf: 'flex-start',
-        backgroundColor: theme.colors.surfaceNeutral,
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: theme.colors.hairline,
         borderRadius: theme.radius.tags,
         paddingVertical: 3,
-        paddingHorizontal: theme.space[8],
+        paddingHorizontal: theme.space[12],
       }}
     >
       <Text variant="captionBody" style={{ color: theme.colors.textMuted }}>

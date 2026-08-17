@@ -19,6 +19,13 @@ export default function MembrosLayout() {
         name="editar/[id]"
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
+      <Stack.Screen name="familias/index" />
+      <Stack.Screen name="familias/[id]" />
+      <Stack.Screen
+        name="familias/nova"
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen name="importar" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
     </Stack>
   );
 }

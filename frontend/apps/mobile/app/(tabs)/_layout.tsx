@@ -6,10 +6,10 @@ import { Platform } from 'react-native';
 /**
  * Navegação principal, pós-login.
  *
- * Só duas abas hoje — Início e Membros — porque só duas áreas existem de
- * verdade. Uma barra com abas desabilitadas ou "em breve" seria pior que uma
- * barra pequena: prometeria navegação que ainda não existe. Financeiro,
- * calendário e Congrega+ ganham aba no dia em que tiverem tela.
+ * Uma aba por área que existe de verdade — hoje Início, Membros e Financeiro.
+ * Aba desabilitada ou "em breve" seria pior que barra pequena: prometeria
+ * navegação que ainda não existe. Calendário e Congrega+ entram no dia em que
+ * tiverem tela.
  */
 export default function TabsLayout() {
   const theme = useTheme();
@@ -18,7 +18,10 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.brand,
+        // Tinta, não o lima: a aba ativa é ícone + rótulo, e lima como cor de
+        // texto sobre a barra clara mede 1,2:1. O contraste entre tinta e
+        // grafite é o que diz qual aba está ativa.
+        tabBarActiveTintColor: theme.colors.text,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
@@ -34,8 +37,8 @@ export default function TabsLayout() {
         },
         tabBarLabelStyle: {
           fontFamily: theme.type.eyebrow.fontFamily,
-          fontSize: 10,
-          letterSpacing: 0.6,
+          fontSize: theme.type.eyebrow.fontSize,
+          letterSpacing: theme.type.eyebrow.letterSpacing,
           marginTop: 2,
         },
       }}
@@ -52,6 +55,22 @@ export default function TabsLayout() {
         options={{
           title: 'Membros',
           tabBarIcon: ({ color, size }) => <Feather name="users" size={size - 3} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="agenda"
+        options={{
+          title: 'Agenda',
+          tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size - 3} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="financeiro"
+        options={{
+          title: 'Financeiro',
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="trending-up" size={size - 3} color={color} />
+          ),
         }}
       />
     </Tabs>

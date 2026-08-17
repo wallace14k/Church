@@ -53,27 +53,6 @@ internal sealed class MemberConfiguration : IEntityTypeConfiguration<Member>
     }
 }
 
-internal sealed class FamilyRow
-{
-    public long Id { get; init; }
-    public Guid PublicId { get; init; }
-    public long TenantId { get; init; }
-    public string Name { get; init; } = string.Empty;
-}
-
-internal sealed class FamilyConfiguration : IEntityTypeConfiguration<FamilyRow>
-{
-    public void Configure(EntityTypeBuilder<FamilyRow> builder)
-    {
-        builder.ToTable("families");
-        builder.HasKey(f => f.Id);
-        builder.Property(f => f.Id).HasColumnName("id").UseIdentityAlwaysColumn();
-        builder.Property(f => f.PublicId).HasColumnName("public_id");
-        builder.Property(f => f.TenantId).HasColumnName("tenant_id");
-        builder.Property(f => f.Name).HasColumnName("name").HasMaxLength(200);
-    }
-}
-
 internal sealed class MemberRepository(CongregaDbContext db, TimeProvider timeProvider) : IMemberRepository
 {
     public async Task<PagedResult<MemberListItem>> ListAsync(
@@ -145,7 +124,7 @@ internal sealed class MemberRepository(CongregaDbContext db, TimeProvider timePr
                 m.Phone,
                 m.BirthDate,
                 m.Status,
-                FamilyName = db.Set<FamilyRow>()
+                FamilyName = db.Families
                     .Where(f => f.Id == m.FamilyId)
                     .Select(f => f.Name)
                     .FirstOrDefault(),
@@ -178,6 +157,17 @@ internal sealed class MemberRepository(CongregaDbContext db, TimeProvider timePr
 
     public Task<int> CountActiveAsync(CancellationToken cancellationToken) =>
         db.Members.CountAsync(m => m.Status == MemberStatus.Ativo, cancellationToken);
+
+    public async Task<IReadOnlySet<string>> ListEmailsAsync(CancellationToken cancellationToken)
+    {
+        var emails = await db.Members
+            .AsNoTracking()
+            .Where(m => m.Email != null)
+            .Select(m => m.Email!)
+            .ToListAsync(cancellationToken);
+
+        return emails.Select(e => e.ToLowerInvariant()).ToHashSet();
+    }
 
     public void Add(Member member) => db.Members.Add(member);
 

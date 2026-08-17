@@ -119,3 +119,46 @@ export function changeMemberStatus(client: ApiClient, id: string, status: Member
     body: { status },
   });
 }
+
+/** `familyId: null` desvincula o membro de qualquer família. */
+export function assignMemberFamily(
+  client: ApiClient,
+  id: string,
+  familyId: string | null,
+): Promise<Member> {
+  return client.request<Member>(`/api/v1/members/${id}/family`, {
+    method: 'PUT',
+    body: { familyId },
+  });
+}
+
+/** Uma linha de planilha já mapeada para os campos do cadastro. */
+export interface ImportMemberRow {
+  readonly fullName: string;
+  readonly email?: string;
+  readonly phone?: string;
+  readonly birthDate?: string;
+  readonly addressCity?: string;
+}
+
+export interface ImportRowIssue {
+  /** Posição na lista enviada, 1-based — a mesma numeração mostrada na tela. */
+  readonly row: number;
+  readonly reason: string;
+}
+
+export interface ImportMembersResult {
+  readonly imported: number;
+  readonly skipped: number;
+  readonly issues: readonly ImportRowIssue[];
+}
+
+export function importMembers(
+  client: ApiClient,
+  rows: readonly ImportMemberRow[],
+): Promise<ImportMembersResult> {
+  return client.request<ImportMembersResult>('/api/v1/members/import', {
+    method: 'POST',
+    body: { rows },
+  });
+}

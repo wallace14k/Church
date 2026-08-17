@@ -1,10 +1,5 @@
 import { ThemeProvider } from '@congrega/ui/theme';
-import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  useFonts as useInter,
-} from '@expo-google-fonts/inter';
+import { Inter_400Regular, Inter_500Medium, useFonts as useInter } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
@@ -16,9 +11,11 @@ export default function RootLayout() {
   // React Native cair na fonte do sistema em silêncio — sem erro no console, e a
   // identidade visual simplesmente não aparece.
   //
-  // Uma família só (Inter), do corpo ao título — o padrão de referência não usa
-  // serifada em nenhum momento.
-  const [fontesProntas] = useInter({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold });
+  // Uma família só (Inter), do corpo ao título, em DOIS pesos: a §3 do design
+  // system admite 400 e 500 e proíbe 600 e 700. O peso 600 foi removido daqui
+  // junto com os tokens — deixá-lo carregado só convidaria alguém a usá-lo, e
+  // `tokens.test.ts` falha se ele reaparecer na escala.
+  const [fontesProntas] = useInter({ Inter_400Regular, Inter_500Medium });
 
   return (
     <SafeAreaProvider>
@@ -40,7 +37,10 @@ export default function RootLayout() {
               backgroundColor: '#FFFFFF',
             }}
           >
-            <ActivityIndicator color="#171923" />
+            {/* Literais, e não tokens: este ramo existe justamente enquanto o
+                app ainda está montando, antes do provider de tema. Os valores
+                são `palette.pureWhite` e `palette.offBlackInk`. */}
+            <ActivityIndicator color="#14140F" />
           </View>
         )}
       </ThemeProvider>

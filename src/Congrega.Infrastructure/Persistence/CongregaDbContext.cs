@@ -1,11 +1,14 @@
 using System.Text.Json;
 using Congrega.Application.Abstractions;
 using Congrega.Domain.Billing;
+using Congrega.Domain.Calendar;
 using Congrega.Domain.Common;
 using Congrega.Domain.Congregation;
+using Congrega.Domain.Giving;
 using Congrega.Domain.Identity;
 using Congrega.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Congrega.Infrastructure.Persistence;
 
@@ -39,7 +42,13 @@ public sealed class CongregaDbContext(
     internal DbSet<Role> Roles => Set<Role>();
     internal DbSet<Permission> Permissions => Set<Permission>();
     internal DbSet<Subscription> Subscriptions => Set<Subscription>();
+    internal DbSet<Payment> Payments => Set<Payment>();
+    internal DbSet<Entitlement> Entitlements => Set<Entitlement>();
     internal DbSet<Member> Members => Set<Member>();
+    internal DbSet<Family> Families => Set<Family>();
+    internal DbSet<GivingCategory> GivingCategories => Set<GivingCategory>();
+    internal DbSet<GivingEntry> GivingEntries => Set<GivingEntry>();
+    internal DbSet<CalendarEvent> Events => Set<CalendarEvent>();
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     /// <summary>
@@ -107,21 +116,80 @@ public sealed class CongregaDbContext(
                 tenantContext.IsCrossTenantOperation ||
                 m.TenantId == tenantContext.TenantId);
 
+        modelBuilder.Entity<Family>()
+            .HasQueryFilter(f =>
+                tenantContext.IsCrossTenantOperation ||
+                f.TenantId == tenantContext.TenantId);
+
+        modelBuilder.Entity<GivingCategory>()
+            .HasQueryFilter(c =>
+                tenantContext.IsCrossTenantOperation ||
+                c.TenantId == tenantContext.TenantId);
+
+        modelBuilder.Entity<GivingEntry>()
+            .HasQueryFilter(e =>
+                tenantContext.IsCrossTenantOperation ||
+                e.TenantId == tenantContext.TenantId);
+
+        modelBuilder.Entity<CalendarEvent>()
+            .HasQueryFilter(e =>
+                tenantContext.IsCrossTenantOperation ||
+                e.TenantId == tenantContext.TenantId);
+
         modelBuilder.Entity<Subscription>()
             .HasQueryFilter(s =>
                 tenantContext.IsCrossTenantOperation ||
                 tenantContext.TenantId == null ||
                 s.TenantId == tenantContext.TenantId ||
                 s.UserId == tenantContext.UserId);
+
+        // Mesma forma da assinatura, e pela mesma razão: o pagamento pode ser da
+        // igreja (B2B) ou da pessoa (B2C, sem tenant nenhum). Filtrar só por
+        // tenant esconderia do assinante Congrega+ o próprio pagamento — e ele
+        // é cidadão de primeira classe do produto, não caso degenerado.
+        modelBuilder.Entity<Payment>()
+            .HasQueryFilter(p =>
+                tenantContext.IsCrossTenantOperation ||
+                tenantContext.TenantId == null ||
+                p.TenantId == tenantContext.TenantId ||
+                p.UserId == tenantContext.UserId);
+
+        // Entitlement é do USUÁRIO, nunca da igreja: o direito de acesso viaja
+        // com a pessoa mesmo que ela troque de igreja ou saia de todas.
+        modelBuilder.Entity<Entitlement>()
+            .HasQueryFilter(e =>
+                tenantContext.IsCrossTenantOperation ||
+                tenantContext.UserId == null ||
+                e.UserId == tenantContext.UserId);
     }
 
     /// <summary>
     /// Persiste e publica, atomicamente.
     /// </summary>
+    /// <remarks>
+    /// Traduz violação de unicidade do provedor para
+    /// <see cref="UniqueConstraintViolationException"/>. Sem isso, a única forma
+    /// de a borda responder "esse nome já existe" seria referenciar EF Core e
+    /// Npgsql no projeto de API — detalhe de persistência atravessando duas
+    /// camadas para chegar a um <c>catch</c>.
+    /// </remarks>
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         DrainDomainEventsToOutbox();
-        return await base.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+        {
+            // 23505 = unique_violation. O código é estável; a mensagem muda com
+            // o idioma configurado no servidor.
+            SqlState: "23505"
+        } pg)
+        {
+            throw new UniqueConstraintViolationException(pg.ConstraintName ?? "desconhecida", ex);
+        }
     }
 
     Task<int> IUnitOfWork.SaveChangesAsync(CancellationToken cancellationToken) =>

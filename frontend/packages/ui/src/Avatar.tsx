@@ -8,15 +8,19 @@ export interface AvatarProps {
 }
 
 /**
- * Tons pastel só para o avatar — a única exceção documentada à disciplina
- * quase-monocromática do `DESIGN_new.md`. O próprio guia descreve o "Avatar
- * Bubble" com fundo "tinted (light green for JB, light blue for AF)": com
- * dezenas de membros na lista, precisar diferenciar pessoas de relance importa
- * mais do que a regra de cor única — o mesmo motivo pelo qual produtos como
- * Linear e Notion abrem exceção de cor só para avatar. Nenhum destes tons
- * aparece em nenhum outro componente do sistema.
+ * Lavagens do avatar — a única exceção à disciplina de uma voz cromática só.
+ *
+ * Com centenas de membros numa lista, diferenciar pessoas de relance vale mais
+ * do que a regra de cor única; é o mesmo motivo pelo qual produtos como Linear
+ * e Notion abrem exceção de cor exatamente aqui.
+ *
+ * Os tons pastel frios do sistema anterior (azul, lilás) foram trocados por
+ * uma família quente na órbita do pergaminho e do lima: sob um canvas quente,
+ * um avatar azul-claro é a única coisa fria da tela e chama mais atenção que o
+ * botão primário. Todos são claros o bastante para a tinta passar de 12:1 em
+ * cima, e nenhum aparece em qualquer outro componente.
  */
-const WASHES = ['#DCEFE0', '#DCE7F7', '#F1E4F5', '#FBEFD2'] as const;
+const WASHES = ['#DFF0B8', '#E4E0CF', '#D9E6DF', '#EFDFD0'] as const;
 
 /**
  * Iniciais sobre lavagem pastel, no lugar de foto.

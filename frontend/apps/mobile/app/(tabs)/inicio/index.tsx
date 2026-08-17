@@ -6,6 +6,7 @@ import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { StatCard } from '@congrega/ui/StatCard';
 import { Screen } from '@congrega/ui/Screen';
 import { Text } from '@congrega/ui/Text';
+import { TextLink } from '@congrega/ui/TextLink';
 import { useTheme } from '@congrega/ui/theme';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -114,17 +115,11 @@ export default function Inicio() {
               <View style={{ gap: theme.space[12] }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Text variant="subheading">Aniversariantes de {MESES[agora.getMonth()]}</Text>
-                  <Pressable
-                    onPress={() => router.push('/inicio/aniversariantes')}
-                    accessibilityRole="button"
+                  <TextLink
+                    label="Ver todos"
                     accessibilityLabel="Ver todos os aniversariantes do mês"
-                    hitSlop={8}
-                    style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-                  >
-                    <Text variant="captionBody" style={{ color: theme.colors.brand }}>
-                      Ver todos
-                    </Text>
-                  </Pressable>
+                    onPress={() => router.push('/inicio/aniversariantes')}
+                  />
                 </View>
 
                 <View style={{ gap: theme.space[8] }}>
@@ -143,7 +138,11 @@ export default function Inicio() {
                           gap: theme.space[12],
                           padding: theme.space[12],
                           borderRadius: theme.radius.smallCards,
-                          backgroundColor: theme.colors.surfaceNeutral,
+                          // Superfície interna: branca sobre o canvas, no mesmo
+                          // tratamento do chip de valor da referência.
+                          backgroundColor: theme.colors.surfaceInner,
+                          borderWidth: 1,
+                          borderColor: theme.colors.hairline,
                         }}
                       >
                         <Avatar name={membro.fullName} size={40} />

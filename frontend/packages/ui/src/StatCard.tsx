@@ -12,18 +12,22 @@ export interface StatCardProps {
 }
 
 /**
- * "Stat Card with Chart" do `DESIGN_new.md`, na versão sem gráfico: um
- * número que importa, Sohne (Inter) em vez de Signifier — a serifada é só
- * para título editorial, nunca para dado — com o rótulo que diz o que ele
- * conta logo abaixo, em cinza auxiliar.
+ * Cartão de métrica da §8: **valor grande, rótulo curto, espaçamento interno
+ * generoso** — e nada mais. O documento é explícito ao pedir para não encher
+ * cada cartão de ícone e decoração, então o `icon` continua opcional e a
+ * maioria das chamadas não o passa.
+ *
+ * É aqui que o `panelPadding` de 32px aparece, em vez do padding de linha de
+ * lista do `Card`: um número que importa precisa de respiro para carregar o
+ * peso que a hierarquia lhe dá.
  */
 export function StatCard({ value, label, icon, style }: StatCardProps) {
   const theme = useTheme();
 
   return (
-    <Card style={[{ flex: 1, gap: theme.space[4] }, style]}>
-      {icon !== undefined && <View style={{ marginBottom: theme.space[4] }}>{icon}</View>}
-      <Text variant="subheading">{value}</Text>
+    <Card style={[{ flex: 1, gap: theme.space[4], padding: theme.layout.panelPadding }, style]}>
+      {icon !== undefined && <View style={{ marginBottom: theme.space[8] }}>{icon}</View>}
+      <Text variant="headingSm">{value}</Text>
       <Text variant="captionBody" tone="muted">
         {label}
       </Text>

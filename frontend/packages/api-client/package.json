@@ -11,7 +11,10 @@
     "./errors": "./src/errors.ts",
     "./token-storage.native": "./src/token-storage.native.ts",
     "./token-storage.web": "./src/token-storage.web.ts",
-    "./members": "./src/members.ts"
+    "./members": "./src/members.ts",
+    "./families": "./src/families.ts",
+    "./giving": "./src/giving.ts",
+    "./events": "./src/events.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

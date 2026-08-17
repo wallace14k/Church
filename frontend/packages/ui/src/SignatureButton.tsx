@@ -13,14 +13,18 @@ export interface SignatureButtonProps {
 /**
  * Botão de ação primária.
  *
- * Pílula preenchida em índigo — a cor de marca do padrão de referência (o
- * "Send" azul-arroxeado do dashboard, o "Submit Application" do formulário).
- * É o elemento de maior peso visual da interface: **use no máximo um por
- * tela**, senão duas ações competem pela mesma atenção e nenhuma vence.
+ * Pílula preenchida em **lima elétrico com texto em tinta** — o único acento
+ * cromático do sistema, e a única ação que o usa cheio. É o elemento de maior
+ * peso visual da interface: **use no máximo um por tela**, senão duas ações
+ * competem pela mesma atenção e nenhuma vence.
  *
- * Mantém o nome do componente (era a assinatura em latão do sistema Portrait,
- * depois o preenchimento em tinta do Steep) porque o papel é sempre o mesmo —
- * a ação primária da tela — independente de qual sistema visual está em vigor.
+ * O texto é tinta, nunca branco: o lima é claro (luminância 0,83), e branco
+ * sobre ele mede 1,4:1. A tinta mede 15,5:1. O `ActivityIndicator` segue a
+ * mesma regra — um indicador branco sobre lima sumiria justamente enquanto o
+ * usuário espera para saber se a ação foi aceita.
+ *
+ * Mantém o nome do componente porque o papel é sempre o mesmo — a ação
+ * primária da tela — independente de qual sistema visual está em vigor.
  * Renomear a cada troca obrigaria a tocar toda tela sem ganho real.
  */
 export function SignatureButton({
@@ -45,17 +49,17 @@ export function SignatureButton({
         {
           minHeight: theme.touch.comfortable,
           borderRadius: theme.radius.buttons,
-          paddingHorizontal: theme.space[20],
-          backgroundColor: theme.colors.brand,
+          paddingHorizontal: theme.space[24],
+          backgroundColor: theme.colors.surfaceAccent,
           opacity: inativo ? 0.45 : pressed ? 0.8 : 1,
         },
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={theme.colors.textOnDark} />
+        <ActivityIndicator color={theme.colors.textOnAccent} />
       ) : (
-        <Text variant="bodyStrong" tone="onDark">
+        <Text variant="bodyStrong" tone="onAccent">
           {label}
         </Text>
       )}

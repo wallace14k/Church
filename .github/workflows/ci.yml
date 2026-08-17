@@ -1,0 +1,197 @@
+name: CI
+
+# Roda em todo push e em todo PR para main. O objetivo é simples: nada entra
+# na main sem compilar limpo, passar nos testes e sobreviver à análise de
+# segurança.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+# Cancela execuções antigas do mesmo branch. Sem isso, uma sequência de pushes
+# enfileira builds que já nasceram obsoletos e atrasam o feedback do último.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Padrão de menor privilégio. O CodeQL precisa de `security-events: write` para
+# publicar o SARIF; o resto é leitura.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: .NET — build e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # Espelha o TargetFramework de Directory.Build.props. Divergir aqui
+          # faria o CI validar um runtime que ninguém usa.
+          dotnet-version: '10.0.x'
+
+      - name: Restaurar
+        run: dotnet restore Congrega.sln
+
+      - name: Compilar
+        # `TreatWarningsAsErrors` já está ligado no projeto; `--no-restore`
+        # garante que o restore acima foi suficiente, e não mascara um pacote
+        # faltando com uma resolução implícita.
+        run: dotnet build Congrega.sln --configuration Release --no-restore
+
+      - name: Testes de domínio e aplicação
+        run: |
+          dotnet test tests/Congrega.Domain.UnitTests/Congrega.Domain.UnitTests.csproj \
+            --configuration Release --no-build --logger "trx;LogFileName=domain.trx"
+          dotnet test tests/Congrega.Application.UnitTests/Congrega.Application.UnitTests.csproj \
+            --configuration Release --no-build --logger "trx;LogFileName=application.trx"
+
+      - name: Testes de integração (Testcontainers)
+        # Precisam de Docker, que o runner do GitHub já oferece. São eles que
+        # provam o isolamento cross-tenant com RLS real — o portão de saída da
+        # Onda 1. Rodar só os unitários deixaria passar justamente a falha que
+        # mais custa.
+        run: |
+          dotnet test tests/Congrega.Infrastructure.IntegrationTests/Congrega.Infrastructure.IntegrationTests.csproj \
+            --configuration Release --no-build --logger "trx;LogFileName=integration.trx"
+
+      - name: Publicar resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-dotnet
+          path: '**/TestResults/*.trx'
+          retention-days: 7
+
+  frontend:
+    name: Frontend — typecheck e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          # Fixado em 24 LTS, como o commit d918576 do repositório definiu.
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependências
+        # `npm ci` e não `npm install`: respeita o lockfile e falha se ele
+        # estiver dessincronizado do package.json, que é exatamente o erro que
+        # não se quer descobrir só no deploy.
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck --workspaces
+
+      - name: Testes
+        # O app não tem script de teste (só os pacotes têm); sem
+        # --if-present o workspace do app derruba o job por script ausente.
+        run: npm run test --workspaces --if-present
+
+  sast:
+    name: SAST — CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # `csharp` cobre a API, o domínio e a infraestrutura;
+        # `javascript-typescript` cobre o monorepo do frontend.
+        language: ['csharp', 'javascript-typescript']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar .NET
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Inicializar CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # `security-extended` acrescenta as consultas de qualidade com
+          # impacto em segurança que o conjunto padrão deixa de fora.
+          queries: security-extended
+
+      - name: Compilar C#
+        if: matrix.language == 'csharp'
+        run: dotnet build Congrega.sln --configuration Release
+
+      - name: Analisar
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
+
+  dependencias:
+    name: Dependências vulneráveis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Pacotes NuGet vulneráveis
+        # `--include-transitive`: a vulnerabilidade quase nunca está no pacote
+        # que se escolheu, e sim três níveis abaixo dele.
+        run: |
+          dotnet restore Congrega.sln
+          dotnet list Congrega.sln package --vulnerable --include-transitive 2>&1 | tee nuget-audit.txt
+          # O comando sai com 0 mesmo achando vulnerabilidade — ele lista, não
+          # julga. Sem esta checagem no texto, o job passaria verde sempre.
+          if grep -qi "has the following vulnerable packages" nuget-audit.txt; then
+            echo "::error::Pacotes NuGet com vulnerabilidade conhecida. Veja nuget-audit.txt."
+            exit 1
+          fi
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Pacotes npm vulneráveis
+        working-directory: frontend
+        # Duas etapas, de propósito.
+        #
+        # O gate que BLOQUEIA é `critical` sobre dependências de produção. As 14
+        # vulnerabilidades `high` de hoje vêm todas da cadeia de build do Expo
+        # (`metro`, `@expo/cli`, `xcode`, via `image-size`) — ferramenta que roda
+        # na máquina de quem builda, não código que chega ao bundle do aparelho.
+        # Bloquear nelas deixaria o CI vermelho desde o primeiro dia e treinaria
+        # a equipe a ignorar o job inteiro, que é pior do que não ter o job.
+        #
+        # O relatório completo continua sendo impresso e publicado: a dívida fica
+        # visível em vez de suprimida. Ver o item aberto em TODO.md.
+        run: |
+          npm ci
+          echo "--- Relatório completo (não bloqueia) ---"
+          npm audit --audit-level=high || true
+          echo "--- Gate: critical em dependências de produção ---"
+          npm audit --omit=dev --audit-level=critical

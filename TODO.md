@@ -22,7 +22,28 @@
       criado do zero tem a mesma contagem de tabelas, policies, índices, funções e
       checks que o banco de desenvolvimento. `db/005_baseline_aplicado.sql` adota
       bancos existentes sem reexecutar o DDL.
-- [ ] CI: build, teste, lint e SAST em pipeline
+- [ ] **CI: build, teste, lint e SAST em pipeline** — `.github/workflows/ci.yml`
+      escrito, com quatro jobs: `backend` (build Release + unitários +
+      Testcontainers), `frontend` (typecheck + testes), `sast` (CodeQL em
+      `csharp` e `javascript-typescript`, conjunto `security-extended`) e
+      `dependencias` (NuGet + npm).
+      **Continua aberto porque o workflow em si nunca rodou** — só executa no
+      primeiro push, e a regra deste arquivo não deixa marcar o que não foi
+      executado. O que *foi* verificado localmente, comando por comando: build
+      Release limpo, os 160 testes em Release, `dotnet list package
+      --vulnerable` (nenhum), typecheck dos 4 pacotes, e `npm run test
+      --workspaces --if-present` (o `--if-present` é necessário: o app não tem
+      script de teste e derrubaria o job sem ele).
+      Achado no caminho: `dotnet list package --vulnerable` **sai com código 0
+      mesmo achando vulnerabilidade** — ele lista, não julga. Sem a checagem no
+      texto da saída, o job passaria verde para sempre.
+- [ ] **Dívida: 14 vulnerabilidades `high` no npm**, todas da cadeia de build do
+      Expo (`metro`, `@expo/cli`, `xcode`, via `image-size`) — ferramenta de
+      quem builda, não código que chega ao bundle. O gate do CI bloqueia em
+      `critical` sobre dependências de produção e **imprime** as `high` sem
+      bloquear: travar nelas deixaria o CI vermelho desde o dia 1 e treinaria a
+      equipe a ignorar o job, que é pior do que não ter o job. Reavaliar quando
+      o Expo publicar as correções.
 - [x] **Testes de integração com Testcontainers** — `Congrega.Infrastructure.IntegrationTests`,
       Postgres 17 real em container, migrado pelo mesmo `Database.MigrateAsync()` da produção
 - [x] **Teste que prova o isolamento cross-tenant** com o Global Query Filter desligado —
@@ -93,7 +114,27 @@
       os campos e some da listagem padrão só depois de inativar, `status=Todos`
       continua mostrando; status inválido dá 400, membro inexistente dá 404.
       8 testes novos de domínio (`MemberTests`).
-- [ ] Famílias: agrupar membros, tela de família
+- [x] **Famílias: agrupar membros, tela de família** — domínio `Family` (novo
+      agregado; a tabela já existia com RLS, só nunca fora mapeada — antes havia
+      apenas `FamilyRow`, uma projeção somente-leitura). `IFamilyRepository` +
+      `FamilyRepository`; API: `GET/POST /api/v1/families`, `GET
+      /api/v1/families/{id}` (detalhe com membros), `PUT
+      /api/v1/members/{id}/family` (vincula/desvincula, `familyId: null`
+      remove). Migration `FamilyEntityMapping` tem corpo vazio de propósito —
+      `created_at`/`updated_at`/a constraint de unicidade já existiam na tabela
+      física (criados por `db/002_members.sql` antes de existir timeline), então
+      o `Up` gerado pela ferramenta tentava recriá-los; mesmo descompasso já
+      documentado na `BaselineSchema`. Corrigido no caminho: `GetAsync`,
+      `UpdateAsync` e `ChangeStatusAsync` de membro nunca preenchiam
+      `familyName` na resposta — a ficha do membro já lia esse campo e sempre
+      mostrava vazio; um bug real, não hipotético, só visível testando contra a
+      API de verdade. Tela: lista de famílias com contagem de membros, ficha de
+      família com a lista de membros, cadastro; seletor de família (pílulas,
+      com opção de criar nova inline) na tela de editar membro. 5 testes novos
+      de domínio (`FamilyTests`). Verificado contra PostgreSQL real: criar
+      família, vincular membro, contagem atualiza, ficha de família lista o
+      membro, `familyName` propaga para listagem e ficha individual,
+      desvincular limpa o campo, família/membro inexistente dá 404.
 - [x] **Aniversariantes do mês** — tela própria (`inicio/aniversariantes.tsx`),
       empilhada sobre o painel de início na mesma pilha ("ver todos" no card do
       painel). Ordenação corrigida no caminho: `MemberRepository.ListAsync`
@@ -103,17 +144,117 @@
       de propósito para divergir da ordem alfabética ("Abel", dia 30, aparece por
       último; "Zulmira", dia 28, aparece antes dele) — não é coincidência de
       alfabeto batendo com data.
-- [ ] Importar lista de membros de planilha — é o primeiro dia de uso de toda igreja
+- [x] **Importar lista de membros de planilha** — CSV apenas, com mapeamento de
+      colunas na tela (o usuário sobe a planilha que já tem, sem precisar
+      adequar cabeçalhos a um modelo). `POST /api/v1/members/import` recebe
+      linhas já mapeadas — o backend não sabe nem precisa saber qual coluna
+      original virou o quê. Duplicado (mesmo e-mail já cadastrado no tenant,
+      contra o banco ou dentro do próprio lote) é pulado e reportado, não
+      atualiza o existente — decisão explícita, para não sobrescrever cadastro
+      por engano. `IMemberRepository.ListEmailsAsync` faz uma consulta para o
+      lote inteiro em vez de uma por linha. Teto de 500 linhas por chamada
+      (`MemberEndpoints.MaxImportRows`), espelhado no cliente antes mesmo de
+      enviar. Parser de CSV escrito à mão em `@congrega/core/csv` (aspas,
+      vírgula/ponto e vírgula dentro de campo, quebra de linha dentro de
+      campo, BOM, CRLF) — 10 testes. Tela em três passos: selecionar arquivo
+      (`expo-document-picker`, novo) → mapear colunas com sugestão automática
+      por nome de cabeçalho → prévia e relatório de linhas puladas com o
+      motivo. Verificado contra PostgreSQL real: lote com nome vazio,
+      nascimento futuro, e-mail duplicado dentro do lote e e-mail já existente
+      no tenant — cada um rejeitado com o motivo certo, o resto importado;
+      lote vazio dá 400.
 
 ### Financeiro
-- [ ] Tabelas de lançamentos e categorias
-- [ ] Domínio de contribuição, em centavos, com FK `RESTRICT` para membro
-- [ ] API de lançamento e listagem
-- [ ] Telas: lançar, listar, fechar o mês
-- [ ] Relatório de fechamento por categoria
+- [x] **Tabelas de lançamentos e categorias** — `db/006_financeiro.sql`, aplicado
+      pela migration `FinanceiroSchema`. O corpo gerado pela ferramenta foi
+      substituído pelo DDL, mesmo motivo da `BaselineSchema`: ele criava as duas
+      tabelas **sem** RLS, sem os `CHECK` e sem as FK `RESTRICT`, com aparência de
+      estar completo. Verificado contra o banco real (`\d giving_entries`) e, o
+      que importa mais, contra um Postgres **novo** pelos testes de
+      Testcontainers, que rodam todas as migrations do zero.
+- [x] **Domínio de contribuição, em centavos, com FK `RESTRICT` para membro** —
+      `GivingCategory` e `GivingEntry`. A decisão que organiza o módulo: **o
+      sinal do dinheiro mora na categoria, nunca no valor**. Todo lançamento
+      guarda centavos positivos (`CHECK amount_cents > 0`, verificado direto no
+      banco) e é o `kind` da categoria que decide se soma ou subtrai. Permitir
+      valor negativo criaria duas representações de "saída" e, algum dia, as
+      duas apareceriam somadas no mesmo relatório. `RESTRICT` para membro por
+      ADR-015, e também para categoria — apagar "Aluguel" faria doze meses de
+      aluguel deixarem de somar em qualquer lugar (recusa confirmada no banco).
+      Data futura é recusada: em livro-caixa é erro de digitação de ano, e sem a
+      barreira o lançamento sai do fechamento sem ninguém notar. 17 testes novos.
+- [x] **API de lançamento e listagem** — `GET/POST /api/v1/giving/categories`,
+      `PUT /categories/{id}`, `GET/POST /entries`, `DELETE /entries/{id}`,
+      `GET /closing`. Categoria repetida vira 409 pela constraint
+      `uq_giving_categories_tenant_nome` (funcional, sobre `lower(name)`), não
+      por `if (!existe)` — verificado: "dizimo" colide com "Dizimo". A tradução
+      de `unique_violation` para `UniqueConstraintViolationException` acontece na
+      Infrastructure; sem isso o projeto de API precisaria referenciar EF Core e
+      Npgsql só para escrever um `catch`.
+- [x] **Policy `Giving.Read` criada** — só a `Giving.Write` existia, e sem ela
+      não havia como expor leitura do caixa. **A segregação de funções foi
+      verificada de verdade, não presumida:** com o papel `Treasurer` removido
+      da membership, o mesmo usuário lê fechamento e lançamentos (200) e recebe
+      **403** ao lançar, criar categoria ou apagar — que é exatamente o que o
+      seed sempre prometeu (`ChurchAdmin` só tem `giving.read`) e nunca havia
+      sido exercitado. Papel restaurado ao fim.
+- [x] **Telas: lançar, listar, fechar o mês** — aba Financeiro nova (barra de
+      abas no celular, sidebar no web). Listagem por mês com navegação de
+      período, resumo de entradas/saídas/saldo no topo e exclusão de lançamento
+      digitado por engano; modal de lançamento com pílulas de categoria e forma
+      de pagamento; tela de categorias (criar, desativar, reativar). Valor
+      digitado passa por `parseBRL` — centavos inteiros do campo até o banco,
+      nunca `float`.
+- [x] **Relatório de fechamento por categoria** — agrupado **no banco**
+      (`GroupBy` traduzido para SQL), não em memória: é a consulta que cresce
+      todo mês. Conferido contra agregação SQL direta, valor a valor
+      (`10050 + 8735 = 18785`; `18785 − 120000 = −101215`). Saldo negativo é
+      tratado como informação, não erro, e aparece em vermelho.
+- [x] **Vincular lançamento a membro na tela** — `SeletorDeMembro` busca por
+      nome/e-mail/telefone com debounce e cancelamento da requisição anterior
+      (senão a resposta de "jo" chega depois da de "joão" e substitui a lista).
+      Só consulta a partir de 2 letras: sem esse piso, abrir o formulário
+      dispararia uma busca de membros no caminho mais comum — o da oferta sem
+      doador identificado, que é `null` por projeto, não por formulário
+      incompleto. **Bug real achado ao testar:** o `POST /entries` devolvia
+      `memberName: null` mesmo com membro vinculado — a listagem mostrava o
+      nome, a resposta da criação não. Mesma classe do descuido de `familyName`
+      já corrigido em membros; qualquer cliente que renderizasse a resposta do
+      POST exibiria o lançamento como anônimo. Corrigido e verificado nos dois
+      caminhos (com membro devolve o nome, sem membro devolve `null`); membro
+      inexistente dá 404.
+- [ ] Travar período fechado, com estorno em vez de exclusão — hoje o
+      "fechamento" é relatório, não estado: nada impede editar um mês já
+      prestado. É contabilidade de verdade e está na Fase 2 (doc 05)
 
 ### Calendário e células
-- [ ] Eventos: tabela, domínio, API, tela
+- [x] **Eventos: tabela, domínio, API, tela** — `db/007_eventos.sql` +
+      migration `EventosSchema` (DDL, não corpo gerado: RLS, o
+      `CHECK (ends_at > starts_at)` e o índice da agenda são inexprimíveis no
+      modelo). Domínio `CalendarEvent` — nome escolhido porque o analisador
+      recusa o tipo `Event`, e com razão: o projeto já tem *eventos de domínio*,
+      e as duas coisas juntas seriam ambíguas em toda leitura.
+      **Sem recorrência, decidido e documentado:** RRULE + exceções +
+      materialização + horário de verão não é "barato de construir", que é a
+      justificativa com que o doc 05 pôs o calendário no MVP. O que a Onda 4
+      precisa é de uma ocorrência concreta para ancorar o check-in, e isso a
+      tabela entrega.
+      **Cancelar não apaga.** O evento cancelado continua na agenda, riscado —
+      apagá-lo faria quem já sabia do culto aparecer na porta da igreja
+      fechada; a ausência não comunica cancelamento. Some de "próximos" e do
+      filtro `includeCanceled=false`, mas nunca do histórico.
+      Consulta por **sobreposição**, não contenção: pedir só o sábado 22
+      devolve o retiro que começou na sexta 21 e ainda está em curso —
+      verificado, e é o caso que um filtro `starts_at BETWEEN` esconderia.
+      Teto de 400 dias por janela, e janela obrigatória. 14 testes novos.
+- [x] **Policy `Tenant.Member`** — a agenda é informação da congregação, e o
+      seed não tem `events.read` porque não há membro para quem faça sentido
+      negar. A policy exige identidade verificada e vínculo ativo, sem
+      permissão específica; escrever continua exigindo `events.write`
+      (`ChurchAdmin` e `CellLeader` no seed). **Verificado com um usuário
+      rebaixado a `Member` puro:** lê agenda e próximos (200), recebe 403 ao
+      agendar e ao cancelar, 403 no caixa (não tem `giving.read`) e 200 em
+      membros (tem `members.read`). Papéis restaurados ao fim.
 - [ ] Pequenos grupos com hierarquia de liderança (Fase 2 no doc 05)
 
 ## Onda 3 — Monetização
@@ -122,10 +263,53 @@
 - [x] Máquina de estados da assinatura no domínio
 - [x] **Motor de retenção** — verificado em execução: alertas D-7 enfileirados em
       e-mail e push, com deduplicação por chave
-- [ ] `IPaymentGateway` e adaptador Abacate.pay
-- [ ] Checkout com `Idempotency-Key`
-- [ ] Webhook com HMAC, proteção de replay e `fetch-on-notify`
-- [ ] Concessão e revogação de entitlements a partir do pagamento
+- [x] **`IPaymentGateway` — a porta** — `Application → IPaymentGateway →
+      adaptador`, com o domínio sem nenhuma dependência de SDK. Inclui
+      `FetchChargeAsync`, que existe para o *fetch-on-notify*. Em
+      desenvolvimento há `DevelopmentPaymentGateway` (deriva o id da cobrança da
+      própria chave de idempotência, então reenviar o mesmo checkout devolve a
+      MESMA cobrança — um id aleatório esconderia justamente o bug que a chave
+      existe para pegar). **Em produção não há adaptador registrado e a
+      resolução falha no startup**, mesma postura do `IEmailSender` (premissa
+      P8): subir cobrando contra um gateway falso é pior do que não subir.
+      Registro em extensão própria `AddCongregaPayments(isDevelopment)`, com o
+      ambiente explícito na composição.
+- [ ] Adaptador **Abacate.pay** de verdade — a porta está pronta e o `else` do
+      `AddCongregaPayments` é o lugar dele; falta credencial e contrato da API
+- [x] **Domínio de `Payment` e `Entitlement`** — transição de mão única
+      (confirmado não volta a pendente; estornado não volta a pago) e
+      **idempotência em todas as operações**: `Confirm` repetido não emite um
+      segundo `PaymentConfirmed`, que viraria uma segunda concessão de acesso.
+      É literalmente o caso da skill de segurança — "Webhook A, A duplicado, A
+      duplicado de novo" resultando em 1 evento e 0 acessos duplicados.
+      `Entitlement.IsActiveOn` checa revogação **e** validade: olhar só o prazo
+      é o erro que deixa um estornado assistindo até a data original.
+      `ExtendTo` nunca encurta — webhook de renovação fora de ordem não tira
+      dias já pagos. 23 testes novos.
+- [x] **Webhook com HMAC, proteção de replay e `fetch-on-notify`** — pipeline na
+      ordem da skill: assinatura → replay → schema → idempotência → persiste cru
+      → processa. Três controles no HMAC, e os três testados: assinatura confere
+      com o segredo, timestamp dentro da janela de 5 min, e comparação em
+      **tempo constante** (`CryptographicOperations.FixedTimeEquals`) — comparar
+      com `==` vaza pelo tempo de resposta quantos bytes iniciais estavam
+      certos, e permite forjar a assinatura byte a byte sem conhecer o segredo.
+      O timestamp entra **dentro** do que é assinado (`{t}.{payload}`); há teste
+      que monta o ataque de trocar o `t` de um evento capturado e prova que
+      falha. Evento com assinatura inválida **é gravado** (`signature_valid =
+      false`) e não processado: descartar na porta apagaria a evidência de uma
+      tentativa de forjar pagamento. Deduplicação por
+      `uq_webhook_event (provider, provider_event_id)` com `ON CONFLICT DO
+      NOTHING` — constraint, não consulta prévia, que tem janela sob
+      concorrência. 15 testes novos.
+- [x] **Concessão e revogação de entitlements a partir do pagamento** —
+      `GrantEntitlementHandler`, passo **separado** da confirmação de propósito:
+      juntar os dois acabaria com alguém checando `payment.Status == Paid` para
+      decidir acesso, e aí um estorno deixaria de cortá-lo. Renovação estende o
+      direito existente em vez de criar segunda linha; estorno revoga sem
+      apagar (ADR-015). Pagamento de igreja (B2B) não concede entitlement de
+      conteúdo — o que a igreja compra é o ChMS, cujo acesso vem da membership.
+- [ ] Checkout com `Idempotency-Key` — endpoint da API ainda não exposto; o
+      domínio, a constraint `uq_pay_idempotency_key` e a porta já estão prontos
 - [ ] Telas de assinatura e cobrança
 
 ## Onda 4 — Check-in infantil
@@ -205,15 +389,23 @@
 | Item | Estado |
 |---|---|
 | `dotnet build` | 0 avisos, 0 erros |
-| `dotnet test` | 126 testes (73 domínio + 50 aplicação + 3 integração/Testcontainers) |
+| `dotnet test` | 201 testes (133 domínio + 50 aplicação + 18 integração, dos quais 3 com Testcontainers) |
 | `npm run typecheck` | 4 pacotes limpos |
-| `npm run test` | 84 testes |
+| `npm run test` | 108 testes |
 | `expo-doctor` | 21/21 |
 | Login ponta a ponta | verificado contra PostgreSQL real, com `congrega_app` |
 | Isolamento cross-tenant | **verificado com RLS real** — GQF desligado não vaza (Testcontainers) |
 | Motor de retenção | verificado em execução |
 | Dispatcher do Outbox | verificado em execução — fila drenada, com `congrega_worker` |
 | Membros | listar, buscar, detalhar, cadastrar, **editar e inativar** verificados |
+| Famílias | criar, listar, detalhar, vincular/desvincular membro verificados contra PostgreSQL real |
+| Importar planilha | CSV, mapeamento de colunas, duplicado/erro por linha verificados contra PostgreSQL real |
+| Financeiro | categorias, lançamentos, exclusão e fechamento verificados; soma conferida contra SQL direto |
+| Segregação de funções | **verificada**: `ChurchAdmin` lê o caixa (200) e recebe 403 ao lançar; `Member` lê a agenda e recebe 403 ao agendar |
+| Agenda | criar, listar por mês, cancelar/reativar, apagar verificados; fuso e sobreposição conferidos no banco |
 | Aniversariantes do mês | tela própria verificada; ordenação por dia confirmada contra PostgreSQL real |
 | `/auth/tenants` | verificado contra PostgreSQL real |
 | Bundle web (Metro) | recompila limpo a cada troca de design; sidebar e telas confirmadas no bundle |
+| Assinatura de webhook | HMAC, replay e tempo constante verificados; ataque de trocar o timestamp falha |
+| Idempotência de pagamento | verificada no domínio: `Confirm` repetido emite 1 evento, não 2 |
+| CI (`.github/workflows/ci.yml`) | **escrito, nunca executado** — comandos validados um a um localmente |

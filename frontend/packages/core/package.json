@@ -12,7 +12,8 @@
     "./money": "./src/money.ts",
     "./identity": "./src/identity.ts",
     "./validation": "./src/validation.ts",
-    "./datetime": "./src/datetime.ts"
+    "./datetime": "./src/datetime.ts",
+    "./csv": "./src/csv.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
