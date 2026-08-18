@@ -5,6 +5,7 @@ using System.Net;
 using Congrega.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -13,9 +14,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Congrega.Infrastructure.Migrations
 {
     [DbContext(typeof(CongregaDbContext))]
-    partial class CongregaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260818004827_SeedPlanos")]
+    partial class SeedPlanos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -184,59 +187,46 @@ namespace Congrega.Infrastructure.Migrations
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("bigint");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<bool>("CancelAtPeriodEnd")
-                        .HasColumnType("boolean")
-                        .HasColumnName("cancel_at_period_end");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("CanceledAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("canceled_at");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset>("CurrentPeriodEnd")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("current_period_end");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset>("CurrentPeriodStart")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("current_period_start");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ExternalId")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("external_id");
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset?>("GraceUntil")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("grace_until");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<long>("PlanId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("plan_id");
+                        .HasColumnType("bigint");
 
-                    b.Property<short>("Source")
-                        .HasColumnType("smallint")
-                        .HasColumnName("source");
+                    b.Property<int>("Source")
+                        .HasColumnType("integer");
 
-                    b.Property<short>("Status")
-                        .HasColumnType("smallint")
-                        .HasColumnName("status");
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<long?>("TenantId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("tenant_id");
+                        .HasColumnType("bigint");
 
                     b.Property<long?>("UserId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("user_id");
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
-                    b.ToTable("subscriptions", "public");
+                    b.ToTable("Subscriptions", "public");
                 });
 
             modelBuilder.Entity("Congrega.Domain.Calendar.CalendarEvent", b =>

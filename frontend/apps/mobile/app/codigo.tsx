@@ -1,14 +1,13 @@
 import { describeError } from '@congrega/api-client/errors';
 import { OTP_LENGTH, isCompleteOtp, sanitizeOtpInput } from '@congrega/core/validation';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
-import { Screen } from '@congrega/ui/Screen';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
 import { useTheme } from '@congrega/ui/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, View } from 'react-native';
+import { AuthCard } from '../src/AuthCard';
 import { useSession } from '../src/session';
 
 /** Segundos antes de liberar o reenvio. Espelha o limite do servidor. */
@@ -16,7 +15,6 @@ const ESPERA_REENVIO = 60;
 
 export default function Codigo() {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const { confirmarCodigo, pedirCodigo } = useSession();
   const { email } = useLocalSearchParams<{ email: string }>();
 
@@ -66,63 +64,58 @@ export default function Codigo() {
   }
 
   return (
-    <Screen>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1, paddingTop: insets.top + theme.space[48] }}
+    <AuthCard>
+      <View style={{ gap: theme.space[8], marginBottom: theme.space[24] }}>
+        <Text variant="eyebrow" tone="muted">
+          VERIFICAÇÃO
+        </Text>
+        <Text variant="headingLg">Digite o código</Text>
+        <Text variant="body" tone="muted">
+          Enviamos {OTP_LENGTH} dígitos para {email}. O código vale por 10 minutos.
+        </Text>
+      </View>
+
+      <TextField
+        label="Código"
+        placeholder="000000"
+        defaultValue=""
+        // A transformação roda no nativo, sem re-render: colar "123 456" do
+        // e-mail é o caminho mais comum e precisa simplesmente funcionar.
+        transform={sanitizeOtpInput}
+        onValueChange={(valor) => {
+          codigo.current = valor;
+          if (erro !== null) setErro(null);
+          // Confirma sozinho ao completar. Um botão a menos para tocar num
+          // fluxo em que o usuário já está com o e-mail aberto na outra mão.
+          if (isCompleteOtp(valor)) void confirmar(valor);
+        }}
+        {...(erro !== null ? { error: erro } : {})}
+        keyboardType="number-pad"
+        textContentType="oneTimeCode"
+        autoComplete="one-time-code"
+        maxLength={OTP_LENGTH}
+        autoFocus
+        inputStyle={{ letterSpacing: 8 }}
+      />
+
+      <SignatureButton
+        label={enviando ? 'Entrando' : 'Entrar'}
+        onPress={() => void confirmar(codigo.current)}
+        loading={enviando}
+        style={{ marginTop: theme.space[24] }}
+      />
+
+      <Pressable
+        onPress={() => void reenviar()}
+        disabled={segundos > 0}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: segundos > 0 }}
+        style={{ marginTop: theme.space[16], minHeight: theme.touch.minTarget, justifyContent: 'center' }}
       >
-        <View style={{ gap: theme.space[8], marginBottom: theme.space[32] }}>
-          <Text variant="eyebrow" tone="muted">
-            VERIFICAÇÃO
-          </Text>
-          <Text variant="headingLg">Digite o código</Text>
-          <Text variant="body" tone="muted">
-            Enviamos {OTP_LENGTH} dígitos para {email}. O código vale por 10 minutos.
-          </Text>
-        </View>
-
-        <TextField
-          label="Código"
-          placeholder="000000"
-          defaultValue=""
-          // A transformação roda no nativo, sem re-render: colar "123 456" do
-          // e-mail é o caminho mais comum e precisa simplesmente funcionar.
-          transform={sanitizeOtpInput}
-          onValueChange={(valor) => {
-            codigo.current = valor;
-            if (erro !== null) setErro(null);
-            // Confirma sozinho ao completar. Um botão a menos para tocar num
-            // fluxo em que o usuário já está com o e-mail aberto na outra mão.
-            if (isCompleteOtp(valor)) void confirmar(valor);
-          }}
-          {...(erro !== null ? { error: erro } : {})}
-          keyboardType="number-pad"
-          textContentType="oneTimeCode"
-          autoComplete="one-time-code"
-          maxLength={OTP_LENGTH}
-          autoFocus
-          inputStyle={{ letterSpacing: 8 }}
-        />
-
-        <SignatureButton
-          label={enviando ? 'Entrando' : 'Entrar'}
-          onPress={() => void confirmar(codigo.current)}
-          loading={enviando}
-          style={{ marginTop: theme.space[24] }}
-        />
-
-        <Pressable
-          onPress={() => void reenviar()}
-          disabled={segundos > 0}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: segundos > 0 }}
-          style={{ marginTop: theme.space[16], minHeight: theme.touch.minTarget, justifyContent: 'center' }}
-        >
-          <Text variant="caption" tone="muted">
-            {segundos > 0 ? `Reenviar código em ${segundos}s` : 'Reenviar código'}
-          </Text>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Screen>
+        <Text variant="caption" tone="muted">
+          {segundos > 0 ? `Reenviar código em ${segundos}s` : 'Reenviar código'}
+        </Text>
+      </Pressable>
+    </AuthCard>
   );
 }

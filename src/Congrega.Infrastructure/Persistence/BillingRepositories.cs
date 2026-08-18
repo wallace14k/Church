@@ -4,6 +4,46 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Congrega.Infrastructure.Persistence;
 
+/// <summary>
+/// Mapeamento de <c>subscriptions</c>.
+/// </summary>
+/// <remarks>
+/// <b>Faltava.</b> Sem esta classe o EF caía na convenção padrão e gerava
+/// <c>SELECT ... FROM "Subscriptions"</c> — tabela que não existe, porque o
+/// schema inteiro é snake_case. O <c>ISubscriptionStore</c> compilava, tinha
+/// teste de unidade verde com dublê, e falhava com <c>42P01</c> na primeira
+/// chamada real. Só apareceu quando o checkout passou a usá-lo de verdade.
+///
+/// <para>
+/// <c>public_id</c>, <c>created_at</c>, <c>updated_at</c> e <c>trial_ends_at</c>
+/// ficam de fora de propósito: o domínio não os expõe e a tabela tem DEFAULT
+/// para todos. Mapeá-los exigiria propriedades que nenhuma regra usa.
+/// </para>
+/// </remarks>
+internal sealed class SubscriptionConfiguration : IEntityTypeConfiguration<Subscription>
+{
+    public void Configure(EntityTypeBuilder<Subscription> builder)
+    {
+        builder.ToTable("subscriptions");
+        builder.HasKey(s => s.Id);
+
+        builder.Property(s => s.Id).HasColumnName("id").UseIdentityAlwaysColumn();
+        builder.Property(s => s.PlanId).HasColumnName("plan_id");
+        builder.Property(s => s.TenantId).HasColumnName("tenant_id");
+        builder.Property(s => s.UserId).HasColumnName("user_id");
+        builder.Property(s => s.Status).HasColumnName("status").HasConversion<short>();
+        builder.Property(s => s.Source).HasColumnName("source").HasConversion<short>();
+        builder.Property(s => s.ExternalId).HasColumnName("external_id").HasMaxLength(200);
+        builder.Property(s => s.CurrentPeriodStart).HasColumnName("current_period_start");
+        builder.Property(s => s.CurrentPeriodEnd).HasColumnName("current_period_end");
+        builder.Property(s => s.GraceUntil).HasColumnName("grace_until");
+        builder.Property(s => s.CanceledAt).HasColumnName("canceled_at");
+        builder.Property(s => s.CancelAtPeriodEnd).HasColumnName("cancel_at_period_end");
+
+        builder.Ignore(s => s.DomainEvents);
+    }
+}
+
 internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
 {
     public void Configure(EntityTypeBuilder<Payment> builder)
@@ -137,6 +177,17 @@ internal sealed class SubscriptionStore(CongregaDbContext db) : ISubscriptionSto
                 && (s.Status == SubscriptionStatus.Active
                     || s.Status == SubscriptionStatus.PastDue
                     || s.Status == SubscriptionStatus.Grace),
+            cancellationToken);
+
+    public Task<Subscription?> FindReusableForCheckoutAsync(
+        long userId,
+        long planId,
+        CancellationToken cancellationToken) =>
+        db.Subscriptions.FirstOrDefaultAsync(
+            s => s.UserId == userId
+                && s.PlanId == planId
+                && s.Status != SubscriptionStatus.Expired
+                && s.Status != SubscriptionStatus.Canceled,
             cancellationToken);
 
     public void Add(Subscription subscription) => db.Subscriptions.Add(subscription);

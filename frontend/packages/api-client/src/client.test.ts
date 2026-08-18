@@ -109,6 +109,74 @@ describe('renovação em voo única', () => {
   });
 });
 
+describe('hidratação na abertura do app', () => {
+  it('adota a sessão devolvida pela renovação — não só recebe 200 e ignora', async () => {
+    // Este é o bug real: `request()` sozinho não chama `#adoptSession`. Um
+    // chamador que discar `request('/auth/refresh', {anonymous:true})` direto
+    // e depois ler `client.session` sempre encontra `null`, mesmo com o
+    // servidor respondendo 200 — a app conclui "anônimo" com sessão válida no
+    // cookie/storage. `hydrateSession()` existe para nunca mais reintroduzir
+    // esse caminho.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request) => {
+        if (String(input).endsWith('/auth/refresh')) {
+          return jsonResponse(session({ accessToken: 'access-hidratado', expiresAt: future() }));
+        }
+        return jsonResponse({ ok: true });
+      }),
+    );
+
+    // Sem sessão em memória — exatamente o estado de um app recém-aberto,
+    // antes de qualquer login nesta execução.
+    const storage = new InMemoryTokenStorage();
+    await storage.write('refresh-1');
+    const client = new ApiClient({ baseUrl: 'https://api.congrega.test', storage, clientKind: 'mobile' });
+
+    expect(client.session).toBeNull();
+
+    const hidratada = await client.hydrateSession();
+
+    expect(hidratada).not.toBeNull();
+    expect(client.session?.accessToken).toBe('access-hidratado');
+  });
+
+  it('devolve null sem lançar quando não há sessão para renovar', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => problemResponse(401, 'Refresh token ausente.')));
+
+    const storage = new InMemoryTokenStorage();
+    // Nunca logou nesta instalação: sem refresh token guardado.
+    const client = new ApiClient({ baseUrl: 'https://api.congrega.test', storage, clientKind: 'mobile' });
+
+    await expect(client.hydrateSession()).resolves.toBeNull();
+    expect(client.session).toBeNull();
+  });
+
+  it('hidratação concorrente com uma chamada autenticada compartilha a MESMA renovação', async () => {
+    // A app real dispara `hydrateSession()` no boot e, quase ao mesmo tempo,
+    // uma tela já pode montar e chamar `request()` autenticado. Sem os dois
+    // caírem no mesmo `#refreshInFlight`, seriam duas renovações — e como o
+    // refresh ROTACIONA o token, a segunda leria a primeira como reuso.
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      if (String(input).endsWith('/auth/refresh')) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return jsonResponse(session({ accessToken: 'access-2', expiresAt: future() }));
+      }
+      return jsonResponse({ ok: true });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const storage = new InMemoryTokenStorage();
+    await storage.write('refresh-1');
+    const client = new ApiClient({ baseUrl: 'https://api.congrega.test', storage, clientKind: 'mobile' });
+
+    await Promise.all([client.hydrateSession(), client.request('/api/v1/members')]);
+
+    const refreshCalls = fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/auth/refresh'));
+    expect(refreshCalls).toHaveLength(1);
+  });
+});
+
 describe('fim de sessão', () => {
   it('401 após renovar encerra a sessão e limpa o token', async () => {
     const onSessionEnded = vi.fn();

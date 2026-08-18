@@ -14,7 +14,8 @@
     "./members": "./src/members.ts",
     "./families": "./src/families.ts",
     "./giving": "./src/giving.ts",
-    "./events": "./src/events.ts"
+    "./events": "./src/events.ts",
+    "./billing": "./src/billing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

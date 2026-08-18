@@ -38,6 +38,22 @@ public interface ISubscriptionStore
 
     Task<Subscription?> FindActiveByUserAsync(long userId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Assinatura do usuário para aquele plano que um novo checkout deve
+    /// reaproveitar em vez de duplicar.
+    /// </summary>
+    /// <remarks>
+    /// Inclui <c>Pending</c>, ao contrário de <see cref="FindActiveByUserAsync"/>:
+    /// uma tentativa de checkout que falhe no gateway deixa a assinatura
+    /// pendente para trás, e sem reaproveitá-la cada retry criaria mais uma.
+    /// Pendente não concede acesso — só o pagamento confirmado a ativa —, então
+    /// reusá-la não antecipa nada.
+    /// </remarks>
+    Task<Subscription?> FindReusableForCheckoutAsync(
+        long userId,
+        long planId,
+        CancellationToken cancellationToken);
+
     void Add(Subscription subscription);
 }
 
@@ -112,6 +128,19 @@ public sealed record ReceivedWebhook
     public string? CorrelationId { get; init; }
 }
 
+/// <summary>Um evento já registrado e com assinatura válida, pronto para processar.</summary>
+/// <remarks>
+/// Deliberadamente sem <c>SignatureHeader</c>: quem reivindica esta linha não
+/// reverifica a assinatura (isso já aconteceu na borda, e o cabeçalho original
+/// nem é guardado) — só o payload, para extrair o identificador da cobrança.
+/// </remarks>
+public sealed record PendingPaymentWebhook
+{
+    public required WebhookProvider Provider { get; init; }
+    public required string ProviderEventId { get; init; }
+    public required string Payload { get; init; }
+}
+
 public interface IPaymentWebhookRepository
 {
     /// <summary>
@@ -119,6 +148,21 @@ public interface IPaymentWebhookRepository
     /// deduplicação, e ela vem da constraint única, não de uma consulta prévia.
     /// </summary>
     Task<bool> TryRecordAsync(ReceivedWebhook webhook, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reivindica um lote de eventos pendentes para o worker processar.
+    /// </summary>
+    /// <remarks>
+    /// Só eventos com assinatura válida entram no lote — um evento forjado fica
+    /// registrado para auditoria, mas nunca é processado. <paramref
+    /// name="maxAttempts"/> tira da fila um evento cuja cobrança nunca resolve
+    /// (bug, gateway fora do ar) depois de tentativas suficientes, para não
+    /// martelar o gateway para sempre.
+    /// </remarks>
+    Task<IReadOnlyList<PendingPaymentWebhook>> ClaimBatchAsync(
+        int batchSize,
+        short maxAttempts,
+        CancellationToken cancellationToken);
 
     Task MarkProcessedAsync(
         WebhookProvider provider,
@@ -133,6 +177,22 @@ public interface IPaymentWebhookRepository
         CancellationToken cancellationToken);
 }
 
+/// <summary>Espelha <c>plans.audience</c>. Decide QUEM pode assinar o plano.</summary>
+/// <remarks>
+/// Não é rótulo de catálogo: é controle. Sem ele, um assinante Congrega+ poderia
+/// abrir checkout do plano do ChMS — cobrado da igreja, com preço e direitos
+/// diferentes — só informando o código dele. O checkout confere a audiência
+/// contra o titular antes de criar qualquer cobrança.
+/// </remarks>
+public enum PlanAudience : short
+{
+    /// <summary>Plano de igreja (ChMS B2B). Titular é o tenant.</summary>
+    Tenant = 1,
+
+    /// <summary>Plano Congrega+ (B2C). Titular é a pessoa.</summary>
+    User = 2,
+}
+
 /// <summary>Dados do plano necessários para cobrar e conceder acesso.</summary>
 public sealed record PlanSnapshot
 {
@@ -140,6 +200,7 @@ public sealed record PlanSnapshot
     public required string Code { get; init; }
     public required string Name { get; init; }
     public required long PriceCents { get; init; }
+    public required PlanAudience Audience { get; init; }
     /// <summary>1=Mensal 2=Anual, conforme <c>plans.billing_period</c>.</summary>
     public required short BillingPeriod { get; init; }
 }
@@ -148,4 +209,7 @@ public interface IPlanRepository
 {
     Task<PlanSnapshot?> FindByCodeAsync(string code, CancellationToken cancellationToken);
     Task<PlanSnapshot?> FindByIdAsync(long id, CancellationToken cancellationToken);
+
+    /// <summary>Catálogo ativo para uma audiência — o que a tela de escolha de plano mostra.</summary>
+    Task<IReadOnlyList<PlanSnapshot>> ListActiveAsync(PlanAudience audience, CancellationToken cancellationToken);
 }

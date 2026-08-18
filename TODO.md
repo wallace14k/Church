@@ -308,9 +308,149 @@
       direito existente em vez de criar segunda linha; estorno revoga sem
       apagar (ADR-015). Pagamento de igreja (B2B) não concede entitlement de
       conteúdo — o que a igreja compra é o ChMS, cujo acesso vem da membership.
-- [ ] Checkout com `Idempotency-Key` — endpoint da API ainda não exposto; o
-      domínio, a constraint `uq_pay_idempotency_key` e a porta já estão prontos
-- [ ] Telas de assinatura e cobrança
+- [x] **Checkout com `Idempotency-Key` exposto** — `POST /api/v1/billing/checkout`,
+      policy `Billing.Checkout` (identidade verificada, **sem escopo de tenant**: o
+      Congrega+ é da pessoa, e exigir vínculo com igreja impediria de assinar
+      justamente quem o produto B2C existe para atender). Três decisões que o
+      caminho feliz não exercita, cada uma com teste que falha se for removida:
+      **(1) o preço vem do banco** — o cliente manda só `planCode`; aceitar
+      `amountCents` do corpo é a adulteração de preço que nenhum cliente honesto
+      revela. **(2) a chave é prefixada pelo titular** (`u{userId}:{chave}`) —
+      `uq_pay_idempotency_key` é UNIQUE sobre a tabela inteira, e sem o prefixo
+      duas pessoas escolhendo `"1"` colidiriam: a segunda receberia de volta a
+      cobrança da primeira, com o `public_id` dela. **(3) audiência do plano é
+      controle, não rótulo de catálogo** — sem conferir `plans.audience`, bastava
+      o código para uma pessoa física abrir cobrança do plano B2B da igreja;
+      plano inexistente e audiência errada respondem **idêntico**, senão a
+      resposta vira oráculo de quais códigos de plano existem.
+      Verificado contra a API real: 201 na criação, **200 com o MESMO
+      `paymentId` na repetição da chave** e uma linha só em `payments`, 404 para
+      plano B2B, 404 idêntico para inexistente, 400 sem `Idempotency-Key`, 401
+      sem token. 9 testes novos.
+- [x] **Bug achado ao ligar o checkout: `Subscription` nunca teve mapeamento** —
+      a entidade não tinha `IEntityTypeConfiguration`, então o EF caía na
+      convenção padrão e emitia `SELECT ... FROM "Subscriptions"`, tabela que não
+      existe num schema inteiramente snake_case. O `ISubscriptionStore` compilava
+      e tinha teste verde com dublê **desde a Onda 3**, sem nunca ter executado
+      uma consulta real; apareceu como `42P01` no primeiro checkout de verdade.
+      Corrigido com `SubscriptionConfiguration` + migration
+      `SubscriptionEntityMapping` de corpo vazio — o scaffold leu a diferença
+      como renomeação e gerou `RenameTable` + treze `RenameColumn` sobre uma
+      tabela que nunca existiu. Terceira ocorrência do mesmo descompasso
+      (`FamilyEntityMapping`, `BillingEntityMapping`).
+- [x] **Seed de planos** (`db/008_planos.sql` + migration `SeedPlanos`) — a tabela
+      `plans` estava **vazia**, então o checkout responderia "plano indisponível"
+      para qualquer código: sobe, autentica, valida e nunca cobra. Mesma classe
+      de falha silenciosa do seed de papéis, e por isso também é migration.
+- [x] **Webhook exposto em HTTP** — `POST /api/v1/billing/webhook`, anônimo (o
+      gateway não tem JWT nosso; a autenticação dele é o HMAC). Lê o **corpo
+      cru** com teto de 64 KB — deixar o binder desserializar e reserializar
+      mudaria os bytes e o HMAC deixaria de conferir para todo evento legítimo.
+      **A borda registra e devolve; quem processa é o worker.** Não é preferência
+      de arquitetura, é restrição de RLS: a requisição é anônima, logo sem
+      `app.user_id`, e a policy de `payments` filtra por titular — tocar em
+      `payments` daqui não daria erro barulhento, daria **zero linhas**, e todo
+      webhook legítimo concluiria "pagamento local não encontrado".
+      `payment_webhooks` não tem RLS, e é por isso que registrar funciona e
+      processar não. Handler próprio (`ReceivePaymentWebhookHandler`).
+      Verificado contra a API real: assinatura válida **202**, reentrega **200**
+      sem segunda linha, corpo adulterado **400**, sem assinatura **400**, replay
+      de ontem **400** — e os quatro inválidos **gravados** com
+      `signature_valid = false`, que é a evidência da tentativa de forjar
+      pagamento. O vão na sequência de `id` prova que o `ON CONFLICT` da
+      deduplicação disparou no banco, não em código.
+- [x] **Processador de webhook no worker** — `WebhookDispatcherService`
+      (`Congrega.Workers`) drena `payment_webhooks` com o mesmo padrão de
+      reivindicação atômica do Outbox (`UPDATE ... FROM (SELECT ... FOR UPDATE
+      SKIP LOCKED) ... RETURNING`, incrementando `process_attempts` na própria
+      reivindicação), filtrando `signature_valid = true AND process_attempts <
+      maxAttempts`. Rodando com `congrega_worker`.
+      **Três achados no caminho, nenhum deles hipotético:**
+      (1) `ProcessPaymentWebhookHandler` tinha **zero testes** apesar deste
+      arquivo dizer o contrário, e do jeito que estava escrito **nunca
+      processaria nada** se ligado a um dispatcher — repetia a verificação de
+      assinatura e o `TryRecordAsync` que a borda (`ReceivePaymentWebhookHandler`)
+      já tinha feito; chamado sobre uma linha já persistida, o `ON CONFLICT DO
+      NOTHING` devolveria sempre "duplicado", sem nunca chegar ao
+      fetch-on-notify. Reescrito para operar sobre `PendingPaymentWebhook` (o
+      que já foi registrado e validado), não sobre a requisição crua.
+      (2) Mesmo com o worker rodando, pagamento confirmado **não virava
+      acesso**: `PaymentConfirmed`/`PaymentRefunded` caíam no Outbox sem
+      handler registrado — `GrantEntitlementHandler` existia, testado agora
+      pela primeira vez (9 testes novos, `GrantEntitlementHandlerTests`), mas
+      nunca tinha sido ligado como `IOutboxMessageHandler`. Dois adaptadores
+      finos (`PaymentConfirmedOutboxHandler`/`PaymentRefundedOutboxHandler`)
+      fecham essa lacuna.
+      (3) `Congrega.Workers` não tinha EF Core — `IPaymentRepository`,
+      `IEntitlementRepository` e `ISubscriptionStore` são baseados em
+      `CongregaDbContext`, que só a API registrava. Trazer
+      `AddCongregaInfrastructure` inteiro acoplaria o Workers a
+      `AuthenticationOptions` (chave privada do JWT) só para abrir uma conexão
+      de banco. Separado em `AddCongregaPersistence` (os dois hosts) +
+      `AddCongregaInfrastructure` (só a API, por cima). `WorkerTenantContext`
+      novo — cross-tenant fixo, o mesmo padrão que os testes de integração já
+      usavam para simular isso, agora como implementação real.
+      10 testes novos de `ProcessPaymentWebhookHandler` (fakes) + 4 de
+      integração com Testcontainers provando a reivindicação contra Postgres
+      real, inclusive que uma linha travada por outra transação **não** é
+      reivindicada (a prova de que `SKIP LOCKED` funciona de verdade, não só
+      compila).
+      **Verificado contra a stack real, ao vivo**: webhook assinado com HMAC
+      de desenvolvimento → `202`, linha entra em `payment_webhooks` com
+      `signature_valid = true` e `processed_at` vazio → dispatcher reivindica
+      no ciclo seguinte → `processed_at` preenchido, sem erro. Três eventos
+      com assinatura inválida (deixados de uma verificação anterior) seguem
+      intocados (`processed_at` vazio, `process_attempts = 0`), confirmando
+      que o filtro nunca processa evento forjado.
+      **Limitação conhecida, não desta mudança**: `DevelopmentPaymentGateway`
+      guarda estado em memória por processo — API e Workers são processos
+      separados, então o caminho "cobrança paga de verdade → entitlement
+      concedido" não dá para provar com os dois rodando ao vivo em
+      desenvolvimento (o fetch-on-notify do worker sempre acha "cobrança
+      desconhecida" para uma cobrança criada pelo processo da API). Esse ramo
+      está coberto pelos testes de unidade (fakes determinísticos), não pela
+      execução ao vivo.
+- [x] **Telas de assinatura e cobrança** — aba "Congrega+" nova (`(tabs)/assinatura/`),
+      sem gate de papel (ao contrário de Financeiro): é a assinatura da pessoa,
+      não da igreja, e aparece mesmo para quem não tem vínculo com nenhuma
+      congregação. Dois GETs novos e finos, no mesmo padrão sem Application
+      Handler de `GET /auth/tenants` — `GET /billing/subscription` (assinatura
+      ativa do titular, `hasSubscription:false` em vez de 404 quando não há
+      nenhuma) e `GET /billing/plans` (catálogo B2C, exigiu
+      `IPlanRepository.ListActiveAsync` novo). A tela mostra o status
+      (`describeRenewal`, escrita na Onda 4 anterior para exatamente este uso
+      e nunca antes chamada) quando há assinatura, ou a vitrine de planos com
+      checkout de verdade quando não há.
+      **Escopo deliberadamente cortado**: cancelar assinatura pela tela e
+      histórico de pagamentos ficaram de fora — viram bullets próprios abaixo,
+      não bloqueiam esta entrega.
+      **Dois bugs reais, achados só porque este foi o primeiro código de
+      frontend a exercitar esses dois caminhos pelo navegador:**
+      (1) **CORS nunca liberava `Idempotency-Key`** — o checkout exige esse
+      cabeçalho desde a Onda 3, mas só tinha sido chamado por `curl` (sem
+      preflight) ou por testes de unidade. A primeira vez que o navegador
+      tentou, o preflight `OPTIONS` recusou silenciosamente e o `POST` nunca
+      saiu — sem esse cabeçalho na política de CORS, nenhum checkout pelo
+      Congrega+ jamais teria funcionado no app web, mesmo com o backend
+      inteiro correto.
+      (2) **`StartCheckoutHandler` devolvia 500 ao tentar assinar um segundo
+      plano com o primeiro ainda pendente** — `uq_sub_active_user` permite só
+      uma assinatura não-terminal por pessoa, mas `FindReusableForCheckoutAsync`
+      filtra pelo plano pedido e não encontra a existente (de outro plano); o
+      `INSERT` colidia com a constraint e a exceção subia sem tratamento.
+      Corrigido capturando `UniqueConstraintViolationException` por
+      `ConstraintName` — mesmo padrão já usado para a corrida da chave de
+      idempotência — e devolvendo `409` com mensagem clara em vez de erro
+      genérico. 1 teste novo.
+      Verificado ao vivo pela UI real (Playwright): conta com assinatura
+      ativa mostra plano + "Vence em N dias"; conta nova mostra a vitrine de
+      3 planos; clicar em "Assinar" abre cobrança de verdade (`POST
+      /checkout` real) e mostra valor + código PIX; item "Congrega+" aparece
+      na sidebar com o ícone certo e navega.
+- [ ] Cancelar assinatura pela tela — `Subscription.Cancel()` existe no domínio,
+      nenhum handler/endpoint o expõe ainda
+- [ ] Histórico de pagamentos na tela — precisa de `IPaymentRepository.ListByUserAsync`,
+      que não existe hoje (só busca por chave/charge/public_id)
 
 ## Onda 4 — Check-in infantil
 
@@ -341,17 +481,65 @@
 ## Frontend — transversal
 
 - [x] Monorepo com `@congrega/core`, `@congrega/ui`, `@congrega/api-client`
-- [x] Sistema de design — trocado duas vezes nesta sessão: Portrait (marinho +
-      latão) → Steep (serifada + pêssego, `DESIGN_new.md`) → o sistema atual,
-      inspirado no padrão de dashboard SaaS que o cliente pediu para seguir
-      (sans-serif único, acento índigo, cartão branco com borda fina). Tokens de
-      contraste WCAG AA recalculados e testados a cada troca.
+- [x] Sistema de design — trocado **três** vezes: Portrait (marinho + latão) →
+      Steep (serifada + pêssego) → Mercury (sans único, índigo, cartão branco de
+      12px com sombra) → **Perk**, o atual: lima elétrico sobre neutros quentes,
+      cartão pergaminho de 28px sobre canvas branco, Inter em dois pesos, zero
+      sombra. Documento em `docs/07-design-system.md`, com os desvios D1–D7
+      registrados; a skill de refatoração de UI ficou em
+      `.agents/skills/ui-redesign/`.
+      **A troca não foi só de superfície desta vez.** O token `brand` servia como
+      preenchimento *e* como cor de texto de link. O lima mede **1,19:1** sobre
+      branco: trocar só o valor mantendo o nome deixaria cada
+      `color: colors.brand` invisível — 11 usos, nenhum erro de compilação. O
+      token foi **renomeado** para `surfaceAccent` justamente para quebrar o
+      build em cada um e forçar uma decisão. Consequências: link vira tinta com
+      sublinhado (`TextLink` novo), ícone de aba ativa vira tinta, e estado de
+      seleção vira **preenchimento** e não borda colorida (`Chip` novo, que
+      absorveu quatro cópias quase idênticas espalhadas pelas telas) — borda
+      lima reprovaria os 3:1 da WCAG 1.4.11 para componente não textual.
+      27 testes de token, incluindo um que garante que **nenhum token de texto
+      recebe o lima** e outro que veta peso 600.
+      **Verificado visualmente nesta sessão** — stack completa no ar (Postgres,
+      API, Workers, Expo web), login real pela UI (e-mail → código → sessão) e
+      navegação por `entrar`, `código`, `início`, `membros`, `financeiro`,
+      `agenda`, `financeiro/lançar`, `membros/novo`, `membros/famílias`
+      capturadas com Chromium via Playwright. Pergaminho sobre canvas branco,
+      lima só como preenchimento (botão primário, item ativo da sidebar, chip
+      selecionado), link sublinhado, cartão de 28px sem sombra — tudo conforme
+      o documento.
 - [x] **Sidebar de verdade no web** (`(tabs)/_layout.web.tsx`, resolvido por
       extensão de plataforma do Metro) — recolhe para só ícones com dica
       flutuante no hover, estado lembrado via `localStorage`; celular continua
       com barra de abas nativa (`(tabs)/_layout.tsx`, sem `.web`). Seletor de
       igreja no topo usa o `/auth/tenants` real.
 - [x] Cliente de API com renovação em voo única
+- [x] **Dois bugs reais de sessão, achados ao logar pela UI de verdade pela
+      primeira vez** (todo teste anterior era curl direto na API, nunca através
+      do navegador):
+      **(1) cookie `Secure` sempre `true`** — em desenvolvimento o app web fala
+      com a API por `http://localhost`, e o navegador descarta em silêncio um
+      cookie `Secure` recebido por HTTP. O login parecia funcionar (a sessão
+      ficava em memória), e caía no primeiro reload: a hidratação via
+      `/auth/refresh` não achava cookie nenhum para reapresentar. `Secure`
+      agora cede só em `IsDevelopment()` (`AuthEndpoints.BuildSessionResult`),
+      no mesmo espírito do `AddCongregaPayments(isDevelopment)` — em produção,
+      onde o app roda em HTTPS, continua obrigatório.
+      **(2) `session.tsx` descartava a sessão renovada** — a hidratação chamava
+      `apiClient.request('/auth/refresh', {anonymous:true})` direto e lia
+      `apiClient.session` depois, mas `request()` sozinho nunca chama
+      `#adoptSession()` — só o método privado `#refresh()` faz isso. O servidor
+      respondia **200 com sessão válida** e o app concluía "anônimo" mesmo
+      assim, silenciosamente: o sintoma é indistinguível de "não tem sessão
+      mesmo". Corrigido com `ApiClient.hydrateSession()`, novo método público
+      que passa pelo `#ensureFreshSession()` já existente — reaproveita a
+      coordenação de voo único em vez de abrir uma segunda renovação
+      concorrente, que o refresh por rotação leria como reuso. 3 testes novos
+      em `client.test.ts`.
+      Sem o primeiro bug, o segundo nunca teria aparecido no teste manual — o
+      cookie ausente já derrubava a sessão antes de chegar ao código que a
+      descartava de qualquer forma. **Verificado pela UI real**: login, reload,
+      navegação entre 6 rotas autenticadas, sessão mantida em todas.
 - [x] Storage de token divergindo por plataforma
 - [x] Fluxo de autenticação: entrar, código, início
 - [x] Marca desenhada e ícone do app em todos os tamanhos
@@ -389,9 +577,9 @@
 | Item | Estado |
 |---|---|
 | `dotnet build` | 0 avisos, 0 erros |
-| `dotnet test` | 201 testes (133 domínio + 50 aplicação + 18 integração, dos quais 3 com Testcontainers) |
+| `dotnet test` | 231 testes (133 domínio + 76 aplicação + 22 integração, dos quais 4 com Testcontainers) |
 | `npm run typecheck` | 4 pacotes limpos |
-| `npm run test` | 108 testes |
+| `npm run test` | 123 testes |
 | `expo-doctor` | 21/21 |
 | Login ponta a ponta | verificado contra PostgreSQL real, com `congrega_app` |
 | Isolamento cross-tenant | **verificado com RLS real** — GQF desligado não vaza (Testcontainers) |
@@ -407,5 +595,12 @@
 | `/auth/tenants` | verificado contra PostgreSQL real |
 | Bundle web (Metro) | recompila limpo a cada troca de design; sidebar e telas confirmadas no bundle |
 | Assinatura de webhook | HMAC, replay e tempo constante verificados; ataque de trocar o timestamp falha |
-| Idempotência de pagamento | verificada no domínio: `Confirm` repetido emite 1 evento, não 2 |
+| Idempotência de pagamento | verificada no domínio **e contra a API real**: mesma `Idempotency-Key` devolve o mesmo `paymentId` e grava uma linha só |
+| Checkout do Congrega+ | verificado contra PostgreSQL real: preço do banco, chave por titular, plano B2B recusado, 401 sem token |
+| Webhook em HTTP | verificado contra a API real: 202 válido, 200 reentrega, 400 adulterado/sem assinatura/replay; inválidos gravados como evidência |
+| Processamento de webhook | **verificado ao vivo**: webhook assinado processado pelo `WebhookDispatcherService` real contra Postgres real; assinatura inválida nunca reivindicada; `SKIP LOCKED` provado com Testcontainers segurando lock em outra transação. Concessão de entitlement coberta por 9 testes de unidade (fake de gateway — dois processos de dev não compartilham cobrança simulada, ver TODO acima) |
+| Telas de assinatura Congrega+ | **verificadas ao vivo pela UI real** (Playwright): status com assinatura ativa, vitrine sem assinatura, checkout de verdade a partir do clique até o código PIX exibido, item de navegação na sidebar — achou e corrigiu dois bugs reais (CORS sem `Idempotency-Key`, 500 em conflito de assinatura) que só apareciam pelo navegador |
+| Telas do design system Perk | **verificadas em tela** — login, painel, membros, financeiro, agenda, lançamento capturados via Chromium/Playwright contra a stack real |
+| Sessão web sobrevive a reload | **verificado pela UI real**: login, F5/navegação, continua autenticado — dois bugs corrigidos nesta rodada (ver abaixo) |
+| Stack completa (Postgres + API + Workers + app web) | subida e exercitada junta nesta sessão: Outbox drena OTP novo em segundos, login ponta a ponta pela UI |
 | CI (`.github/workflows/ci.yml`) | **escrito, nunca executado** — comandos validados um a um localmente |

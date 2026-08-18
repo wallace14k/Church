@@ -154,6 +154,18 @@ public static class Policies
     public const string PremiumContent = "Premium.Content";
     public const string BillingManage = "Billing.Manage";
 
+    /// <summary>
+    /// Abrir checkout do Congrega+.
+    /// </summary>
+    /// <remarks>
+    /// <b>Sem escopo de tenant, de propósito.</b> Congrega+ é assinatura da
+    /// pessoa, e o <c>CLAUDE.md</c> é explícito: a mesma pessoa pode estar em
+    /// duas igrejas ou em nenhuma. Exigir <c>TenantScopedRequirement</c> aqui
+    /// impediria de assinar justamente quem o produto B2C existe para atender —
+    /// alguém sem vínculo com igreja nenhuma.
+    /// </remarks>
+    public const string BillingCheckout = "Billing.Checkout";
+
     public static void Register(AuthorizationBuilder builder)
     {
         AddTenantPolicy(builder, MembersRead, Permissions.MembersRead);
@@ -171,6 +183,12 @@ public static class Policies
             .AddRequirements(new EmailVerifiedRequirement(), new TenantScopedRequirement()));
         AddTenantPolicy(builder, ChildrenCheckout, Permissions.ChildrenCheckout);
         AddTenantPolicy(builder, BillingManage, Permissions.BillingManage);
+
+        // Mesma forma da PremiumContent: identidade verificada e nada mais. Quem
+        // paga é o titular resolvido pela claim "sub", não um papel de igreja.
+        builder.AddPolicy(BillingCheckout, policy => policy
+            .RequireAuthenticatedUser()
+            .AddRequirements(new EmailVerifiedRequirement()));
 
         // Conteúdo premium: apenas identidade verificada. O direito de acesso é
         // resolvido por entitlement no handler do endpoint, consultando o banco —

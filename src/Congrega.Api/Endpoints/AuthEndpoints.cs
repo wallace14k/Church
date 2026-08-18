@@ -4,6 +4,7 @@ using Congrega.Application.Identity;
 using Congrega.Domain.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 
 namespace Congrega.Api.Endpoints;
 
@@ -244,10 +245,23 @@ public static class AuthEndpoints
 
         if (isBrowser)
         {
+            // `Secure` só cede em Development, e só porque o app web local roda
+            // em http://localhost sem TLS — o navegador descarta em silêncio um
+            // cookie `Secure` recebido por http, sem erro nenhum: o login parece
+            // funcionar (a sessão fica em memória) e cai no primeiro reload,
+            // porque a hidratação via `/auth/refresh` não encontra cookie
+            // nenhum para reapresentar. Em produção o app web é servido por
+            // HTTPS, e a flag continua obrigatória — o ambiente é resolvido
+            // pelo host, explícito na composição, no mesmo espírito do
+            // `AddCongregaPayments(isDevelopment)`.
+            bool isDevelopment = httpContext.RequestServices
+                .GetRequiredService<IHostEnvironment>()
+                .IsDevelopment();
+
             httpContext.Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
             {
                 HttpOnly = true,                      // JavaScript não alcança
-                Secure = true,                        // só por TLS
+                Secure = !isDevelopment,              // só por TLS, fora de Development
                 SameSite = SameSiteMode.Strict,       // elimina a maior parte do CSRF
                 Path = "/api/v1/auth",                // não viaja em requisições comuns
                 Expires = session.RefreshTokenExpiresAt

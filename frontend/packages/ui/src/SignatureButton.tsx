@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, StyleSheet, type ViewStyle } from 'react-native';
+import type { ReactNode } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Text } from './Text';
 import { useTheme } from './theme';
 
@@ -7,6 +8,13 @@ export interface SignatureButtonProps {
   readonly onPress: () => void;
   readonly loading?: boolean;
   readonly disabled?: boolean;
+  /**
+   * Ícone à direita do rótulo — a seta de avançar da tela de entrada, por
+   * exemplo. Opcional: a maioria dos botões do sistema não pede ícone nenhum,
+   * e a pílula funciona igual sem ele. Quem chama já colore o ícone com
+   * `theme.colors.textOnAccent` — o componente não impõe cor, só o layout.
+   */
+  readonly trailingIcon?: ReactNode;
   readonly style?: ViewStyle;
 }
 
@@ -32,6 +40,7 @@ export function SignatureButton({
   onPress,
   loading = false,
   disabled = false,
+  trailingIcon,
   style,
 }: SignatureButtonProps) {
   const theme = useTheme();
@@ -58,10 +67,17 @@ export function SignatureButton({
     >
       {loading ? (
         <ActivityIndicator color={theme.colors.textOnAccent} />
-      ) : (
+      ) : trailingIcon === undefined ? (
         <Text variant="bodyStrong" tone="onAccent">
           {label}
         </Text>
+      ) : (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
+          <Text variant="bodyStrong" tone="onAccent">
+            {label}
+          </Text>
+          {trailingIcon}
+        </View>
       )}
     </Pressable>
   );

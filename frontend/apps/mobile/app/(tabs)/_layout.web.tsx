@@ -127,6 +127,22 @@ export default function TabsLayoutWeb() {
                 },
               ]
             : []),
+          // Sem condicional de papel, ao contrário do item financeiro: é a
+          // assinatura da PESSOA, não da igreja — aparece mesmo para quem não
+          // tem vínculo com nenhuma congregação.
+          {
+            key: 'assinatura',
+            label: 'Congrega+',
+            active: pathname.startsWith('/assinatura'),
+            icon: (
+              <Feather
+                name="award"
+                size={18}
+                color={pathname.startsWith('/assinatura') ? theme.colors.text : theme.colors.textMuted}
+              />
+            ),
+            onPress: () => router.push('/assinatura'),
+          },
         ]}
         tenantName={session.tenantId !== null ? (atual?.name ?? 'Sua igreja') : 'Congrega+'}
         tenants={tenants}

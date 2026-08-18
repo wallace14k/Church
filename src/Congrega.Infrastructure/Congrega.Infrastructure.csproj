@@ -50,6 +50,8 @@
                       LogicalName="Congrega.Db.060_financeiro.sql" />
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/007_eventos.sql"
                       LogicalName="Congrega.Db.070_eventos.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/008_planos.sql"
+                      LogicalName="Congrega.Db.080_planos.sql" />
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/seed.sql"
                       LogicalName="Congrega.Db.900_seed.sql" />
   </ItemGroup>

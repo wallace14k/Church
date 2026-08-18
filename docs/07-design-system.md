@@ -309,6 +309,34 @@ Seleção passa a ser **preenchimento lima com tinta principal**, que é
 inconfundível, mede 15,5:1 e não depende de percepção de cor. Como só um chip
 fica selecionado por vez, o lima continua contido.
 
+## D8 — Pano de fundo das telas anônimas inverte a hierarquia de superfície
+
+`entrar` e `código` são as únicas telas do app sem sidebar e sem dado de
+igreja — a primeira coisa que qualquer pessoa vê. A referência do cliente para
+essas duas telas mostra um cartão branco flutuando sobre um fundo pergaminho
+com blobs em lima e um traço curvo fino, no mesmo espírito do hero do site
+Perk, mas adaptado para autenticação em vez de marketing.
+
+Isso inverte a leitura da §2 de propósito: nas telas autenticadas o branco é o
+canvas e o pergaminho é a superfície secundária (cartão); aqui o pergaminho
+com acento é o "canvas" da marca — o primeiro contato — e o branco é o cartão
+elevado que carrega a função (campo, botão). A hierarquia formal continua a
+mesma (branco = elevado, pergaminho = base); só a ordem de leitura da página
+muda, porque aqui a marca fala antes da função.
+
+O pano de fundo (`AuthBackdrop`, em `apps/mobile/src/`) é desenho vetorial
+próprio com `react-native-svg` — dois círculos e uma curva, **derivados
+inteiramente de `palette.electricLime` por opacidade** (`fillOpacity`/
+`strokeOpacity`), nunca um segundo tom de verde hardcoded. Introduzir uma cor
+de fundo à parte romperia a regra da §1.2 ("uma voz cromática") logo na
+primeira tela que o usuário vê. Não é reprodução pixel a pixel da referência
+— é a mesma assinatura (blobs contidos nos cantos + traço solto) na paleta já
+estabelecida.
+
+`entrar` e `código` compartilham a mesma casca (`AuthCard`) para não haver
+quebra visual entre uma tela e a próxima — o usuário passa de uma para a
+outra em segundos, e um estilo mudando no meio do fluxo pareceria bug.
+
 ## D7 — Verde e vermelho semânticos foram mantidos
 
 A §15 admite cor de estado. `#1A8245` e `#D33B2C` já têm contraste verificado em

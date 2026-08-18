@@ -30,6 +30,12 @@ interface RequestOptions {
   /** Pula a renovação automática. Usado pelos endpoints de autenticação. */
   readonly anonymous?: boolean;
   readonly signal?: AbortSignal;
+  /**
+   * Cabeçalhos extras — hoje só `Idempotency-Key` (checkout). Mesclados ANTES
+   * de `Content-Type`/`Authorization` no corpo de `request()`, de propósito:
+   * um valor aqui nunca sobrescreve os dois, só acrescenta.
+   */
+  readonly headers?: Record<string, string>;
 }
 
 /**
@@ -54,6 +60,33 @@ export class ApiClient {
     this.#session = session;
   }
 
+  /**
+   * Hidrata a sessão a partir do que já está guardado — cookie `HttpOnly` no
+   * web, refresh token do storage no nativo — sem exigir uma sessão anterior
+   * em memória. É o que permite abrir o app já logado.
+   *
+   * **Não existe atalho aqui por acaso.** A tentação óbvia é chamar
+   * `request('/api/v1/auth/refresh', { anonymous: true })` direto: a resposta
+   * HTTP vem 200 com uma sessão válida, mas `request()` sozinho não adota
+   * nada — só `#refresh()` chama `#adoptSession()`. Um chamador que descarta o
+   * retorno de `request()` e depois lê `this.session` sempre encontra `null`,
+   * mesmo com a renovação tendo funcionado no servidor: a app conclui
+   * "anônimo" com uma sessão válida sentada no cookie. Foi exatamente esse o
+   * bug — a hidratação do navegador nunca autenticava de verdade, silenciosa,
+   * porque o sintoma (parece deslogado) é indistinguível de "realmente sem
+   * sessão".
+   *
+   * Passar por `#ensureFreshSession()`, e não chamar `#refresh()` direto,
+   * importa igualmente: outro componente montando ao mesmo tempo (ex.: uma
+   * tela que já dispara sua própria consulta autenticada) cai no mesmo
+   * `#refreshInFlight` em vez de abrir uma segunda renovação concorrente —
+   * que rotacionaria o token duas vezes e a segunda seria lida como reuso.
+   */
+  async hydrateSession(): Promise<Session | null> {
+    await this.#ensureFreshSession();
+    return this.#session;
+  }
+
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const { method = 'GET', body, anonymous = false, signal } = options;
 
@@ -65,6 +98,7 @@ export class ApiClient {
       Accept: 'application/json',
       'X-Congrega-Client': this.options.clientKind,
       'X-Correlation-Id': createCorrelationId(),
+      ...options.headers,
     };
 
     if (body !== undefined) {

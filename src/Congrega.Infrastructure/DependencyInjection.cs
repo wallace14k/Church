@@ -2,6 +2,7 @@ using System.Text.Json;
 using Congrega.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 using Congrega.Infrastructure.Notifications;
+using Congrega.Application.Billing;
 using Congrega.Application.Outbox;
 using Congrega.Domain.Billing;
 using Congrega.Domain.Calendar;
@@ -40,25 +41,34 @@ internal sealed class EfOutbox(CongregaDbContext db, TimeProvider timeProvider) 
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddCongregaInfrastructure(
+    /// <summary>
+    /// Registra persistência: <c>DatabaseOptions</c>, <see cref="CongregaDbContext"/>
+    /// e todos os repositórios baseados nele, mais o lock distribuído.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Separado de <see cref="AddCongregaInfrastructure"/> porque é a parte que os
+    /// <b>dois</b> hosts precisam — API e Workers. <see cref="AuthenticationOptions"/>
+    /// e <see cref="PaymentOptions"/> ficam de fora de propósito: são
+    /// <c>[Required]</c> e <c>ValidateOnStart</c>, e vinculá-los aqui obrigaria o
+    /// Workers a ter a chave privada do JWT configurada só para abrir uma conexão de
+    /// banco — um processo que nunca emite nem verifica token nenhum.
+    /// </para>
+    /// <para>
+    /// Exige que o chamador já tenha registrado <see cref="ITenantContext"/> e
+    /// <see cref="IHostEnvironmentAccessor"/> antes de chamar este método — cada host
+    /// tem a sua implementação (a API resolve do <c>HttpContext</c>; o Workers usa um
+    /// contexto cross-tenant fixo, porque roda com <c>congrega_worker</c>, que tem
+    /// BYPASSRLS).
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddCongregaPersistence(
         this IServiceCollection services,
         IConfiguration configuration)
     {
         services
             .AddOptions<DatabaseOptions>()
             .Bind(configuration.GetSection(DatabaseOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
-
-        services
-            .AddOptions<AuthenticationOptions>()
-            .Bind(configuration.GetSection(AuthenticationOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
-
-        services
-            .AddOptions<PaymentOptions>()
-            .Bind(configuration.GetSection(PaymentOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
@@ -114,11 +124,33 @@ public static class DependencyInjection
         services.AddScoped<IPaymentWebhookRepository, PaymentWebhookRepository>();
         services.AddScoped<IPlanRepository, PlanRepository>();
 
+        services.AddSingleton<IDistributedLock, PostgresAdvisoryLock>();
+
+        return services;
+    }
+
+    /// <summary>Registra persistência (ver <see cref="AddCongregaPersistence"/>) mais autenticação — só a API precisa disto.</summary>
+    public static IServiceCollection AddCongregaInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddCongregaPersistence(configuration);
+
+        services
+            .AddOptions<AuthenticationOptions>()
+            .Bind(configuration.GetSection(AuthenticationOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services
+            .AddOptions<PaymentOptions>()
+            .Bind(configuration.GetSection(PaymentOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<ISecretHasher, SecretHasher>();
         services.AddSingleton<IOtpGenerator, OtpGenerator>();
         services.AddSingleton<ITokenIssuer, JwtTokenIssuer>();
-
-        services.AddSingleton<IDistributedLock, PostgresAdvisoryLock>();
 
         // Verificação de assinatura de webhook. Scoped porque lê PaymentOptions
         // e TimeProvider; sem estado próprio entre requisições.
@@ -209,6 +241,13 @@ public static class DependencyInjection
         services.AddScoped<IOutboxMessageHandler, SendOtpEmailHandler>();
         services.AddScoped<IOutboxMessageHandler, SendSecurityAlertEmailHandler>();
         services.AddScoped<IOutboxMessageHandler, SecurityEventRecorder>();
+
+        // Pagamento confirmado/estornado vira acesso — ou deixa de valer.
+        // GrantEntitlementHandler é a regra de negócio (testável isolada); os
+        // dois adaptadores só ligam a mensagem do Outbox à chamada de método.
+        services.AddScoped<GrantEntitlementHandler>();
+        services.AddScoped<IOutboxMessageHandler, PaymentConfirmedOutboxHandler>();
+        services.AddScoped<IOutboxMessageHandler, PaymentRefundedOutboxHandler>();
 
         // Eventos de domínio conhecidos que ainda não disparam efeito. Registrá-los
         // explicitamente evita que caiam em dead letter, sem mascarar o caso que

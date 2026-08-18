@@ -32,6 +32,60 @@ internal sealed class PaymentWebhookRepository(IOptions<DatabaseOptions> options
 {
     private readonly string _connectionString = options.Value.PooledConnectionString;
 
+    // Mesmo padrão atômico do OutboxStore.ClaimSql: UPDATE...FROM(SELECT...FOR
+    // UPDATE SKIP LOCKED)...RETURNING numa instrução só. O incremento de
+    // process_attempts acontece na própria reivindicação, então mesmo um
+    // processo que morre logo depois de reivindicar deixa a contagem certa —
+    // não existe coluna de lease aqui (payment_webhooks não tem
+    // next_attempt_at, diferente de outbox_messages), então a linha volta a
+    // ficar disponível assim que a transação da reivindicação fecha.
+    private const string ClaimSql = """
+        UPDATE payment_webhooks AS w
+           SET process_attempts = w.process_attempts + 1
+          FROM (
+                SELECT id
+                  FROM payment_webhooks
+                 WHERE processed_at     IS NULL
+                   AND signature_valid  = true
+                   AND process_attempts < @maxAttempts
+                 ORDER BY received_at
+                 LIMIT @batchSize
+                 FOR UPDATE SKIP LOCKED
+               ) AS claimed
+         WHERE w.id = claimed.id
+        RETURNING w.provider, w.provider_event_id, w.payload::text;
+        """;
+
+    public async Task<IReadOnlyList<PendingPaymentWebhook>> ClaimBatchAsync(
+        int batchSize,
+        short maxAttempts,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+
+        await using var conexao = new NpgsqlConnection(_connectionString);
+        await conexao.OpenAsync(cancellationToken);
+
+        await using var comando = new NpgsqlCommand(ClaimSql, conexao);
+        comando.Parameters.AddWithValue("maxAttempts", maxAttempts);
+        comando.Parameters.AddWithValue("batchSize", batchSize);
+
+        var reivindicados = new List<PendingPaymentWebhook>(batchSize);
+
+        await using var leitor = await comando.ExecuteReaderAsync(cancellationToken);
+        while (await leitor.ReadAsync(cancellationToken))
+        {
+            reivindicados.Add(new PendingPaymentWebhook
+            {
+                Provider = (WebhookProvider)leitor.GetInt16(0),
+                ProviderEventId = leitor.GetString(1),
+                Payload = leitor.GetString(2),
+            });
+        }
+
+        return reivindicados;
+    }
+
     public async Task<bool> TryRecordAsync(
         ReceivedWebhook webhook,
         CancellationToken cancellationToken)
@@ -136,17 +190,24 @@ internal sealed class PlanRepository(IOptions<DatabaseOptions> options) : IPlanR
     // montar SQL por concatenação é o padrão que o SAST sinaliza e que, um dia,
     // alguém estende passando um filtro vindo de fora. Não vale a economia.
     private const string SqlPorCodigo = """
-        SELECT id, code, name, price_cents, billing_period
+        SELECT id, code, name, price_cents, billing_period, audience
           FROM plans
          WHERE code = @chave AND is_active
          LIMIT 1;
         """;
 
     private const string SqlPorId = """
-        SELECT id, code, name, price_cents, billing_period
+        SELECT id, code, name, price_cents, billing_period, audience
           FROM plans
          WHERE id = @chave AND is_active
          LIMIT 1;
+        """;
+
+    private const string SqlAtivosPorAudiencia = """
+        SELECT id, code, name, price_cents, billing_period, audience
+          FROM plans
+         WHERE audience = @audience AND is_active
+         ORDER BY price_cents;
         """;
 
     public Task<PlanSnapshot?> FindByCodeAsync(string code, CancellationToken cancellationToken) =>
@@ -154,6 +215,26 @@ internal sealed class PlanRepository(IOptions<DatabaseOptions> options) : IPlanR
 
     public Task<PlanSnapshot?> FindByIdAsync(long id, CancellationToken cancellationToken) =>
         BuscarAsync(SqlPorId, id, cancellationToken);
+
+    public async Task<IReadOnlyList<PlanSnapshot>> ListActiveAsync(
+        PlanAudience audience, CancellationToken cancellationToken)
+    {
+        await using var conexao = new NpgsqlConnection(_connectionString);
+        await conexao.OpenAsync(cancellationToken);
+
+        await using var comando = new NpgsqlCommand(SqlAtivosPorAudiencia, conexao);
+        comando.Parameters.AddWithValue("audience", (short)audience);
+
+        var planos = new List<PlanSnapshot>();
+
+        await using var leitor = await comando.ExecuteReaderAsync(cancellationToken);
+        while (await leitor.ReadAsync(cancellationToken))
+        {
+            planos.Add(LerPlano(leitor));
+        }
+
+        return planos;
+    }
 
     private async Task<PlanSnapshot?> BuscarAsync(
         string sql,
@@ -173,13 +254,16 @@ internal sealed class PlanRepository(IOptions<DatabaseOptions> options) : IPlanR
             return null;
         }
 
-        return new PlanSnapshot
-        {
-            Id = leitor.GetInt64(0),
-            Code = leitor.GetString(1),
-            Name = leitor.GetString(2),
-            PriceCents = leitor.GetInt64(3),
-            BillingPeriod = leitor.GetInt16(4),
-        };
+        return LerPlano(leitor);
     }
+
+    private static PlanSnapshot LerPlano(NpgsqlDataReader leitor) => new()
+    {
+        Id = leitor.GetInt64(0),
+        Code = leitor.GetString(1),
+        Name = leitor.GetString(2),
+        PriceCents = leitor.GetInt64(3),
+        BillingPeriod = leitor.GetInt16(4),
+        Audience = (PlanAudience)leitor.GetInt16(5),
+    };
 }

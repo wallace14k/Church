@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Congrega.Application.Billing;
 
-/// <summary>O que a borda entrega ao handler: corpo cru, cabeçalho e instante.</summary>
+/// <summary>O que a borda entrega ao handler de recepção: corpo cru, cabeçalho e instante.</summary>
 public sealed record PaymentWebhookRequest
 {
     /// <summary>Corpo exatamente como chegou. Reserializar mudaria o HMAC.</summary>
@@ -28,37 +28,55 @@ public enum WebhookOutcome
 
     /// <summary>Autêntico, mas de um tipo que não nos interessa.</summary>
     Ignored,
+
+    /// <summary>
+    /// Registrado na borda e enfileirado — o processamento é do worker.
+    /// </summary>
+    /// <remarks>
+    /// Distinto de <see cref="Processed"/> de propósito: a borda não sabe, e
+    /// não pode saber, se o pagamento vai mudar de estado. Reaproveitar
+    /// <c>Processed</c> aqui faria o log dizer que algo foi resolvido quando só
+    /// foi recebido.
+    /// </remarks>
+    Accepted,
+
+    /// <summary>O worker tentou processar e não conseguiu — fica para a próxima reivindicação.</summary>
+    Failed,
 }
 
 public sealed record WebhookResult(WebhookOutcome Outcome, string? Detail = null);
 
 /// <summary>
-/// Recebe um webhook de pagamento.
+/// Resolve um webhook de pagamento já registrado contra o estado real da cobrança.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Segue o pipeline da skill de segurança, e a <b>ordem importa</b>:
-/// </para>
-/// <code>
-/// recebe → confere assinatura → confere replay → valida schema
-///        → checa idempotência → persiste cru → commit → processa
-/// </code>
-/// <para>
-/// <b>Nunca confia no corpo do evento.</b> Mesmo com assinatura válida, o valor
-/// autoritativo do pagamento é buscado de volta no provedor
+/// Roda no worker, depois que <see cref="ReceivePaymentWebhookHandler"/> já fez
+/// os passos 1 a 5 do pipeline da skill de segurança (assinatura, replay,
+/// schema, idempotência, persistência do cru) na borda. Este handler só existe
+/// para o passo 6: <b>nunca confia no corpo do evento</b>. Mesmo com assinatura
+/// válida, o valor autoritativo do pagamento é buscado de volta no provedor
 /// (<i>fetch-on-notify</i>) — um evento antigo, legitimamente assinado, poderia
 /// ser reapresentado para reabrir uma cobrança já estornada. A assinatura prova
 /// quem mandou, não que a informação ainda vale.
 /// </para>
 /// <para>
+/// <b>Não reverifica assinatura nem persiste de novo.</b> Repetir
+/// <c>TryRecordAsync</c> sobre uma linha que já existe bateria no <c>ON
+/// CONFLICT DO NOTHING</c> e nunca chegaria ao fetch-on-notify — só quem
+/// reivindica o lote (<c>IPaymentWebhookRepository.ClaimBatchAsync</c>) já
+/// filtra por <c>signature_valid = true</c>, então chegar aqui já significa
+/// "autêntico e ainda não processado".
+/// </para>
+/// <para>
 /// <b>"Pagamento aprovado" não é "usuário premium".</b> A confirmação emite
 /// <see cref="PaymentConfirmed"/>; quem transforma isso em acesso é
 /// <see cref="GrantEntitlementHandler"/>, passando pela tabela de entitlements —
-/// o único caminho de autorização de conteúdo.
+/// o único caminho de autorização de conteúdo. Este handler não conhece
+/// entitlements.
 /// </para>
 /// </remarks>
 public sealed class ProcessPaymentWebhookHandler(
-    IWebhookSignatureVerifier verifier,
     IPaymentWebhookRepository webhooks,
     IPaymentRepository payments,
     IPaymentGateway gateway,
@@ -66,75 +84,45 @@ public sealed class ProcessPaymentWebhookHandler(
     TimeProvider timeProvider,
     ILogger<ProcessPaymentWebhookHandler> logger)
 {
+    /// <summary>
+    /// Processa um evento já reivindicado. Nunca propaga exceção: uma cobrança
+    /// com erro é isolada aqui, marcada como falha, e não deve interromper o
+    /// resto do lote que o dispatcher está drenando — mesmo espírito do
+    /// isolamento de "mensagem venenosa" do <c>OutboxProcessor</c>.
+    /// </summary>
     public async Task<WebhookResult> HandleAsync(
-        PaymentWebhookRequest request,
+        PendingPaymentWebhook evento,
         CancellationToken cancellationToken)
     {
         var agora = timeProvider.GetUtcNow();
 
-        // 1 e 2 — autenticidade e replay, antes de qualquer leitura do conteúdo.
-        bool assinaturaValida = verifier.IsValid(request.Payload, request.SignatureHeader, agora);
-
-        // 3 — schema. Feito mesmo com assinatura inválida, porque o evento é
-        // gravado nos dois casos e precisa de um identificador para a chave.
-        if (!WebhookEnvelope.TryParse(request.Payload, out var envelope))
+        if (!WebhookEnvelope.TryParse(evento.Payload, out var envelope))
         {
-            logger.LogWarning(
-                "Webhook de {Provider} com corpo ilegível. Assinatura válida: {Valida}.",
-                request.Provider, assinaturaValida);
+            // Não deveria acontecer: o mesmo payload já foi parseado com
+            // sucesso para chegar a esta tabela. Se acontecer mesmo assim
+            // (corrupção, mudança de formato), não há tentativa futura que
+            // resolva — mas ainda passa pelo contador de tentativas em vez de
+            // travar o lote.
+            logger.LogError(
+                "Webhook {EventId} de {Provider} com payload ilegível ao reprocessar.",
+                evento.ProviderEventId, evento.Provider);
 
-            return new WebhookResult(WebhookOutcome.Rejected, "Corpo ilegível.");
-        }
+            await webhooks.MarkFailedAsync(
+                evento.Provider, evento.ProviderEventId, "Payload ilegível ao reprocessar.", cancellationToken);
 
-        // 4 e 5 — idempotência e persistência do cru, numa operação só. O
-        // registro acontece MESMO com assinatura inválida: descartar na porta
-        // apagaria a evidência de uma tentativa de forjar pagamento, que é
-        // exatamente o que se quer poder investigar depois.
-        bool inedito = await webhooks.TryRecordAsync(
-            new ReceivedWebhook
-            {
-                Provider = request.Provider,
-                ProviderEventId = envelope.EventId,
-                EventType = envelope.EventType,
-                Payload = request.Payload,
-                SignatureValid = assinaturaValida,
-                CorrelationId = request.CorrelationId,
-            },
-            cancellationToken);
-
-        if (!inedito)
-        {
-            // Reentrega. O provedor precisa de 2xx, senão continua reenviando.
-            logger.LogInformation(
-                "Webhook {EventId} de {Provider} já registrado. Reentrega ignorada.",
-                envelope.EventId, request.Provider);
-
-            return new WebhookResult(WebhookOutcome.Duplicate);
-        }
-
-        if (!assinaturaValida)
-        {
-            // Gravado acima para auditoria, mas não processado. A resposta ao
-            // remetente não distingue "assinatura errada" de "evento
-            // desconhecido" — não vale ensinar quem sonda o endpoint onde
-            // exatamente ele errou.
-            logger.LogWarning(
-                "Webhook {EventId} de {Provider} com assinatura inválida. Registrado, não processado.",
-                envelope.EventId, request.Provider);
-
-            return new WebhookResult(WebhookOutcome.Rejected, "Assinatura inválida.");
+            return new WebhookResult(WebhookOutcome.Failed, "Payload ilegível.");
         }
 
         if (envelope.ChargeId is not { Length: > 0 } chargeId)
         {
-            await webhooks.MarkProcessedAsync(request.Provider, envelope.EventId, agora, cancellationToken);
+            await webhooks.MarkProcessedAsync(evento.Provider, envelope.EventId, agora, cancellationToken);
             return new WebhookResult(WebhookOutcome.Ignored, "Evento sem cobrança associada.");
         }
 
         try
         {
             var resultado = await ProcessarCobrancaAsync(chargeId, agora, cancellationToken);
-            await webhooks.MarkProcessedAsync(request.Provider, envelope.EventId, agora, cancellationToken);
+            await webhooks.MarkProcessedAsync(evento.Provider, envelope.EventId, agora, cancellationToken);
             return resultado;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -145,12 +133,12 @@ public sealed class ProcessPaymentWebhookHandler(
             logger.LogError(
                 ex,
                 "Falha ao processar webhook {EventId} de {Provider}.",
-                envelope.EventId, request.Provider);
+                envelope.EventId, evento.Provider);
 
             await webhooks.MarkFailedAsync(
-                request.Provider, envelope.EventId, ex.Message, cancellationToken);
+                evento.Provider, envelope.EventId, ex.Message, cancellationToken);
 
-            throw;
+            return new WebhookResult(WebhookOutcome.Failed, ex.Message);
         }
     }
 

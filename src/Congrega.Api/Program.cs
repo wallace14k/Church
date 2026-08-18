@@ -5,6 +5,7 @@ using Congrega.Api.Authorization;
 using Congrega.Api.Endpoints;
 using Congrega.Api.Middleware;
 using Congrega.Application.Abstractions;
+using Congrega.Application.Billing;
 using Congrega.Application.Identity;
 using Congrega.Infrastructure;
 using Congrega.Infrastructure.Security;
@@ -44,6 +45,8 @@ builder.Services.AddScoped<IAuthenticationContextWriter>(sp => sp.GetRequiredSer
 builder.Services.AddScoped<RequestOtpHandler>();
 builder.Services.AddScoped<VerifyOtpHandler>();
 builder.Services.AddScoped<RefreshSessionHandler>();
+builder.Services.AddScoped<StartCheckoutHandler>();
+builder.Services.AddScoped<ReceivePaymentWebhookHandler>();
 
 // -----------------------------------------------------------------------------
 // Autenticação — validação rigorosa do JWT
@@ -161,7 +164,8 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(allowedOrigins)
             .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
-            .WithHeaders("Content-Type", "Authorization", "X-Congrega-Client", "X-Correlation-Id")
+            .WithHeaders(
+                "Content-Type", "Authorization", "X-Congrega-Client", "X-Correlation-Id", "Idempotency-Key")
             // Obrigatório porque o cliente web usa `credentials: 'include'` para
             // que o cookie HttpOnly do refresh viaje. E é justamente por causa
             // disso que as origens precisam ser explícitas: a especificação
@@ -216,6 +220,7 @@ app.MapMemberEndpoints();
 app.MapFamilyEndpoints();
 app.MapGivingEndpoints();
 app.MapEventEndpoints();
+app.MapBillingEndpoints();
 
 app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Congrega.Application.Abstractions;
+using Congrega.Application.Billing;
 using Congrega.Application.Retention;
 using Congrega.Domain.Retention;
 using Congrega.Infrastructure;
@@ -47,10 +48,12 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services
-    .AddOptions<DatabaseOptions>()
-    .Bind(builder.Configuration.GetSection(DatabaseOptions.SectionName))
+    .AddOptions<WebhookProcessorOptions>()
+    .Bind(builder.Configuration.GetSection(WebhookProcessorOptions.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
+
+// DatabaseOptions é vinculada por AddCongregaPersistence, mais abaixo.
 
 // -----------------------------------------------------------------------------
 // TimeProvider: relógio injetável
@@ -95,10 +98,29 @@ builder.Services.AddSingleton(_ => new ResiliencePipelineBuilder()
 // -----------------------------------------------------------------------------
 // Portas e adaptadores
 // -----------------------------------------------------------------------------
-builder.Services.AddSingleton<IDistributedLock, PostgresAdvisoryLock>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
 builder.Services.AddScoped<RetentionScanner>();
+
+// -----------------------------------------------------------------------------
+// Persistência (EF Core) — necessária para o processador de webhook de
+// pagamento, que grava Payment/Entitlement através do modelo de domínio.
+// -----------------------------------------------------------------------------
+// ITenantContext e IHostEnvironmentAccessor precisam existir ANTES de
+// AddCongregaPersistence: o DbContext e o interceptor de conexão dependem dos
+// dois. O Workers roda com congrega_worker (BYPASSRLS) e não representa
+// nenhum usuário/tenant específico — WorkerTenantContext é fixo e
+// cross-tenant, nunca resolvido por requisição.
+builder.Services.AddSingleton<ITenantContext, WorkerTenantContext>();
+builder.Services.AddSingleton<IHostEnvironmentAccessor, WorkersHostEnvironmentAccessor>();
+builder.Services.AddCongregaPersistence(builder.Configuration);
+
+// Gateway de pagamento — mesma extensão que a API usa, com o ambiente
+// explícito na composição (ver AddCongregaPayments). Em produção não há
+// adaptador registrado ainda, e a resolução falha ao processar o primeiro
+// webhook — comportamento correto, ver premissa P8.
+builder.Services.AddCongregaPayments(builder.Environment.IsDevelopment());
+builder.Services.AddScoped<ProcessPaymentWebhookHandler>();
 
 // -----------------------------------------------------------------------------
 // Outbox
@@ -110,6 +132,7 @@ builder.Services.AddCongregaOutbox(builder.Configuration, builder.Environment.Is
 // -----------------------------------------------------------------------------
 builder.Services.AddHostedService<RetentionBackgroundService>();
 builder.Services.AddHostedService<OutboxDispatcherService>();
+builder.Services.AddHostedService<WebhookDispatcherService>();
 
 // -----------------------------------------------------------------------------
 // Health checks

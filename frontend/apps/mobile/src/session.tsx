@@ -26,9 +26,10 @@ export function SessionProvider({ children }: { readonly children: ReactNode }) 
 
     async function hidratar() {
       try {
-        // Uma requisição autenticada qualquer força a renovação e, com ela, a
-        // reidratação da sessão pelo próprio cliente.
-        await apiClient.request('/api/v1/auth/refresh', { method: 'POST', body: {}, anonymous: true });
+        // `hydrateSession()` é o que de fato ADOTA a sessão renovada — ver a
+        // nota no método. Chamar `request()` direto aqui já causou o app
+        // concluir "anônimo" com uma sessão perfeitamente válida no cookie.
+        await apiClient.hydrateSession();
       } catch {
         // Sem sessão válida — estado normal de quem nunca entrou ou saiu.
       }
