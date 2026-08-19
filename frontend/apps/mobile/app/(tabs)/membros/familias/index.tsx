@@ -1,4 +1,5 @@
 import type { Family } from '@congrega/api-client/families';
+import { AsyncContent } from '@congrega/ui/AsyncContent';
 import { Card } from '@congrega/ui/Card';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { EyebrowPill } from '@congrega/ui/EyebrowPill';
@@ -8,7 +9,7 @@ import { Text } from '@congrega/ui/Text';
 import { useTheme } from '@congrega/ui/theme';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFamilies } from '../../../../src/useFamilies';
 
@@ -41,20 +42,14 @@ export default function ListaDeFamilias() {
         )}
       </View>
 
-      {carregando ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={theme.colors.text} />
-        </View>
-      ) : erro !== null ? (
-        <View style={{ paddingHorizontal: theme.space[24], paddingTop: theme.space[32] }}>
-          <EmptyState
-            title="Não deu para carregar as famílias"
-            description={erro}
-            action={<SignatureButton label="Tentar de novo" onPress={recarregar} />}
-          />
-        </View>
-      ) : familias.length === 0 ? (
-        <View style={{ paddingHorizontal: theme.space[24], paddingTop: theme.space[16] }}>
+      <AsyncContent
+        fill
+        loading={carregando}
+        failure={erro}
+        errorTitle="Não deu para carregar as famílias"
+        onRetry={recarregar}
+        isEmpty={familias.length === 0}
+        empty={
           <EmptyState
             title="Nenhuma família cadastrada"
             description="Agrupe membros da mesma família para localizá-los juntos na ficha de cada um."
@@ -62,8 +57,8 @@ export default function ListaDeFamilias() {
               <SignatureButton label="Nova família" onPress={() => router.push('/membros/familias/nova')} />
             }
           />
-        </View>
-      ) : (
+        }
+      >
         <FlashList
           data={familias}
           keyExtractor={(item) => item.id}
@@ -78,7 +73,7 @@ export default function ListaDeFamilias() {
           }}
           ItemSeparatorComponent={() => <View style={{ height: theme.space[8] }} />}
         />
-      )}
+      </AsyncContent>
     </Screen>
   );
 }

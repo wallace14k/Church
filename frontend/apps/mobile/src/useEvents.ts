@@ -1,4 +1,4 @@
-import { describeError } from '@congrega/api-client/errors';
+import { describeFailure, type Failure } from '@congrega/api-client/errors';
 import { listEvents, listUpcomingEvents, type CalendarEvent } from '@congrega/api-client/events';
 import { businessMonthRange, type YearMonth } from '@congrega/core/datetime';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -7,7 +7,7 @@ import { apiClient } from './api';
 interface EstadoAgenda {
   readonly eventos: readonly CalendarEvent[];
   readonly carregando: boolean;
-  readonly erro: string | null;
+  readonly erro: Failure | null;
 }
 
 const INICIAL: EstadoAgenda = { eventos: [], carregando: true, erro: null };
@@ -34,7 +34,7 @@ export function useEventsOfMonth(period: YearMonth): EstadoAgenda & { readonly r
       setEstado({ eventos, carregando: false, erro: null });
     } catch (causa) {
       if (controlador.signal.aborted) return;
-      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeError(causa) }));
+      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeFailure(causa) }));
     }
   }, [year, month]);
 
@@ -63,7 +63,7 @@ export function useUpcomingEvents(limit = 3): EstadoAgenda & { readonly recarreg
       setEstado({ eventos, carregando: false, erro: null });
     } catch (causa) {
       if (controlador.signal.aborted) return;
-      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeError(causa) }));
+      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeFailure(causa) }));
     }
   }, [limit]);
 

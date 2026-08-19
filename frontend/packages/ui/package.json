@@ -23,7 +23,11 @@
     "./Brandmark": "./src/Brandmark.tsx",
     "./Avatar": "./src/Avatar.tsx",
     "./StatCard": "./src/StatCard.tsx",
-    "./Sidebar": "./src/Sidebar.tsx"
+    "./Sidebar": "./src/Sidebar.tsx",
+    "./AsyncContent": "./src/AsyncContent.tsx",
+    "./MonthNavigator": "./src/MonthNavigator.tsx",
+    "./useReducedMotion": "./src/useReducedMotion.ts",
+    "./Skeleton": "./src/Skeleton.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

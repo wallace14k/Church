@@ -116,6 +116,27 @@ internal sealed class PaymentRepository(CongregaDbContext db) : IPaymentReposito
     public Task<Payment?> FindByPublicIdAsync(Guid publicId, CancellationToken cancellationToken) =>
         db.Payments.FirstOrDefaultAsync(p => p.PublicId == publicId, cancellationToken);
 
+    public async Task<IReadOnlyList<Payment>> ListByUserAsync(
+        long userId,
+        int limit,
+        CancellationToken cancellationToken) =>
+        // O `WHERE user_id = @eu` é explícito mesmo com Global Query Filter e RLS
+        // cobrindo o mesmo terreno. Não é redundância inútil: o filtro global de
+        // `Payment` libera tudo quando `TenantId` é nulo — que é exatamente o
+        // caso do assinante Congrega+ sem igreja —, e ali quem isola de fato é o
+        // RLS. Repetir a condição aqui mantém a consulta correta por si mesma,
+        // sem depender de qual das três camadas está ativa.
+        //
+        // AsNoTracking: é leitura para exibição, ninguém altera estes agregados.
+        // A ordem casa com ix_pay_user (user_id, created_at DESC) para que o
+        // LIMIT saia da varredura do índice, sem sort.
+        await db.Payments
+            .AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
     public void Add(Payment payment) => db.Payments.Add(payment);
 }
 
@@ -171,12 +192,16 @@ internal sealed class SubscriptionStore(CongregaDbContext db) : ISubscriptionSto
     public Task<Subscription?> FindByIdAsync(long id, CancellationToken cancellationToken) =>
         db.Subscriptions.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
 
-    public Task<Subscription?> FindActiveByUserAsync(long userId, CancellationToken cancellationToken) =>
+    public Task<Subscription?> FindCurrentByUserAsync(long userId, CancellationToken cancellationToken) =>
         db.Subscriptions.FirstOrDefaultAsync(
             s => s.UserId == userId
                 && (s.Status == SubscriptionStatus.Active
                     || s.Status == SubscriptionStatus.PastDue
-                    || s.Status == SubscriptionStatus.Grace),
+                    || s.Status == SubscriptionStatus.Grace
+                    // Cancelada ainda rege o usuário até o fim do período pago.
+                    // Excluí-la mostrava o paywall a quem acabara de cancelar e
+                    // ainda tinha acesso — ver a nota do contrato.
+                    || s.Status == SubscriptionStatus.Canceled),
             cancellationToken);
 
     public Task<Subscription?> FindReusableForCheckoutAsync(

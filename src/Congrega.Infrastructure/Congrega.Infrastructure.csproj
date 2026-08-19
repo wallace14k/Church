@@ -52,6 +52,12 @@
                       LogicalName="Congrega.Db.070_eventos.sql" />
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/008_planos.sql"
                       LogicalName="Congrega.Db.080_planos.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/009_indice_pagamentos_por_titular.sql"
+                      LogicalName="Congrega.Db.090_indice_pagamentos.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/011_criancas.sql"
+                      LogicalName="Congrega.Db.110_criancas.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/012_tipo_de_evento.sql"
+                      LogicalName="Congrega.Db.120_tipo_evento.sql" />
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/seed.sql"
                       LogicalName="Congrega.Db.900_seed.sql" />
   </ItemGroup>

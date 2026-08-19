@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Congrega.Api.Authorization;
+using Congrega.Application.Abstractions;
 using Congrega.Application.Billing;
 using Congrega.Domain.Billing;
 using Microsoft.AspNetCore.Mvc;
@@ -57,6 +58,21 @@ public sealed record PlanSummaryResponse
     public required short BillingPeriod { get; init; }
 }
 
+/// <summary>Uma cobrança do histórico do titular.</summary>
+/// <remarks>
+/// <c>PublicId</c>, nunca a PK sequencial: o identificador aparece em payload,
+/// e PK exposta é enumeração — a discordância D1 do <c>docs/00-premissas.md</c>.
+/// </remarks>
+public sealed record PaymentSummaryResponse
+{
+    public required Guid Id { get; init; }
+    public required long AmountCents { get; init; }
+    public required string Status { get; init; }
+    public string? Method { get; init; }
+    public required DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? PaidAt { get; init; }
+}
+
 /// <summary>
 /// Cobrança: abrir checkout e receber webhook do gateway.
 /// </summary>
@@ -85,6 +101,18 @@ public static class BillingEndpoints
     /// </remarks>
     private const int MaxWebhookBodyBytes = 64 * 1024;
 
+    /// <summary>
+    /// Teto do histórico de pagamentos devolvido numa chamada.
+    /// </summary>
+    /// <remarks>
+    /// Lista com teto em vez de paginação completa, de propósito: o histórico de
+    /// um assinante é uma linha por ciclo de cobrança — cinquenta cobre mais de
+    /// quatro anos de plano mensal. Montar `PagedResponse` aqui seria cerimônia
+    /// sobre um conjunto que não pagina. O teto continua obrigatório: sem ele a
+    /// resposta cresce sem limite com o tempo de casa do cliente.
+    /// </remarks>
+    private const int MaxPaymentHistory = 50;
+
     public static void MapBillingEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/billing").WithTags("Cobrança");
@@ -100,6 +128,14 @@ public static class BillingEndpoints
         group.MapGet("/plans", ListPlansAsync)
             .RequireAuthorization(Policies.BillingCheckout)
             .WithSummary("Catálogo de planos Congrega+ disponíveis para assinar");
+
+        group.MapGet("/payments", ListPaymentsAsync)
+            .RequireAuthorization(Policies.BillingCheckout)
+            .WithSummary("Histórico de cobranças do titular");
+
+        group.MapPost("/subscription/cancel", CancelSubscriptionAsync)
+            .RequireAuthorization(Policies.BillingCheckout)
+            .WithSummary("Cancela a renovação da assinatura Congrega+ do titular");
 
         group.MapPost("/webhook", ReceiveWebhookAsync)
             .AllowAnonymous()
@@ -121,7 +157,7 @@ public static class BillingEndpoints
                 statusCode: StatusCodes.Status401Unauthorized);
         }
 
-        var assinatura = await subscriptions.FindActiveByUserAsync(titular, cancellationToken);
+        var assinatura = await subscriptions.FindCurrentByUserAsync(titular, cancellationToken);
 
         if (assinatura is null)
         {
@@ -134,6 +170,130 @@ public static class BillingEndpoints
         // por isso FindByIdAsync (busca por id, sem o filtro is_active de
         // FindByCodeAsync não faria diferença aqui) pode devolver null; nesse
         // caso o nome fica ausente, mas o status da assinatura continua válido.
+        var plano = await plans.FindByIdAsync(assinatura.PlanId, cancellationToken);
+
+        return TypedResults.Ok(new SubscriptionStatusResponse
+        {
+            HasSubscription = true,
+            PlanCode = plano?.Code,
+            PlanName = plano?.Name,
+            Status = assinatura.Status.ToString(),
+            CurrentPeriodEnd = assinatura.CurrentPeriodEnd,
+            GraceUntil = assinatura.GraceUntil,
+            CancelAtPeriodEnd = assinatura.CancelAtPeriodEnd,
+        });
+    }
+
+    /// <summary>
+    /// Histórico de cobranças do titular.
+    /// </summary>
+    /// <remarks>
+    /// O titular sai da claim <c>sub</c>, nunca de parâmetro — não existe
+    /// <c>?userId=</c> aqui de propósito. Aceitar o titular do cliente seria
+    /// entregar o histórico financeiro de qualquer pessoa a quem trocasse o
+    /// número na URL; é o IDOR/BOLA da §5 da skill de segurança, e a defesa é
+    /// não oferecer o parâmetro, não validá-lo depois.
+    /// </remarks>
+    private static async Task<IResult> ListPaymentsAsync(
+        HttpContext http,
+        IPaymentRepository payments,
+        CancellationToken cancellationToken)
+    {
+        long? userId = http.User.GetUserId();
+
+        if (userId is not { } titular)
+        {
+            return TypedResults.Problem(
+                title: "Sessão inválida",
+                statusCode: StatusCodes.Status401Unauthorized);
+        }
+
+        var historico = await payments.ListByUserAsync(titular, MaxPaymentHistory, cancellationToken);
+
+        return TypedResults.Ok(historico.Select(p => new PaymentSummaryResponse
+        {
+            Id = p.PublicId,
+            AmountCents = p.AmountCents,
+            Status = p.Status.ToString(),
+            Method = p.Method?.ToString(),
+            CreatedAt = p.CreatedAt,
+            PaidAt = p.PaidAt,
+        }).ToList());
+    }
+
+    /// <summary>
+    /// Cancela a renovação da assinatura do titular.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Cancelar não revoga acesso.</b> <c>Subscription.Cancel</c> é chamado
+    /// sem <c>immediate</c>, então <c>CurrentPeriodEnd</c> não se move e os
+    /// entitlements concedidos seguem válidos até lá — a pessoa pagou por
+    /// aquele período. Confundir "cancelou" com "perdeu acesso agora" é o que
+    /// gera reclamação e chargeback; está no agregado e na §6 do
+    /// <c>docs/03-arquitetura.md</c>.
+    /// </para>
+    /// <para>
+    /// <b>A assinatura vem do titular autenticado, não de um id no corpo.</b>
+    /// Não há como pedir o cancelamento da assinatura alheia porque não há onde
+    /// informá-la.
+    /// </para>
+    /// <para>
+    /// <b>Transição recusada é 409, não 500.</b> <c>FindCurrentByUserAsync</c>
+    /// devolve <c>Active</c>, <c>PastDue</c> <b>e</b> <c>Grace</c>, mas a tabela
+    /// de transições do agregado só admite cancelamento a partir dos dois
+    /// primeiros — <c>Grace</c> já está a caminho de <c>Expired</c> por conta da
+    /// cobrança que falhou, e não há renovação futura para cancelar. Sem este
+    /// <c>catch</c>, esse caminho — que a tela pode alcançar — sobe como erro
+    /// não tratado.
+    /// </para>
+    /// </remarks>
+    private static async Task<IResult> CancelSubscriptionAsync(
+        HttpContext http,
+        ISubscriptionStore subscriptions,
+        IPlanRepository plans,
+        IUnitOfWork unitOfWork,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        long? userId = http.User.GetUserId();
+
+        if (userId is not { } titular)
+        {
+            return TypedResults.Problem(
+                title: "Sessão inválida",
+                statusCode: StatusCodes.Status401Unauthorized);
+        }
+
+        var assinatura = await subscriptions.FindCurrentByUserAsync(titular, cancellationToken);
+
+        if (assinatura is null)
+        {
+            return TypedResults.Problem(
+                title: "Nenhuma assinatura ativa",
+                detail: "Não há assinatura Congrega+ em vigor para cancelar.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+
+        try
+        {
+            assinatura.Cancel(timeProvider.GetUtcNow());
+        }
+        catch (InvalidSubscriptionTransitionException ex)
+        {
+            return TypedResults.Problem(
+                title: "Não é possível cancelar agora",
+                detail: ex.From == SubscriptionStatus.Grace
+                    ? "Esta assinatura já está encerrando por falta de pagamento e não renova."
+                    : "A assinatura está em um estado que não admite cancelamento.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Mesma forma que GET /subscription devolveria, plano incluído: a tela
+        // aplica a resposta direto, sem uma segunda ida ao servidor só para
+        // redescobrir o que esta chamada já sabe.
         var plano = await plans.FindByIdAsync(assinatura.PlanId, cancellationToken);
 
         return TypedResults.Ok(new SubscriptionStatusResponse

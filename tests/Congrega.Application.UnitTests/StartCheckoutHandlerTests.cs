@@ -291,6 +291,11 @@ public sealed class StartCheckoutHandlerTests
 
         public Task<Payment?> FindByPublicIdAsync(Guid publicId, CancellationToken cancellationToken) =>
             Task.FromResult(_persistidos.FirstOrDefault(p => p.PublicId == publicId));
+
+        public Task<IReadOnlyList<Payment>> ListByUserAsync(
+            long userId, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Payment>>(
+                _persistidos.Where(p => p.UserId == userId).Take(limit).ToList());
     }
 
     private sealed class FakeSubscriptionStore : ISubscriptionStore
@@ -301,7 +306,7 @@ public sealed class StartCheckoutHandlerTests
         public Task<Subscription?> FindByIdAsync(long id, CancellationToken cancellationToken) =>
             Task.FromResult(_todas.FirstOrDefault(s => s.Id == id));
 
-        public Task<Subscription?> FindActiveByUserAsync(long userId, CancellationToken cancellationToken) =>
+        public Task<Subscription?> FindCurrentByUserAsync(long userId, CancellationToken cancellationToken) =>
             Task.FromResult(_todas.FirstOrDefault(
                 s => s.UserId == userId && s.Status == SubscriptionStatus.Active));
 

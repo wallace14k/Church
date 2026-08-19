@@ -200,7 +200,7 @@ public sealed class GrantEntitlementHandlerTests
         public Task<Subscription?> FindByIdAsync(long id, CancellationToken cancellationToken) =>
             Task.FromResult(_porId.GetValueOrDefault(id));
 
-        public Task<Subscription?> FindActiveByUserAsync(long userId, CancellationToken cancellationToken) =>
+        public Task<Subscription?> FindCurrentByUserAsync(long userId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<Subscription?> FindReusableForCheckoutAsync(

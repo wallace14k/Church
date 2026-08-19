@@ -7,7 +7,9 @@ import { StatCard } from '@congrega/ui/StatCard';
 import { Screen } from '@congrega/ui/Screen';
 import { Text } from '@congrega/ui/Text';
 import { TextLink } from '@congrega/ui/TextLink';
+import { motion } from '@congrega/ui/tokens';
 import { useTheme } from '@congrega/ui/theme';
+import { useReducedMotion } from '@congrega/ui/useReducedMotion';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, View } from 'react-native';
@@ -46,15 +48,26 @@ export default function Inicio() {
   // Entrada única e discreta: o conteúdo sobe 12px enquanto ganha opacidade.
   // Um gesto orquestrado só, não uma animação por cartão — várias animações
   // pequenas ao mesmo tempo lêem como "gerado", não como intencional.
-  const entrada = useRef(new Animated.Value(0)).current;
+  // Comeca em 1 quando o usuario pediu menos movimento: sem animacao nenhuma,
+  // e nao uma versao curta dela. Movimento involuntario dispara enjoo e vertigem
+  // em quem tem desordem vestibular — encurtar de 320ms para 80ms nao resolve,
+  // so torna o problema mais rapido.
+  const reduzirMovimento = useReducedMotion();
+  const entrada = useRef(new Animated.Value(reduzirMovimento ? 1 : 0)).current;
+
   useEffect(() => {
+    if (reduzirMovimento) {
+      entrada.setValue(1);
+      return;
+    }
+
     Animated.timing(entrada, {
       toValue: 1,
-      duration: 320,
+      duration: motion.slow,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [entrada]);
+  }, [entrada, reduzirMovimento]);
 
   if (status === 'anonimo') {
     return <Redirect href="/entrar" />;

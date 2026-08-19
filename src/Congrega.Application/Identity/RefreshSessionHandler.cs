@@ -177,6 +177,7 @@ public sealed class RefreshSessionHandler(
                 RefreshToken = newRefreshValue,
                 RefreshTokenExpiresAt = rotated.ExpiresAt,
                 UserPublicId = user.PublicId,
+                FullName = user.FullName,
                 TenantPublicId = membership?.TenantPublicId,
                 Roles = membership?.RoleCodes ?? []
             }

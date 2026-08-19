@@ -5,6 +5,7 @@ import {
   type GivingCategory,
   type GivingKind,
 } from '@congrega/api-client/giving';
+import { AsyncContent } from '@congrega/ui/AsyncContent';
 import { Button } from '@congrega/ui/Button';
 import { Card } from '@congrega/ui/Card';
 import { Chip } from '@congrega/ui/Chip';
@@ -18,7 +19,7 @@ import { useTheme } from '@congrega/ui/theme';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiClient } from '../../../src/api';
 import { useGivingCategories } from '../../../src/useGiving';
@@ -149,22 +150,19 @@ export default function Categorias() {
           </View>
         </Card>
 
-        {carregando ? (
-          <View style={{ paddingVertical: theme.space[32], alignItems: 'center' }}>
-            <ActivityIndicator color={theme.colors.text} />
-          </View>
-        ) : erro !== null ? (
-          <EmptyState
-            title="Não deu para carregar as categorias"
-            description={erro}
-            action={<SignatureButton label="Tentar de novo" onPress={recarregar} />}
-          />
-        ) : categorias.length === 0 ? (
-          <EmptyState
-            title="Nenhuma categoria ainda"
-            description="Comece por Dízimo e Oferta — depois acrescente as despesas que a igreja tem todo mês."
-          />
-        ) : (
+        <AsyncContent
+          loading={carregando}
+          failure={erro}
+          errorTitle="Não deu para carregar as categorias"
+          onRetry={recarregar}
+          isEmpty={categorias.length === 0}
+          empty={
+            <EmptyState
+              title="Nenhuma categoria ainda"
+              description="Comece por Dízimo e Oferta — depois acrescente as despesas que a igreja tem todo mês."
+            />
+          }
+        >
           <>
             {entradas.length > 0 && (
               <Grupo
@@ -183,7 +181,7 @@ export default function Categorias() {
               />
             )}
           </>
-        )}
+        </AsyncContent>
       </ScrollView>
     </Screen>
   );

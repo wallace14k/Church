@@ -9,6 +9,29 @@ public enum EventStatus : short
 }
 
 /// <summary>
+/// Natureza do evento. Espelha <c>events.event_type</c>.
+/// </summary>
+/// <remarks>
+/// <b>Dado, não bifurcação de lógica.</b> Nenhuma regra do domínio muda com o
+/// tipo — ele existe para a agenda agrupar e a interface diferenciar. Assim que
+/// alguma regra passar a depender dele (quem pode agendar culto, por exemplo),
+/// isso vira permissão, não um <c>switch</c> aqui dentro.
+///
+/// <para>
+/// <c>Outro</c> é o padrão de quem não classificou, e é o único valor que não
+/// afirma nada falso sobre um evento antigo.
+/// </para>
+/// </remarks>
+public enum EventType : short
+{
+    Culto = 1,
+    Reuniao = 2,
+    Estudo = 3,
+    Ensaio = 4,
+    Outro = 5,
+}
+
+/// <summary>
 /// Um evento da agenda da igreja — culto, reunião de oração, ensaio, batismo.
 /// </summary>
 /// <remarks>
@@ -50,6 +73,7 @@ public sealed class CalendarEvent : AggregateRoot
     public DateTimeOffset StartsAt { get; private set; }
     public DateTimeOffset EndsAt { get; private set; }
     public EventStatus Status { get; private set; }
+    public EventType Type { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -61,7 +85,8 @@ public sealed class CalendarEvent : AggregateRoot
         DateTimeOffset endsAt,
         DateTimeOffset now,
         string? description = null,
-        string? location = null)
+        string? location = null,
+        EventType type = EventType.Outro)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(tenantId);
@@ -77,6 +102,7 @@ public sealed class CalendarEvent : AggregateRoot
             StartsAt = startsAt.ToUniversalTime(),
             EndsAt = endsAt.ToUniversalTime(),
             Status = EventStatus.Agendado,
+            Type = type,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -94,7 +120,8 @@ public sealed class CalendarEvent : AggregateRoot
         DateTimeOffset endsAt,
         DateTimeOffset now,
         string? description = null,
-        string? location = null)
+        string? location = null,
+        EventType? type = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         EnsurePeriodoValido(startsAt, endsAt);
@@ -104,6 +131,14 @@ public sealed class CalendarEvent : AggregateRoot
         Location = Blank(location);
         StartsAt = startsAt.ToUniversalTime();
         EndsAt = endsAt.ToUniversalTime();
+
+        // Nulo mantém o tipo atual: quem edita só o horário não deve reclassificar
+        // o evento como "Outro" por omissão.
+        if (type is { } novoTipo)
+        {
+            Type = novoTipo;
+        }
+
         UpdatedAt = now;
     }
 

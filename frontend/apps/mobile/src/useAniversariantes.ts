@@ -1,4 +1,4 @@
-import { describeError } from '@congrega/api-client/errors';
+import { describeFailure, type Failure } from '@congrega/api-client/errors';
 import { listMembers, type Member } from '@congrega/api-client/members';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from './api';
@@ -8,7 +8,7 @@ interface EstadoAniversariantes {
   readonly total: number;
   readonly carregando: boolean;
   readonly carregandoMais: boolean;
-  readonly erro: string | null;
+  readonly erro: Failure | null;
   readonly temMais: boolean;
 }
 
@@ -29,7 +29,9 @@ const INICIAL: EstadoAniversariantes = {
  * propósito — quem está de aniversário continua fazendo aniversário mesmo
  * inativo, e esconder isso da secretaria não ajuda ninguém.
  */
-export function useAniversariantes(mes: number): EstadoAniversariantes & { carregarMais: () => void } {
+export function useAniversariantes(
+  mes: number,
+): EstadoAniversariantes & { carregarMais: () => void; recarregar: () => void } {
   const [estado, setEstado] = useState<EstadoAniversariantes>(INICIAL);
   const pagina = useRef(1);
   const emVoo = useRef<AbortController | null>(null);
@@ -70,7 +72,7 @@ export function useAniversariantes(mes: number): EstadoAniversariantes & { carre
         ...anterior,
         carregando: false,
         carregandoMais: false,
-        erro: describeError(causa),
+        erro: describeFailure(causa),
       }));
     }
   }, [mes]);
@@ -86,5 +88,9 @@ export function useAniversariantes(mes: number): EstadoAniversariantes & { carre
     }
   }, [buscar, estado.carregando, estado.carregandoMais, estado.temMais]);
 
-  return { ...estado, carregarMais };
+  // Volta à primeira página. Sem isto a tela não tinha o que oferecer no erro,
+  // e quem caísse numa falha de rede ficava sem saída a não ser sair da tela.
+  const recarregar = useCallback(() => void buscar(1), [buscar]);
+
+  return { ...estado, carregarMais, recarregar };
 }

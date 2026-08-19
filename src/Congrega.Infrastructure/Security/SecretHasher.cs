@@ -51,8 +51,11 @@ public sealed class AuthenticationOptions
 public sealed class SecretHasher : ISecretHasher, IDisposable
 {
     private readonly HMACSHA256 _otpHmac;
+    private readonly HMACSHA256 _pickupHmac;
 
-    public SecretHasher(IOptions<AuthenticationOptions> options)
+    public SecretHasher(
+        IOptions<AuthenticationOptions> options,
+        IOptions<ChildSafetyOptions> childSafety)
     {
         // A instância de HMAC é criada uma vez e reutilizada. HMACSHA256 não é
         // thread-safe para uso concorrente do estado interno, mas ComputeHash sobre
@@ -60,6 +63,10 @@ public sealed class SecretHasher : ISecretHasher, IDisposable
         // estado — ainda assim, o serviço é registrado como singleton e o lock
         // abaixo elimina qualquer dúvida sob carga.
         _otpHmac = new HMACSHA256(Encoding.UTF8.GetBytes(options.Value.OtpPepper));
+
+        // Pepper separado: ver a nota do contrato em `ISecretHasher`. Rotacionar
+        // um não pode invalidar os segredos do outro.
+        _pickupHmac = new HMACSHA256(Encoding.UTF8.GetBytes(childSafety.Value.PickupCodePepper));
     }
 
     public byte[] HashOtp(string code)
@@ -91,7 +98,23 @@ public sealed class SecretHasher : ISecretHasher, IDisposable
     public bool FixedTimeEquals(byte[] left, byte[] right) =>
         CryptographicOperations.FixedTimeEquals(left, right);
 
-    public void Dispose() => _otpHmac.Dispose();
+    public byte[] HashPickupCode(string code)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(code);
+
+        var bytes = Encoding.UTF8.GetBytes(code);
+
+        lock (_pickupHmac)
+        {
+            return _pickupHmac.ComputeHash(bytes);
+        }
+    }
+
+    public void Dispose()
+    {
+        _otpHmac.Dispose();
+        _pickupHmac.Dispose();
+    }
 }
 
 /// <inheritdoc />

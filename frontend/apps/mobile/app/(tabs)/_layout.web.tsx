@@ -35,7 +35,7 @@ export default function TabsLayoutWeb() {
   const pathname = usePathname();
   const { session, status, sair } = useSession();
   const { tenants, atual, trocar } = useTenants();
-  const [recolhida, alternarRecolhida] = useSidebarCollapsed();
+  const { recolhida, podeAlternar, alternar } = useSidebarCollapsed();
 
   if (status === 'anonimo') {
     return <Redirect href="/entrar" />;
@@ -150,7 +150,8 @@ export default function TabsLayoutWeb() {
         roleLabel={roleLabel}
         onSignOut={() => void sair().then(() => router.replace('/entrar'))}
         collapsed={recolhida}
-        onToggleCollapsed={alternarRecolhida}
+        onToggleCollapsed={alternar}
+        canToggleCollapsed={podeAlternar}
       />
 
       <View style={{ flex: 1, overflow: 'hidden' }}>

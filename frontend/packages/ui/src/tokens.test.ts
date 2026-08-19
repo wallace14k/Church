@@ -50,35 +50,44 @@ describe('contraste do texto', () => {
 });
 
 describe('o lima é superfície, nunca texto (D1)', () => {
-  it('lima sobre canvas reprova até para componente não textual', () => {
-    // É este número que justifica a renomeação de `brand` para `surfaceAccent`.
-    // Como cor de texto seria ilegível; como borda de estado de seleção,
-    // reprovaria a WCAG 1.4.11 — por isso seleção usa preenchimento (D6).
-    expect(contraste(colors.surfaceAccent, colors.background)).toBeLessThan(AA_NAO_TEXTUAL);
+  it('o acento serve como texto, diferente do lima que substituiu', () => {
+    // É este número que muda o sistema. O lima media 1,19:1 e não podia ser
+    // texto nem traço de estado — daí vinham a D1 (link em tinta sublinhada) e
+    // a D6 (seleção por preenchimento, nunca borda colorida). O verde passa
+    // como texto normal, então essas restrições deixam de ser necessárias.
+    expect(contraste(colors.surfaceAccent, colors.background)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 
-  it('nenhum token de texto recebe o lima', () => {
-    const tokensDeTexto = [
-      colors.text,
-      colors.textBody,
-      colors.textMuted,
-      colors.placeholder,
-      colors.textOnAccent,
-      colors.textOnDark,
-    ];
-
-    for (const token of tokensDeTexto) {
-      expect(token.toUpperCase()).not.toBe(palette.electricLime);
-    }
+  it('o verde de texto vale nas duas superfícies claras', () => {
+    //  passaria sobre branco, mas cai para 4,63:1 sobre pergaminho.
+    //  existe para quem escreve não precisar lembrar da
+    // diferença entre as duas superfícies.
+    expect(contraste(palette.brandGreenDeep, colors.background)).toBeGreaterThanOrEqual(AA_NORMAL);
+    expect(contraste(palette.brandGreenDeep, colors.surface)).toBeGreaterThanOrEqual(AA_NORMAL);
+    expect(contraste(palette.brandGreenDeep, colors.surfaceAccentSoft)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 
-  it('o texto sobre lima é tinta, não branco', () => {
-    // Branco sobre lima mede ~1,4:1. O erro é fácil de cometer porque todo
-    // botão primário do sistema anterior tinha texto branco.
-    expect(contraste(palette.pureWhite, colors.surfaceAccent)).toBeLessThan(AA_NAO_TEXTUAL);
+  it('o anel de foco é perceptível nas duas superfícies', () => {
+    // WCAG 1.4.11: o foco é indicador NÃO textual e precisa de 3:1. É por isso
+    // que o anel usa tinta e não  — a cor de borda do sistema mede
+    // menos de 1,3:1 e serve para dividir superfície, não para dizer onde o
+    // teclado está.
+    expect(contraste(colors.text, colors.background)).toBeGreaterThanOrEqual(AA_NAO_TEXTUAL);
+    expect(contraste(colors.text, colors.surface)).toBeGreaterThanOrEqual(AA_NAO_TEXTUAL);
+  });
+
+  it('o texto do acento nunca some no próprio acento', () => {
+    // Invariante que sobrevive a qualquer troca de paleta: se um dia o acento e
+    // o texto sobre ele convergirem, o rótulo do botão primário desaparece.
+    expect(colors.textOnAccent.toUpperCase()).not.toBe(colors.surfaceAccent.toUpperCase());
+  });
+
+  it('o texto sobre o acento é branco, não tinta', () => {
+    // Invertido em relação ao sistema lima, onde branco media 1,4:1 e só a
+    // tinta servia. Sobre o verde é a tinta que fica curta (4,3:1).
+    expect(contraste(palette.offBlackInk, colors.surfaceAccent)).toBeLessThan(AA_NORMAL);
     expect(contraste(colors.textOnAccent, colors.surfaceAccent)).toBeGreaterThanOrEqual(AA_NORMAL);
-  });
-});
+  });});
 
 describe('separação de superfície sem sombra', () => {
   it('cartão e canvas se distinguem por tom', () => {

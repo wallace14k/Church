@@ -201,6 +201,8 @@ internal sealed class FakeSecretHasher : ISecretHasher
 
     public byte[] HashToken(string tokenValue) => Encoding.UTF8.GetBytes($"tok:{tokenValue}");
 
+    public byte[] HashPickupCode(string code) => Encoding.UTF8.GetBytes($"pickup:{code}");
+
     public bool FixedTimeEquals(byte[] left, byte[] right) => left.SequenceEqual(right);
 }
 

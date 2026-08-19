@@ -6,6 +6,7 @@ export interface Session {
   readonly expiresAt: string;
   readonly refreshToken: string | null;
   readonly userId: string;
+  readonly fullName: string;
   readonly tenantId: string | null;
   readonly roles: readonly string[];
 }

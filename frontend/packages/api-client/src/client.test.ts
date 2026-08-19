@@ -10,6 +10,7 @@ function session(overrides: Partial<Session> = {}): Session {
     expiresAt: new Date(Date.now() - 1000).toISOString(),
     refreshToken: 'refresh-1',
     userId: 'user-1',
+    fullName: 'Ana Ribeiro',
     tenantId: 'tenant-1',
     roles: ['Member'],
     ...overrides,

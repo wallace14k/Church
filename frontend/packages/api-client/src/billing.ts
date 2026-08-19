@@ -35,6 +35,19 @@ export interface Plan {
   readonly billingPeriod: 1 | 2;
 }
 
+export type PaymentState = 'Pending' | 'Paid' | 'Failed' | 'Refunded' | 'Chargeback';
+
+export interface Payment {
+  /** `public_id`, nunca a PK sequencial. */
+  readonly id: string;
+  /** Centavos — ver `@congrega/core/money`. */
+  readonly amountCents: number;
+  readonly status: PaymentState;
+  readonly method: string | null;
+  readonly createdAt: string;
+  readonly paidAt: string | null;
+}
+
 export interface CheckoutResult {
   readonly paymentId: string;
   readonly amountCents: number;
@@ -61,6 +74,15 @@ export function listPlans(client: ApiClient, signal?: AbortSignal): Promise<read
   });
 }
 
+export function listPayments(
+  client: ApiClient,
+  signal?: AbortSignal,
+): Promise<readonly Payment[]> {
+  return client.request<readonly Payment[]>('/api/v1/billing/payments', {
+    ...(signal ? { signal } : {}),
+  });
+}
+
 export function startCheckout(
   client: ApiClient,
   planCode: string,
@@ -70,5 +92,22 @@ export function startCheckout(
     method: 'POST',
     body: { planCode },
     headers: { 'Idempotency-Key': idempotencyKey },
+  });
+}
+
+/**
+ * Cancela a renovação da assinatura do titular.
+ *
+ * **Não revoga acesso.** O servidor mantém `currentPeriodEnd` e marca
+ * `cancelAtPeriodEnd` — a pessoa pagou até lá e continua com o conteúdo. A tela
+ * precisa dizer isso, senão o usuário entende que perdeu o que já pagou.
+ *
+ * Sem corpo e sem id: a assinatura é resolvida pelo titular do token. Não há
+ * como pedir o cancelamento da assinatura de outra pessoa porque não há onde
+ * informá-la.
+ */
+export function cancelSubscription(client: ApiClient): Promise<SubscriptionStatus> {
+  return client.request<SubscriptionStatus>('/api/v1/billing/subscription/cancel', {
+    method: 'POST',
   });
 }

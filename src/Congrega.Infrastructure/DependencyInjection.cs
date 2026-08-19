@@ -148,7 +148,17 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // Segredos do check-in infantil. ValidateOnStart não é cerimônia aqui:
+        // sem a chave, o processo subiria gravando alergia de criança em texto
+        // claro sem nada acusar. Ver ChildSafetyOptions e a premissa P8.
+        services
+            .AddOptions<ChildSafetyOptions>()
+            .Bind(configuration.GetSection(ChildSafetyOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<ISecretHasher, SecretHasher>();
+        services.AddSingleton<IFieldEncryptor, AesGcmFieldEncryptor>();
         services.AddSingleton<IOtpGenerator, OtpGenerator>();
         services.AddSingleton<ITokenIssuer, JwtTokenIssuer>();
 

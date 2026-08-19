@@ -89,3 +89,70 @@ export function describeError(error: unknown): string {
 
   return 'Algo saiu errado. Tente de novo.';
 }
+
+/** Natureza da falha. Decide título, tom e se faz sentido tentar de novo. */
+export type FailureKind = 'offline' | 'forbidden' | 'server' | 'client';
+
+/**
+ * Falha já classificada, pronta para a interface decidir o que mostrar.
+ *
+ * Existe porque `describeError` devolve **só texto**, e texto perde a
+ * categoria. Quem recebia a string não tinha como saber que um 403 não é uma
+ * falha de carregamento — e o resultado, na tela, era um título dizendo "não
+ * deu para carregar" sobre um problema de permissão, com um botão "Tentar de
+ * novo" que ia falhar exatamente igual.
+ */
+export interface Failure {
+  readonly kind: FailureKind;
+
+  /**
+   * Título próprio da categoria, ou `null` quando o título contextual da tela
+   * ("Não deu para carregar a agenda") é o mais informativo.
+   */
+  readonly title: string | null;
+
+  readonly description: string;
+
+  /**
+   * Vale oferecer "tentar de novo"?
+   *
+   * Espelha `ApiError.isRetryable`. Oferecer a ação onde ela não pode
+   * funcionar é pior do que não oferecer: o usuário clica, nada muda, e conclui
+   * que o produto está quebrado em vez de entender que falta permissão.
+   */
+  readonly canRetry: boolean;
+}
+
+/** Classifica a falha. Ver <see cref="Failure"/> para o porquê de não ser só texto. */
+export function describeFailure(error: unknown): Failure {
+  if (error instanceof NetworkError) {
+    return {
+      kind: 'offline',
+      title: 'Sem conexão',
+      description: 'Não foi possível falar com o servidor. Verifique a internet e tente de novo.',
+      canRetry: true,
+    };
+  }
+
+  if (error instanceof ApiError) {
+    if (error.isForbidden) {
+      return {
+        kind: 'forbidden',
+        title: 'Acesso não autorizado',
+        description: describeError(error),
+        canRetry: false,
+      };
+    }
+
+    return {
+      kind: error.status >= 500 || error.isRateLimited ? 'server' : 'client',
+      // Sem título próprio: aqui o contexto da tela ("...a agenda") diz mais do
+      // que um "erro do servidor" genérico.
+      title: null,
+      description: describeError(error),
+      canRetry: error.isRetryable,
+    };
+  }
+
+  return { kind: 'client', title: null, description: describeError(error), canRetry: true };
+}

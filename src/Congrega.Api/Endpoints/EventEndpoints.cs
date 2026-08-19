@@ -17,6 +17,9 @@ public sealed record EventResponse
     public required DateTimeOffset EndsAt { get; init; }
     /// <summary>`Agendado` ou `Cancelado`.</summary>
     public required string Status { get; init; }
+
+    /// <summary>`Culto`, `Reuniao`, `Estudo`, `Ensaio` ou `Outro`.</summary>
+    public required string Type { get; init; }
 }
 
 public sealed record SaveEventRequest
@@ -32,6 +35,13 @@ public sealed record SaveEventRequest
 
     public required DateTimeOffset StartsAt { get; init; }
     public required DateTimeOffset EndsAt { get; init; }
+
+    /// <summary>
+    /// Natureza do evento. Ausente vira "Outro" — o único valor que não afirma
+    /// algo falso sobre um evento que quem cadastrou não classificou.
+    /// </summary>
+    [MaxLength(20)]
+    public string? Type { get; init; }
 }
 
 public static class EventEndpoints
@@ -42,6 +52,18 @@ public static class EventEndpoints
     /// <c>pageSize</c> nas listagens paginadas.
     /// </summary>
     private const int MaxJanelaEmDias = 400;
+
+    /// <summary>
+    /// Lê o tipo do corpo. Desconhecido ou ausente vira <c>Outro</c>.
+    /// </summary>
+    /// <remarks>
+    /// Não recusa a requisição: o tipo é classificação, e devolver 400 por um
+    /// rótulo desconhecido impediria de agendar um culto por causa de um campo
+    /// acessório. Cair em <c>Outro</c> preserva o evento e não afirma nada falso
+    /// sobre a natureza dele.
+    /// </remarks>
+    private static EventType LerTipo(string? valor) =>
+        Enum.TryParse<EventType>(valor, ignoreCase: true, out var tipo) ? tipo : EventType.Outro;
 
     public static void MapEventEndpoints(this IEndpointRouteBuilder app)
     {
@@ -182,7 +204,8 @@ public static class EventEndpoints
                 endsAt: request.EndsAt,
                 now: timeProvider.GetUtcNow(),
                 description: request.Description,
-                location: request.Location);
+                location: request.Location,
+                type: LerTipo(request.Type));
         }
         catch (ArgumentException ex)
         {
@@ -227,7 +250,8 @@ public static class EventEndpoints
                 endsAt: request.EndsAt,
                 now: timeProvider.GetUtcNow(),
                 description: request.Description,
-                location: request.Location);
+                location: request.Location,
+                type: LerTipo(request.Type));
         }
         catch (ArgumentException ex)
         {
@@ -343,5 +367,6 @@ public static class EventEndpoints
         StartsAt = evento.StartsAt,
         EndsAt = evento.EndsAt,
         Status = evento.Status.ToString(),
+        Type = evento.Type.ToString(),
     };
 }

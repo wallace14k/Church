@@ -1,5 +1,6 @@
 import type { Member } from '@congrega/api-client/members';
 import { formatPhone } from '@congrega/core/validation';
+import { AsyncContent } from '@congrega/ui/AsyncContent';
 import { Avatar } from '@congrega/ui/Avatar';
 import { Button } from '@congrega/ui/Button';
 import { Card } from '@congrega/ui/Card';
@@ -22,7 +23,8 @@ export default function ListaDeMembros() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [busca, setBusca] = useState('');
-  const { membros, total, carregando, carregandoMais, erro, temMais, carregarMais } = useMembers(busca);
+  const { membros, total, carregando, carregandoMais, erro, temMais, carregarMais, recarregar } =
+    useMembers(busca);
 
   return (
     <Screen padded={false} wide>
@@ -73,21 +75,15 @@ export default function ListaDeMembros() {
         )}
       </View>
 
-      {carregando ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={theme.colors.text} />
-        </View>
-      ) : erro !== null ? (
-        <View style={{ paddingHorizontal: theme.space[24], paddingTop: theme.space[32] }}>
-          <EmptyState
-            title="Não deu para carregar a lista"
-            description={erro}
-            action={<SignatureButton label="Tentar de novo" onPress={() => setBusca((b) => b)} />}
-          />
-        </View>
-      ) : membros.length === 0 ? (
-        <View style={{ paddingHorizontal: theme.space[24], paddingTop: theme.space[16] }}>
-          {busca.length > 0 ? (
+      <AsyncContent
+        fill
+        loading={carregando}
+        failure={erro}
+        errorTitle="Não deu para carregar a lista"
+        onRetry={recarregar}
+        isEmpty={membros.length === 0}
+        empty={
+          busca.length > 0 ? (
             <EmptyState
               title="Ninguém com esse nome"
               description={`A busca por "${busca}" não encontrou membros. Confira a grafia ou cadastre a pessoa.`}
@@ -106,12 +102,12 @@ export default function ListaDeMembros() {
                 </View>
               }
             />
-          )}
-        </View>
-      ) : (
-        // FlashList e não ScrollView: a skill de performance trata lista longa em
-        // ScrollView como problema CRÍTICO, porque monta todos os itens de uma
-        // vez. Uma igreja de porte médio tem centenas de membros.
+          )
+        }
+      >
+        {/* FlashList e não ScrollView: a skill de performance trata lista longa
+            em ScrollView como problema CRÍTICO, porque monta todos os itens de
+            uma vez. Uma igreja de porte médio tem centenas de membros. */}
         <FlashList
           data={membros}
           keyExtractor={(item) => item.id}
@@ -143,7 +139,7 @@ export default function ListaDeMembros() {
             )
           }
         />
-      )}
+      </AsyncContent>
     </Screen>
   );
 }

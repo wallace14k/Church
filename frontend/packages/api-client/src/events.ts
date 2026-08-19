@@ -10,6 +10,8 @@ import type { ApiClient } from './client';
 
 export type EventStatus = 'Agendado' | 'Cancelado';
 
+export type EventType = 'Culto' | 'Reuniao' | 'Estudo' | 'Ensaio' | 'Outro';
+
 export interface CalendarEvent {
   readonly id: string;
   readonly title: string;
@@ -18,6 +20,7 @@ export interface CalendarEvent {
   readonly startsAt: string;
   readonly endsAt: string;
   readonly status: EventStatus;
+  readonly type: EventType;
 }
 
 export interface SaveEventInput {

@@ -287,6 +287,10 @@ namespace Congrega.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("title");
 
+                    b.Property<short>("Type")
+                        .HasColumnType("smallint")
+                        .HasColumnName("event_type");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");

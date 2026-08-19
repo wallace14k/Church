@@ -19,16 +19,31 @@
 
 export const palette = {
   /**
-   * Lima elétrico — o único acento cromático do sistema.
+   * Verde Congrega — o único acento cromático do sistema.
    *
-   * **Só preenchimento.** Como texto ou como traço de estado reprova a WCAG
-   * (1,19:1 sobre branco). O teste em `tokens.test.ts` garante que nenhum
-   * token de texto receba este valor.
+   * **Substituiu o lima elétrico **, e a troca resolveu uma restrição
+   * real, não só a aparência: o lima media **1,19:1** sobre branco, o que o
+   * impedia de ser texto ou traço de estado. Daí vinham a D1 (link vira tinta
+   * sublinhada) e a D6 (seleção vira preenchimento, nunca borda colorida).
+   *
+   * Este verde mede **5,07:1** sobre branco. Ele pode ser preenchimento **e**
+   * texto — o que dispensa aqueles contornos e permite o rótulo verde do item
+   * ativo de navegação. Texto sobre ele é **branco** (5,07:1); tinta ficaria em
+   * 4,3:1, abaixo do mínimo de texto normal.
    */
-  electricLime: '#BEFF50',
+  brandGreen: '#2E7D46',
 
-  /** Lima diluído — item ativo de navegação. Único valor derivado (D5). */
-  limeWash: '#EEFBD5',
+  /**
+   * Verde escuro — quando o verde precisa ser **texto** sobre superfície clara.
+   *
+   * 6,45:1 sobre branco e 5,74:1 sobre a lavagem clara. O  também
+   * passaria sobre branco, mas cai para 4,63:1 sobre pergaminho; este vale nas
+   * duas superfícies sem exigir que quem usa lembre da diferença.
+   */
+  brandGreenDeep: '#276B3D',
+
+  /** Verde diluído — fundo do item ativo de navegação. Único valor derivado (D5). */
+  greenWash: '#E8F5EC',
 
   /** Tinta principal. Todo texto, título e ícone. */
   offBlackInk: '#14140F',
@@ -99,8 +114,8 @@ export const colors: ColorScheme = {
   background: palette.pureWhite,
   surface: palette.offWhiteCanvas,
   surfaceInner: palette.pureWhite,
-  surfaceAccent: palette.electricLime,
-  surfaceAccentSoft: palette.limeWash,
+  surfaceAccent: palette.brandGreen,
+  surfaceAccentSoft: palette.greenWash,
   surfaceInverse: palette.deepCharcoal,
 
   hairline: palette.ash,
@@ -110,7 +125,10 @@ export const colors: ColorScheme = {
   textBody: palette.offBlackInk,
   textMuted: palette.graphite,
   placeholder: palette.graphite,
-  textOnAccent: palette.offBlackInk,
+  // Branco, e não tinta: sobre o verde `#2E7D46` o branco mede 5,07:1 e a tinta
+  // fica em 4,3:1 — abaixo do mínimo de texto normal. Era o inverso no sistema
+  // lima, onde branco media 1,4:1 e só a tinta servia.
+  textOnAccent: palette.pureWhite,
   textOnDark: palette.offWhiteCanvas,
 
   success: palette.successGreen,

@@ -1,35 +1,41 @@
 import {
+  cancelSubscription,
   getSubscriptionStatus,
+  listPayments,
   listPlans,
   startCheckout,
   type CheckoutResult,
+  type Payment,
   type Plan,
   type SubscriptionStatus,
 } from '@congrega/api-client/billing';
-import { describeError } from '@congrega/api-client/errors';
+import { describeFailure, type Failure } from '@congrega/api-client/errors';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from './api';
 
 interface EstadoBilling {
   readonly assinatura: SubscriptionStatus | null;
   readonly planos: readonly Plan[];
+  readonly pagamentos: readonly Payment[];
   readonly carregando: boolean;
-  readonly erro: string | null;
+  readonly erro: Failure | null;
 }
 
 /**
- * Estado da assinatura Congrega+ do usuário e o catálogo de planos — as duas
- * leituras que a aba de assinatura precisa, buscadas juntas porque a tela
- * decide o que mostrar (status ou vitrine de planos) a partir das duas ao
- * mesmo tempo.
+ * Estado da assinatura Congrega+ do usuário, catálogo de planos e histórico de
+ * cobranças — as três leituras que a aba de assinatura precisa, buscadas juntas
+ * porque a tela decide o que mostrar (status ou vitrine) a partir da primeira e
+ * renderiza as outras duas na mesma passagem.
  */
 export function useBilling(): EstadoBilling & {
   readonly recarregar: () => void;
   readonly assinar: (planCode: string) => Promise<CheckoutResult>;
+  readonly cancelar: () => Promise<void>;
 } {
   const [estado, setEstado] = useState<EstadoBilling>({
     assinatura: null,
     planos: [],
+    pagamentos: [],
     carregando: true,
     erro: null,
   });
@@ -49,14 +55,15 @@ export function useBilling(): EstadoBilling & {
     setEstado((anterior) => ({ ...anterior, carregando: true, erro: null }));
 
     try {
-      const [assinatura, planos] = await Promise.all([
+      const [assinatura, planos, pagamentos] = await Promise.all([
         getSubscriptionStatus(apiClient, controlador.signal),
         listPlans(apiClient, controlador.signal),
+        listPayments(apiClient, controlador.signal),
       ]);
-      setEstado({ assinatura, planos, carregando: false, erro: null });
+      setEstado({ assinatura, planos, pagamentos, carregando: false, erro: null });
     } catch (causa) {
       if (controlador.signal.aborted) return;
-      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeError(causa) }));
+      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeFailure(causa) }));
     }
   }, []);
 
@@ -73,5 +80,14 @@ export function useBilling(): EstadoBilling & {
     return startCheckout(apiClient, planCode, tentativa.current.key);
   }, []);
 
-  return { ...estado, recarregar: carregar, assinar };
+  const cancelar = useCallback(async () => {
+    // A resposta do cancelamento já vem no mesmo formato de
+    // `getSubscriptionStatus`, com o plano preenchido — aplicá-la direto evita
+    // uma segunda ida ao servidor e o piscar de "carregando" numa tela que o
+    // usuário está olhando logo depois de confirmar algo delicado.
+    const atualizada = await cancelSubscription(apiClient);
+    setEstado((anterior) => ({ ...anterior, assinatura: atualizada }));
+  }, []);
+
+  return { ...estado, recarregar: carregar, assinar, cancelar };
 }

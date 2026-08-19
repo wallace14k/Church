@@ -278,6 +278,10 @@ public sealed class ProcessPaymentWebhookHandlerTests
         public Task<Payment?> FindByPublicIdAsync(Guid publicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<IReadOnlyList<Payment>> ListByUserAsync(
+            long userId, int limit, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("O processador de webhook resolve por cobrança, nunca por titular.");
+
         public void Add(Payment payment) => throw new NotSupportedException();
     }
 

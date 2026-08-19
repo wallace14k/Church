@@ -20,6 +20,7 @@ internal sealed class EventConfiguration : IEntityTypeConfiguration<CalendarEven
         builder.Property(e => e.StartsAt).HasColumnName("starts_at");
         builder.Property(e => e.EndsAt).HasColumnName("ends_at");
         builder.Property(e => e.Status).HasColumnName("status").HasConversion<short>();
+        builder.Property(e => e.Type).HasColumnName("event_type").HasConversion<short>();
         builder.Property(e => e.CreatedAt).HasColumnName("created_at");
         builder.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 

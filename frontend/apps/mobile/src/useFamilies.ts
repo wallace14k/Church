@@ -1,4 +1,4 @@
-import { describeError } from '@congrega/api-client/errors';
+import { describeFailure, type Failure } from '@congrega/api-client/errors';
 import { listFamilies, type Family } from '@congrega/api-client/families';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from './api';
@@ -6,7 +6,7 @@ import { apiClient } from './api';
 interface EstadoFamilias {
   readonly familias: readonly Family[];
   readonly carregando: boolean;
-  readonly erro: string | null;
+  readonly erro: Failure | null;
 }
 
 const INICIAL: EstadoFamilias = {
@@ -32,7 +32,7 @@ export function useFamilies(): EstadoFamilias & { recarregar: () => void } {
       setEstado({ familias, carregando: false, erro: null });
     } catch (causa) {
       if (controlador.signal.aborted) return;
-      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeError(causa) }));
+      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeFailure(causa) }));
     }
   }, []);
 

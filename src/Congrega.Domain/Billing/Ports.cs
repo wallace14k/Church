@@ -18,6 +18,21 @@ public interface IPaymentRepository
 
     Task<Payment?> FindByPublicIdAsync(Guid publicId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Histórico de cobranças do titular pessoa física, da mais recente para a
+    /// mais antiga.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="limit"/> é obrigatório, não opcional: um histórico sem
+    /// teto cresce sem limite e a consulta que hoje devolve três linhas devolve
+    /// trezentas depois de alguns anos de assinante. Quem chama decide o teto,
+    /// e a borda o impõe.
+    /// </remarks>
+    Task<IReadOnlyList<Payment>> ListByUserAsync(
+        long userId,
+        int limit,
+        CancellationToken cancellationToken);
+
     void Add(Payment payment);
 }
 
@@ -36,14 +51,36 @@ public interface ISubscriptionStore
 {
     Task<Subscription?> FindByIdAsync(long id, CancellationToken cancellationToken);
 
-    Task<Subscription?> FindActiveByUserAsync(long userId, CancellationToken cancellationToken);
+    /// <summary>
+    /// A assinatura que rege o usuário <b>agora</b> — inclusive uma já
+    /// cancelada que ainda não chegou ao fim do período pago.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Chamava-se <c>FindActiveByUserAsync</c> e devolvia apenas
+    /// <c>Active</c>/<c>PastDue</c>/<c>Grace</c>. O nome estava certo e o
+    /// comportamento errado: <c>Canceled</c> <b>não</b> é o fim do acesso, é o
+    /// fim da renovação — os entitlements seguem válidos até
+    /// <c>CurrentPeriodEnd</c> (§6 de <c>docs/03-arquitetura.md</c>). Com a
+    /// exclusão, quem cancelava e recarregava a tela via a vitrine de planos,
+    /// como se nunca tivesse assinado, ainda dentro do período que pagou.
+    /// </para>
+    /// <para>
+    /// Renomeado, e não apenas corrigido, de propósito: <c>Active</c> no nome
+    /// era o que tornava a omissão plausível de ler. <c>Expired</c> e
+    /// <c>Pending</c> continuam fora — o primeiro acabou, o segundo nunca
+    /// chegou a valer (e é <see cref="FindReusableForCheckoutAsync"/> quem
+    /// cuida dele).
+    /// </para>
+    /// </remarks>
+    Task<Subscription?> FindCurrentByUserAsync(long userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Assinatura do usuário para aquele plano que um novo checkout deve
     /// reaproveitar em vez de duplicar.
     /// </summary>
     /// <remarks>
-    /// Inclui <c>Pending</c>, ao contrário de <see cref="FindActiveByUserAsync"/>:
+    /// Inclui <c>Pending</c>, ao contrário de <see cref="FindCurrentByUserAsync"/>:
     /// uma tentativa de checkout que falhe no gateway deixa a assinatura
     /// pendente para trás, e sem reaproveitá-la cada retry criaria mais uma.
     /// Pendente não concede acesso — só o pagamento confirmado a ativa —, então

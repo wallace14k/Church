@@ -1,6 +1,8 @@
 import { deleteGivingEntry, type GivingEntry } from '@congrega/api-client/giving';
 import { formatDate } from '@congrega/core/datetime';
 import { cents, formatBRL } from '@congrega/core/money';
+import { AsyncContent } from '@congrega/ui/AsyncContent';
+import { MonthNavigator } from '@congrega/ui/MonthNavigator';
 import { Button } from '@congrega/ui/Button';
 import { Card } from '@congrega/ui/Card';
 import { EmptyState } from '@congrega/ui/EmptyState';
@@ -13,7 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, View } from 'react-native';
+import { Alert, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiClient } from '../../../src/api';
 import { deslocarMes, mesCorrente, nomeDoMes, useGivingEntries, useMonthlyClosing } from '../../../src/useGiving';
@@ -88,9 +90,9 @@ export default function Financeiro() {
           <Text variant="heading">Financeiro</Text>
         </View>
 
-        <SeletorDeMes
-          periodo={periodo}
-          onMudar={(passos) => setPeriodo((atual) => deslocarMes(atual, passos))}
+        <MonthNavigator
+          label={`${nomeDoMes(periodo.month)} de ${periodo.year}`}
+          onChange={(passos) => setPeriodo((atual) => deslocarMes(atual, passos))}
         />
 
         {fechamento !== null && (
@@ -124,27 +126,21 @@ export default function Financeiro() {
         </View>
       </View>
 
-      {carregando ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={theme.colors.text} />
-        </View>
-      ) : erro !== null ? (
-        <View style={{ paddingHorizontal: theme.space[24], paddingTop: theme.space[32] }}>
-          <EmptyState
-            title="Não deu para carregar o caixa"
-            description={erro}
-            action={<SignatureButton label="Tentar de novo" onPress={recarregar} />}
-          />
-        </View>
-      ) : lancamentos.length === 0 ? (
-        <View style={{ paddingHorizontal: theme.space[24], paddingTop: theme.space[16] }}>
+      <AsyncContent
+        fill
+        loading={carregando}
+        failure={erro}
+        errorTitle="Não deu para carregar o caixa"
+        onRetry={recarregar}
+        isEmpty={lancamentos.length === 0}
+        empty={
           <EmptyState
             title={`Nenhum lançamento em ${nomeDoMes(periodo.month)}`}
             description="Registre as entradas e saídas do mês para fechar as contas sem planilha."
             action={<SignatureButton label="Lançar" onPress={() => router.push('/financeiro/lancar')} />}
           />
-        </View>
-      ) : (
+        }
+      >
         <FlashList
           data={lancamentos}
           keyExtractor={(item) => item.id}
@@ -161,56 +157,8 @@ export default function Financeiro() {
           }}
           ItemSeparatorComponent={() => <View style={{ height: theme.space[8] }} />}
         />
-      )}
+      </AsyncContent>
     </Screen>
-  );
-}
-
-function SeletorDeMes({
-  periodo,
-  onMudar,
-}: {
-  readonly periodo: { readonly year: number; readonly month: number };
-  readonly onMudar: (passos: number) => void;
-}) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-      <SetaDeMes direcao="chevron-left" rotulo="Mês anterior" onPress={() => onMudar(-1)} />
-      <Text variant="bodyStrong">
-        {nomeDoMes(periodo.month)} de {periodo.year}
-      </Text>
-      <SetaDeMes direcao="chevron-right" rotulo="Próximo mês" onPress={() => onMudar(1)} />
-    </View>
-  );
-}
-
-function SetaDeMes({
-  direcao,
-  rotulo,
-  onPress,
-}: {
-  readonly direcao: 'chevron-left' | 'chevron-right';
-  readonly rotulo: string;
-  readonly onPress: () => void;
-}) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={rotulo}
-      hitSlop={8}
-      style={({ pressed }) => ({
-        width: theme.touch.minTarget,
-        height: theme.touch.minTarget,
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: pressed ? 0.6 : 1,
-      })}
-    >
-      <Feather name={direcao} size={22} color={theme.colors.text} />
-    </Pressable>
   );
 }
 

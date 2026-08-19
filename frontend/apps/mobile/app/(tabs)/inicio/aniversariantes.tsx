@@ -1,6 +1,7 @@
 import type { Member } from '@congrega/api-client/members';
 import { formatBirthday } from '@congrega/core/datetime';
 import { Avatar } from '@congrega/ui/Avatar';
+import { AsyncContent } from '@congrega/ui/AsyncContent';
 import { Card } from '@congrega/ui/Card';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { Screen } from '@congrega/ui/Screen';
@@ -22,7 +23,7 @@ export default function Aniversariantes() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const mesAtual = new Date().getMonth() + 1;
-  const { membros, total, carregando, carregandoMais, erro, temMais, carregarMais } =
+  const { membros, total, carregando, carregandoMais, erro, temMais, carregarMais, recarregar } =
     useAniversariantes(mesAtual);
 
   return (
@@ -60,22 +61,20 @@ export default function Aniversariantes() {
         <Text variant="heading">Aniversariantes de {MESES[mesAtual - 1]}</Text>
       </View>
 
-      {carregando ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={theme.colors.text} />
-        </View>
-      ) : erro !== null ? (
-        <View style={{ paddingHorizontal: theme.space[24], paddingTop: theme.space[32] }}>
-          <EmptyState title="Não deu para carregar a lista" description={erro} />
-        </View>
-      ) : membros.length === 0 ? (
-        <View style={{ paddingHorizontal: theme.space[24], paddingTop: theme.space[16] }}>
+      <AsyncContent
+        fill
+        loading={carregando}
+        failure={erro}
+        errorTitle="Não deu para carregar a lista"
+        onRetry={recarregar}
+        isEmpty={membros.length === 0}
+        empty={
           <EmptyState
             title="Ninguém faz aniversário este mês"
             description="Assim que alguém com data de nascimento cadastrada fizer aniversário neste mês, aparece aqui."
           />
-        </View>
-      ) : (
+        }
+      >
         <FlashList
           data={membros}
           keyExtractor={(item) => item.id}
@@ -107,7 +106,7 @@ export default function Aniversariantes() {
             )
           }
         />
-      )}
+      </AsyncContent>
     </Screen>
   );
 }

@@ -447,17 +447,108 @@
       3 planos; clicar em "Assinar" abre cobrança de verdade (`POST
       /checkout` real) e mostra valor + código PIX; item "Congrega+" aparece
       na sidebar com o ícone certo e navega.
-- [ ] Cancelar assinatura pela tela — `Subscription.Cancel()` existe no domínio,
-      nenhum handler/endpoint o expõe ainda
-- [ ] Histórico de pagamentos na tela — precisa de `IPaymentRepository.ListByUserAsync`,
-      que não existe hoje (só busca por chave/charge/public_id)
+- [x] **Cancelar assinatura e histórico de pagamentos na tela** —
+      `POST /billing/subscription/cancel` e `GET /billing/payments`, ambos sob
+      `Billing.Checkout`. A assinatura e o histórico são resolvidos **pela claim
+      `sub`**, nunca por id no corpo ou na query: não existe `?userId=` para
+      trocar, que é a defesa contra IDOR recomendada pela §5 da skill de
+      segurança — não oferecer o parâmetro, em vez de validá-lo depois.
+      Cancelar chama `Subscription.Cancel` **sem `immediate`**: a renovação para,
+      `CurrentPeriodEnd` não se move e os entitlements seguem válidos. A tela diz
+      isso na confirmação, porque "tem certeza?" seco faria supor perda do que já
+      foi pago.
+      **Bug real achado ao executar, não ao ler:** depois de cancelar, o
+      `GET /subscription` seguinte devolvia `hasSubscription: false` e a tela
+      voltava para a **vitrine de planos** — o paywall — para alguém que ainda
+      tinha acesso pago. A causa era `FindActiveByUserAsync` filtrar
+      `Active | PastDue | Grace` e omitir `Canceled`; o nome estava certo e o
+      comportamento errado, porque cancelar não é o fim do acesso, é o fim da
+      renovação (§6 do doc 03). Renomeado para `FindCurrentByUserAsync` — o
+      rename foi o instrumento, não enfeite: `Active` no nome era o que tornava
+      a omissão plausível de ler, mesma disciplina do `brand` → `surfaceAccent`.
+      **Segundo achado: `Subscription` — a máquina de estados inteira — tinha
+      zero testes**, apesar de marcada como concluída neste arquivo; só aparecia
+      como preparo de cenário em `RetentionAlertTests`. Deixou de ser teórico ao
+      expor `Cancel` por HTTP, porque é a tabela de transições que decide entre
+      `200` e `409`. 15 testes novos (`SubscriptionTests`) fixam as transições
+      contra o diagrama da §6 — inclusive que `Grace` **não** cancela (a
+      cobrança já falhou, não há renovação a cancelar), caso alcançável pela
+      tela e que sem tratamento subiria como 500. A tela também não oferece o
+      botão nesse estado: porta que não abre não se mostra.
+      **Índice que faltava:** `payments` tinha `ix_pay_tenant` para o titular
+      pessoa jurídica e **nada** equivalente para o B2C, então o histórico seria
+      Seq Scan na tabela inteira a cada abertura da aba — custo que cresce com o
+      número de clientes, não com o histórico de quem olha. `ix_pay_user`
+      (`db/009_*.sql` + migration `IndicePagamentosPorTitular`, corpo escrito à
+      mão porque índice parcial não é exprimível no modelo). `EXPLAIN` confirma
+      Index Scan **sem nó de Sort** — a ordem `created_at DESC` do índice casa
+      com a da consulta.
+      6 testes de integração novos (`SubscriptionStoreTests`, Testcontainers)
+      cobrindo os quatro estados que devem voltar e os dois que não;
+      **verificados como regressão de verdade**: reintroduzi a omissão do
+      `Canceled` e só o caso `Canceled` falhou.
+      Verificado ao vivo pela UI real: assinatura ativa mostra botão de cancelar
+      e histórico (R$ 299,00 · Pago); confirmar cancela; **após recarregar** a
+      tela mostra "Cancelada — o acesso continua até o fim do período já pago"
+      com **zero** botões "Assinar" na tela; cancelar de novo devolve 409 com
+      mensagem clara, não 500.
+- [ ] Trocar de plano pela tela — hoje o checkout de um segundo plano com o
+      primeiro em andamento responde 409 (`uq_sub_active_user`). Falta decidir o
+      que acontece com o período já pago do plano anterior; sem essa decisão,
+      recusar é mais honesto do que cobrar duas vezes
 
 ## Onda 4 — Check-in infantil
 
 > Entra por último dentro do MVP, e em piloto fechado. Ver os portões
 > obrigatórios em [`docs/05-escopo.md`](docs/05-escopo.md).
 
-- [ ] Tabelas de crianças, responsáveis e check-in
+- [x] **Tabelas de crianças, responsáveis e check-in + domínio + criptografia** —
+      `db/011_criancas.sql` + migration `CriancasSchema` (DDL à mão pelo mesmo
+      motivo de `FinanceiroSchema`/`EventosSchema`; aqui o descompasso seria
+      mais caro, porque tabela sem `ENABLE ROW LEVEL SECURITY` tem a mesma
+      aparência de tabela protegida e a diferença é a ficha de alergia de uma
+      criança visível para outra igreja). Cinco tabelas com RLS: `children`,
+      `child_guardians`, `child_checkins`, `parental_consents`,
+      `child_access_log`.
+      **Por que a Onda 4 pôde começar:** o doc 05 diz "portões obrigatórios
+      antes de qualquer **liberação**", e seis dos sete são entregáveis de
+      engenharia — construí-los *é* o trabalho. Só o parecer jurídico é externo,
+      e ele barra o piloto, não o código.
+      **Quatro decisões assadas no schema, nenhuma acrescentável depois sem
+      migrar dado:** (1) campos sensíveis são `BYTEA` cifrado **na aplicação**
+      (AES-256-GCM) e não `TEXT` — não é `pgcrypto`, que receberia a chave como
+      argumento de função e a deixaria no log de query, exatamente onde o
+      ADR-014 diz que ela não pode estar; (2) `public_id` UUID em criança e
+      check-in, porque é o que vai impresso na etiqueta; (3) código de retirada
+      guardado como HMAC com pepper próprio — em texto claro, o dump do banco é
+      a lista de senhas de retirada de todas as crianças da plataforma;
+      (4) `idempotency_key` UNIQUE, a chave estável que a fila offline
+      reapresenta.
+      **Pepper separado do OTP**, de propósito: rotacionar o de autenticação
+      invalidaria todos os códigos de retirada em circulação no meio de um
+      culto, e quem fizesse a rotação não teria como prever isso.
+      **Domínio** (`Congrega.Domain/Childcare/`): `Child` — que **nunca vê o
+      texto claro** dos campos sensíveis, só `byte[]`, então não há como vazar
+      alergia num `ToString()` ou serializador —, `ChildCheckIn` com o ciclo do
+      código, e `ParentalConsent` com a versão do texto consentido (sem ela é
+      impossível demonstrar depois *a que* a pessoa consentiu). Ser responsável
+      e poder retirar são campos distintos: um acordo de guarda pode registrar o
+      pai e não autorizá-lo a buscar.
+      **A ordem de verificação da retirada é autorização → validade → código**,
+      não o contrário: conferir o código primeiro faria a resposta virar oráculo
+      — quem tem o código certo mas não a autorização receberia erro diferente
+      de quem errou o código, e a diferença ensina.
+      16 testes de domínio + 9 de integração. Verificado contra Postgres real,
+      incluindo o **critério de aceitação escrito no próprio ADR-014**: um
+      `SELECT` cru na coluna de alergia devolve bytes sem nenhum pedaço
+      reconhecível do texto; o mesmo texto cifrado duas vezes produz bytes
+      diferentes (prova o nonce aleatório); adulterar um byte faz a decifragem
+      lançar `AuthenticationTagMismatchException` em vez de devolver lixo; RLS
+      impede uma igreja de ver criança de outra com `congrega_app`.
+      **O portão de configuração foi verificado falhando:** subi a API sem os
+      segredos e ela **recusou iniciar** com `OptionsValidationException`, em
+      vez de gravar alergia em texto claro sem nada acusar. Segredos de
+      desenvolvimento provisionados depois, via `user-secrets`.
 - [ ] Fila offline em SQLite com idempotency key estável
 - [ ] Etiqueta com `public_id` opaco — nunca ID sequencial impresso
 - [ ] Código de retirada hasheado, de uso único e com TTL
@@ -547,7 +638,37 @@
       aniversariantes do mês (`useDashboard`), não mais um aviso de "em
       construção"
 - [x] Estados de carregamento, erro e vazio na lista de membros
-- [ ] Padronizar esses estados nas demais listagens quando existirem
+- [x] **Padronizar carregando/erro/vazio nas demais listagens** — `AsyncContent`
+      (`@congrega/ui`) decide entre as quatro situações; as oito telas que
+      repetiam a tríade à mão passaram a usá-lo. O vazio continua sendo escrito
+      por cada tela e passado pronto: "nenhum membro cadastrado" e "ninguém faz
+      aniversário este mês" pedem texto e ação próprios, e um componente que os
+      gerasse produziria um vazio genérico em todas. O que se padroniza é
+      **quando** mostrar, não o quê.
+      **Dois "tentar de novo" que não funcionavam, achados ao extrair:**
+      (1) **na lista de membros o botão não fazia nada** — o `onPress` era
+      `setBusca((b) => b)`, e o React descarta atualização de estado idêntico
+      por `Object.is`, então o efeito nunca reexecutava. Parecia funcionar, o
+      que é pior do que não existir: quem caía num erro de rede clicava, nada
+      acontecia, e a conclusão razoável era que o app estava quebrado.
+      (2) **em aniversariantes o erro não oferecia saída nenhuma** — e não por
+      esquecimento de quem escreveu a tela: `useAniversariantes` não expunha
+      recarga alguma. Os dois hooks ganharam `recarregar`.
+      Isso é o que a skill de design chama de tratar falha como direção e não
+      como humor — um erro sem caminho é um beco. O tipo agora expõe a escolha:
+      é preciso **omitir** `onRetry` para produzir um beco.
+      Achados menores no caminho: um comentário `//` que era válido dentro do
+      ternário virou filho de JSX na migração e apareceria como texto na tela
+      (convertido para `{/* */}`); o `fechamento` perdeu o estreitamento de tipo
+      ao atravessar a fronteira do componente, pego pelo `tsc`; e seis arquivos
+      ficaram com import morto de `ActivityIndicator`.
+      Verificado ao vivo: **erro real provocado interceptando a rota** de
+      membros no navegador, tela mostra o erro, clique em "Tentar de novo"
+      restaura a lista com os 8 membros. As oito telas migradas conferidas com
+      asserção do título de cada uma — a primeira rodada dessa checagem usava
+      heurística frouxa e passou verde para a tela de **login**, porque a sessão
+      caiu por rate limit no meio do laço; um teste que aprova a página errada é
+      pior que nenhum, e por isso a asserção passou a ser estrita.
 - [x] `FlashList` na lista de membros
 - [ ] Backoffice em React DOM — ver discordância **D2** em `docs/00-premissas.md`
 
@@ -577,7 +698,7 @@
 | Item | Estado |
 |---|---|
 | `dotnet build` | 0 avisos, 0 erros |
-| `dotnet test` | 231 testes (133 domínio + 76 aplicação + 22 integração, dos quais 4 com Testcontainers) |
+| `dotnet test` | 277 testes (164 domínio + 76 aplicação + 37 integração, todos os de integração com Testcontainers) |
 | `npm run typecheck` | 4 pacotes limpos |
 | `npm run test` | 123 testes |
 | `expo-doctor` | 21/21 |
@@ -599,7 +720,11 @@
 | Checkout do Congrega+ | verificado contra PostgreSQL real: preço do banco, chave por titular, plano B2B recusado, 401 sem token |
 | Webhook em HTTP | verificado contra a API real: 202 válido, 200 reentrega, 400 adulterado/sem assinatura/replay; inválidos gravados como evidência |
 | Processamento de webhook | **verificado ao vivo**: webhook assinado processado pelo `WebhookDispatcherService` real contra Postgres real; assinatura inválida nunca reivindicada; `SKIP LOCKED` provado com Testcontainers segurando lock em outra transação. Concessão de entitlement coberta por 9 testes de unidade (fake de gateway — dois processos de dev não compartilham cobrança simulada, ver TODO acima) |
+| Cancelamento e histórico de pagamentos | **verificados ao vivo pela UI real**: cancelar mantém o acesso até o fim do período, sobrevive a reload (era onde estava o bug do paywall), 409 no cancelamento repetido. Máquina de estados fixada por 15 testes de domínio novos; filtro do repositório por 6 de integração, provados como regressão real |
 | Telas de assinatura Congrega+ | **verificadas ao vivo pela UI real** (Playwright): status com assinatura ativa, vitrine sem assinatura, checkout de verdade a partir do clique até o código PIX exibido, item de navegação na sidebar — achou e corrigiu dois bugs reais (CORS sem `Idempotency-Key`, 500 em conflito de assinatura) que só apareciam pelo navegador |
+| Criptografia de dado de criança | **critério do ADR-014 verificado literalmente**: `SELECT` cru na coluna de alergia devolve bytes ilegíveis; nonce aleatório provado (mesmo texto → bytes diferentes); adulteração lança em vez de devolver lixo. API **recusa subir** sem a chave |
+| Schema do check-in infantil | 5 tabelas com RLS aplicadas ao banco real; isolamento cross-tenant, uso único por evento, idempotência da fila offline e o `CHECK` de "quem retirou" verificados com Testcontainers |
+| Estados de carregando/erro/vazio | **padronizados em `AsyncContent`** nas 8 listagens; dois "tentar de novo" quebrados corrigidos (um era no-op, outro não existia). Recuperação verificada ao vivo interceptando a rota para forçar erro real |
 | Telas do design system Perk | **verificadas em tela** — login, painel, membros, financeiro, agenda, lançamento capturados via Chromium/Playwright contra a stack real |
 | Sessão web sobrevive a reload | **verificado pela UI real**: login, F5/navegação, continua autenticado — dois bugs corrigidos nesta rodada (ver abaixo) |
 | Stack completa (Postgres + API + Workers + app web) | subida e exercitada junta nesta sessão: Outbox drena OTP novo em segundos, login ponta a ponta pela UI |

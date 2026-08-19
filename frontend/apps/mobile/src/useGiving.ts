@@ -1,4 +1,4 @@
-import { describeError } from '@congrega/api-client/errors';
+import { describeFailure, type Failure } from '@congrega/api-client/errors';
 import {
   getMonthlyClosing,
   listGivingCategories,
@@ -25,7 +25,7 @@ export type { YearMonth };
 interface EstadoCategorias {
   readonly categorias: readonly GivingCategory[];
   readonly carregando: boolean;
-  readonly erro: string | null;
+  readonly erro: Failure | null;
 }
 
 export function useGivingCategories(includeInactive = false): EstadoCategorias & {
@@ -50,7 +50,7 @@ export function useGivingCategories(includeInactive = false): EstadoCategorias &
       setEstado({ categorias, carregando: false, erro: null });
     } catch (causa) {
       if (controlador.signal.aborted) return;
-      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeError(causa) }));
+      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeFailure(causa) }));
     }
   }, [includeInactive]);
 
@@ -66,7 +66,7 @@ interface EstadoLancamentos {
   readonly lancamentos: readonly GivingEntry[];
   readonly total: number;
   readonly carregando: boolean;
-  readonly erro: string | null;
+  readonly erro: Failure | null;
 }
 
 export function useGivingEntries(year: number, month: number): EstadoLancamentos & {
@@ -101,7 +101,7 @@ export function useGivingEntries(year: number, month: number): EstadoLancamentos
       });
     } catch (causa) {
       if (controlador.signal.aborted) return;
-      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeError(causa) }));
+      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeFailure(causa) }));
     }
   }, [year, month]);
 
@@ -116,7 +116,7 @@ export function useGivingEntries(year: number, month: number): EstadoLancamentos
 interface EstadoFechamento {
   readonly fechamento: MonthlyClosing | null;
   readonly carregando: boolean;
-  readonly erro: string | null;
+  readonly erro: Failure | null;
 }
 
 export function useMonthlyClosing(year: number, month: number): EstadoFechamento & {
@@ -141,7 +141,7 @@ export function useMonthlyClosing(year: number, month: number): EstadoFechamento
       setEstado({ fechamento, carregando: false, erro: null });
     } catch (causa) {
       if (controlador.signal.aborted) return;
-      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeError(causa) }));
+      setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeFailure(causa) }));
     }
   }, [year, month]);
 

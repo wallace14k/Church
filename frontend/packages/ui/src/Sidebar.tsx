@@ -34,6 +34,15 @@ export interface SidebarProps {
   /** Estado controlado pelo chamador — persiste entre sessões via `localStorage`. */
   readonly collapsed: boolean;
   readonly onToggleCollapsed: () => void;
+
+  /**
+   * O usuario pode alternar?
+   *
+   * Falso quando a largura da janela forca o recolhimento: ali o botao nao teria
+   * efeito nenhum, e um controle que nao faz nada ensina o usuario a desconfiar
+   * dos outros.
+   */
+  readonly canToggleCollapsed?: boolean;
 }
 
 /** Largura no estado recolhido: só ícone, sem rótulo. */
@@ -72,6 +81,7 @@ export function Sidebar({
   onSignOut,
   collapsed,
   onToggleCollapsed,
+  canToggleCollapsed = true,
 }: SidebarProps) {
   const theme = useTheme();
   const [seletorAberto, setSeletorAberto] = useState(false);
@@ -103,7 +113,7 @@ export function Sidebar({
             {!collapsed && <Text variant="bodyStrong">Congrega</Text>}
           </View>
 
-          {!collapsed && (
+          {!collapsed && canToggleCollapsed && (
             <Pressable
               onPress={onToggleCollapsed}
               accessibilityRole="button"
@@ -118,7 +128,7 @@ export function Sidebar({
           )}
         </View>
 
-        {collapsed && (
+        {collapsed && canToggleCollapsed && (
           <Pressable
             onPress={onToggleCollapsed}
             accessibilityRole="button"

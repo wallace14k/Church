@@ -1,4 +1,4 @@
-import { describeError } from '@congrega/api-client/errors';
+import { describeFailure, type Failure } from '@congrega/api-client/errors';
 import { listMembers, type Member } from '@congrega/api-client/members';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from './api';
@@ -8,7 +8,7 @@ interface EstadoMembros {
   readonly total: number;
   readonly carregando: boolean;
   readonly carregandoMais: boolean;
-  readonly erro: string | null;
+  readonly erro: Failure | null;
   readonly temMais: boolean;
 }
 
@@ -32,7 +32,9 @@ const DEBOUNCE_MS = 350;
  * resolver problema que já exista. Quando houver várias telas compartilhando
  * dados e precisando de invalidação cruzada, aí a troca se paga.
  */
-export function useMembers(busca: string): EstadoMembros & { carregarMais: () => void } {
+export function useMembers(
+  busca: string,
+): EstadoMembros & { carregarMais: () => void; recarregar: () => void } {
   const [estado, setEstado] = useState<EstadoMembros>(INICIAL);
 
   // Cancela a requisição anterior quando a busca muda. Sem isso, a resposta de
@@ -80,7 +82,7 @@ export function useMembers(busca: string): EstadoMembros & { carregarMais: () =>
         ...anterior,
         carregando: false,
         carregandoMais: false,
-        erro: describeError(causa),
+        erro: describeFailure(causa),
       }));
     }
   }, []);
@@ -100,5 +102,15 @@ export function useMembers(busca: string): EstadoMembros & { carregarMais: () =>
     }
   }, [busca, buscar, estado.carregando, estado.carregandoMais, estado.temMais]);
 
-  return { ...estado, carregarMais };
+  // Refaz a busca corrente do zero.
+  //
+  // A tela tinha um "Tentar de novo" que chamava `setBusca((b) => b)` — e o
+  // React descarta atualização de estado idêntico por `Object.is`, então o
+  // efeito nunca reexecutava e **o botão não fazia absolutamente nada**.
+  // Parecia funcionar, o que é pior do que não existir: quem caía num erro de
+  // rede clicava, nada acontecia, e a conclusão razoável era que o app estava
+  // quebrado.
+  const recarregar = useCallback(() => void buscar(busca, 1), [busca, buscar]);
+
+  return { ...estado, carregarMais, recarregar };
 }

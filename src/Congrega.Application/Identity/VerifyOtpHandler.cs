@@ -31,6 +31,9 @@ public sealed record AuthenticatedSession
 
     public required DateTimeOffset RefreshTokenExpiresAt { get; init; }
     public required Guid UserPublicId { get; init; }
+
+    /// <summary>Nome do titular, para a interface saudar e identificar a conta.</summary>
+    public required string FullName { get; init; }
     public Guid? TenantPublicId { get; init; }
     public required IReadOnlyList<string> Roles { get; init; }
 }
@@ -193,6 +196,7 @@ public sealed class VerifyOtpHandler(
             RefreshToken = refreshValue,
             RefreshTokenExpiresAt = refreshToken.ExpiresAt,
             UserPublicId = user.PublicId,
+            FullName = user.FullName,
             TenantPublicId = membership?.TenantPublicId,
             Roles = membership?.RoleCodes ?? []
         });
