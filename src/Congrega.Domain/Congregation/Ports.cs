@@ -1,6 +1,41 @@
 namespace Congrega.Domain.Congregation;
 
 /// <summary>Filtro da listagem de membros.</summary>
+/// <summary>
+/// Que lacuna do cadastro filtrar.
+/// </summary>
+/// <remarks>
+/// A secretaria usa isto para saber de quem ainda falta dado — "quem eu preciso
+/// cobrar". É pergunta de trabalho, não de relatório, e por isso vira filtro da
+/// própria listagem em vez de tela separada.
+/// </remarks>
+public enum MemberGap
+{
+    /// <summary>Falta telefone OU e-mail.</summary>
+    Any = 1,
+    SemTelefone = 2,
+    SemEmail = 3,
+}
+
+/// <summary>
+/// Contagens do acervo inteiro, para os chips de filtro.
+/// </summary>
+/// <remarks>
+/// <b>Do acervo, não da página.</b> Contar no cliente sobre os 50 itens
+/// carregados diria "5 incompletos" numa igreja com 9 — e o número apareceria
+/// ao lado de um filtro que devolve os 9. Um chip que mente sobre o que vai
+/// mostrar é pior do que chip nenhum.
+/// </remarks>
+public sealed record MemberSummary
+{
+    public required int Total { get; init; }
+    public required int BirthdayThisMonth { get; init; }
+    /// <summary>Sem telefone ou sem e-mail.</summary>
+    public required int Incomplete { get; init; }
+    public required int WithoutPhone { get; init; }
+    public required int WithoutEmail { get; init; }
+}
+
 public sealed record MemberQuery
 {
     /// <summary>Busca por nome, e-mail ou telefone. Sem acento e sem diferenciar caixa.</summary>
@@ -10,6 +45,9 @@ public sealed record MemberQuery
 
     /// <summary>Aniversariantes do mês. 1 a 12.</summary>
     public int? BirthdayMonth { get; init; }
+
+    /// <summary>Filtra por lacuna do cadastro. Nulo traz todos.</summary>
+    public MemberGap? Gap { get; init; }
 
     public int Page { get; init; } = 1;
 
@@ -56,6 +94,25 @@ public interface IMemberRepository
     /// errado, e a assinatura do método não deve permitir esse erro.
     /// </remarks>
     Task<PagedResult<MemberListItem>> ListAsync(MemberQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Contagens do acervo para os chips de filtro.
+    /// </summary>
+    /// <remarks>
+    /// <b>Uma consulta agregada, não cinco.</b> Cinco <c>COUNT</c> separados
+    /// seriam cinco varreduras da mesma tabela para desenhar uma linha de
+    /// chips; somar condições numa projeção só responde tudo numa passada.
+    ///
+    /// <para>
+    /// Respeita o mesmo <c>status</c> da listagem: se a tela mostra ativos, os
+    /// chips contam ativos. Divergir faria o chip prometer 12 e a lista
+    /// entregar 9.
+    /// </para>
+    /// </remarks>
+    Task<MemberSummary> GetSummaryAsync(
+        MemberStatus? status,
+        int birthdayMonth,
+        CancellationToken cancellationToken);
 
     Task<Member?> FindByPublicIdAsync(Guid publicId, CancellationToken cancellationToken);
 

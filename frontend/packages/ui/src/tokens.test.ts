@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { colors, palette, radius, touch, type } from './tokens';
+import { colors, fonts, palette, radius, touch, type } from './tokens';
 
 /** Luminância relativa conforme WCAG 2.1. */
 function luminance(hex: string): number {
@@ -24,156 +24,198 @@ const AA_NAO_TEXTUAL = 3;
 
 describe('contraste do texto', () => {
   it.each([
-    ['tinta sobre canvas', colors.text, colors.background, AA_NORMAL],
-    ['tinta sobre cartão pergaminho', colors.text, colors.surface, AA_NORMAL],
-    ['corpo sobre canvas', colors.textBody, colors.background, AA_NORMAL],
-    ['auxiliar sobre canvas', colors.textMuted, colors.background, AA_NORMAL],
-    ['auxiliar sobre cartão pergaminho', colors.textMuted, colors.surface, AA_NORMAL],
-    ['placeholder sobre campo branco', colors.placeholder, colors.surfaceInner, AA_NORMAL],
-    ['tinta sobre lima (botão primário)', colors.textOnAccent, colors.surfaceAccent, AA_NORMAL],
-    ['tinta sobre lima diluído (item ativo)', colors.text, colors.surfaceAccentSoft, AA_NORMAL],
-    ['texto sobre a ilha escura', colors.textOnDark, colors.surfaceInverse, AA_NORMAL],
-    ['verde de sucesso sobre canvas', palette.successGreen, colors.background, AA_NORMAL],
-    ['vermelho de erro sobre canvas', colors.danger, colors.background, AA_NORMAL],
-  ])('%s atende WCAG AA', (_nome, frente, fundo, minimo) => {
-    expect(contraste(frente, fundo)).toBeGreaterThanOrEqual(minimo);
-  });
-
-  it('o auxiliar sobre pergaminho passa por margem estreita, e isso está registrado', () => {
-    // O pergaminho é mais escuro que o canvas, então é ele que define o limite
-    // do cinza auxiliar. Escurecer o texto mais que isso o aproximaria demais
-    // da tinta principal e apagaria a hierarquia; clarear reprovaria.
-    const razao = contraste(colors.textMuted, colors.surface);
-    expect(razao).toBeGreaterThanOrEqual(AA_NORMAL);
-    expect(razao).toBeLessThan(5);
+    ['tinta sobre canvas', colors.text, colors.background],
+    ['tinta sobre cartão branco', colors.text, colors.surface],
+    ['tinta sobre superfície interna', colors.text, colors.surfaceInner],
+    ['corpo sobre canvas', colors.textBody, colors.background],
+    ['auxiliar sobre canvas', colors.textMuted, colors.background],
+    ['auxiliar sobre cartão', colors.textMuted, colors.surface],
+    ['auxiliar sobre superfície interna', colors.textMuted, colors.surfaceInner],
+    ['texto sobre acento cheio', colors.textOnAccent, colors.surfaceAccent],
+    ['texto sobre lavagem verde', colors.textOnAccentSoft, colors.surfaceAccentSoft],
+    ['texto sobre lavagem âmbar', colors.textOnCategorySoft, colors.surfaceCategorySoft],
+    ['texto sobre ilha escura', colors.textOnDark, colors.surfaceInverse],
+  ])('%s passa em 4,5:1', (_nome, frente, fundo) => {
+    expect(contraste(frente, fundo)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 });
 
-describe('o lima é superfície, nunca texto (D1)', () => {
-  it('o acento serve como texto, diferente do lima que substituiu', () => {
-    // É este número que muda o sistema. O lima media 1,19:1 e não podia ser
-    // texto nem traço de estado — daí vinham a D1 (link em tinta sublinhada) e
-    // a D6 (seleção por preenchimento, nunca borda colorida). O verde passa
-    // como texto normal, então essas restrições deixam de ser necessárias.
-    expect(contraste(colors.surfaceAccent, colors.background)).toBeGreaterThanOrEqual(AA_NORMAL);
-  });
-
-  it('o verde de texto vale nas duas superfícies claras', () => {
-    //  passaria sobre branco, mas cai para 4,63:1 sobre pergaminho.
-    //  existe para quem escreve não precisar lembrar da
-    // diferença entre as duas superfícies.
-    expect(contraste(palette.brandGreenDeep, colors.background)).toBeGreaterThanOrEqual(AA_NORMAL);
-    expect(contraste(palette.brandGreenDeep, colors.surface)).toBeGreaterThanOrEqual(AA_NORMAL);
-    expect(contraste(palette.brandGreenDeep, colors.surfaceAccentSoft)).toBeGreaterThanOrEqual(AA_NORMAL);
-  });
-
-  it('o anel de foco é perceptível nas duas superfícies', () => {
-    // WCAG 1.4.11: o foco é indicador NÃO textual e precisa de 3:1. É por isso
-    // que o anel usa tinta e não  — a cor de borda do sistema mede
-    // menos de 1,3:1 e serve para dividir superfície, não para dizer onde o
-    // teclado está.
-    expect(contraste(colors.text, colors.background)).toBeGreaterThanOrEqual(AA_NAO_TEXTUAL);
-    expect(contraste(colors.text, colors.surface)).toBeGreaterThanOrEqual(AA_NAO_TEXTUAL);
-  });
-
-  it('o texto do acento nunca some no próprio acento', () => {
-    // Invariante que sobrevive a qualquer troca de paleta: se um dia o acento e
-    // o texto sobre ele convergirem, o rótulo do botão primário desaparece.
-    expect(colors.textOnAccent.toUpperCase()).not.toBe(colors.surfaceAccent.toUpperCase());
-  });
-
-  it('o texto sobre o acento é branco, não tinta', () => {
-    // Invertido em relação ao sistema lima, onde branco media 1,4:1 e só a
-    // tinta servia. Sobre o verde é a tinta que fica curta (4,3:1).
-    expect(contraste(palette.offBlackInk, colors.surfaceAccent)).toBeLessThan(AA_NORMAL);
+describe('as correções que o mockup exigiu', () => {
+  /**
+   * O verde do mockup falha nas DUAS direções, e é a mesma medida.
+   *
+   * `#4c8b22` sobre branco mede 4,18:1 — reprova como texto — e por simetria
+   * branco sobre ele mede o mesmo 4,18:1, reprovando dentro do botão primário.
+   * Um token que servisse só de preenchimento poderia viver com isso; este
+   * serve de preenchimento **e** de cor de link, então precisa passar dos dois
+   * lados.
+   */
+  it('o acento serve como texto E como fundo de texto branco', () => {
+    expect(contraste(colors.surfaceAccent, colors.surface)).toBeGreaterThanOrEqual(AA_NORMAL);
     expect(contraste(colors.textOnAccent, colors.surfaceAccent)).toBeGreaterThanOrEqual(AA_NORMAL);
-  });});
-
-describe('separação de superfície sem sombra', () => {
-  it('cartão e canvas se distinguem por tom', () => {
-    // A §6 proíbe sombra: se cartão e canvas tivessem a mesma cor, sobraria
-    // uma borda de 1px como única separação. Ver D4.
-    expect(colors.surface).not.toBe(colors.background);
   });
 
-  it('a borda tem contraste suficiente para ser um traço, não um fantasma', () => {
-    expect(contraste(colors.hairline, colors.background)).toBeGreaterThan(1.2);
+  /**
+   * Sem esta, o verde do mockup voltaria sem ninguém notar: a diferença entre
+   * `#4c8b22` e `#44831A` é invisível a olho, e só a medida a denuncia.
+   */
+  it('o acento é mais escuro que o do mockup, e o suficiente', () => {
+    expect(contraste('#4c8b22', colors.surface)).toBeLessThan(AA_NORMAL);
+    expect(contraste(colors.surfaceAccent, colors.surface)).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+
+  /**
+   * O âmbar é categórico e aparece como texto em chip. `#c27a12` mede 3,45:1.
+   */
+  it('o âmbar passa como texto, ao contrário do tom do mockup', () => {
+    expect(contraste('#c27a12', colors.surface)).toBeLessThan(AA_NORMAL);
+    expect(contraste(colors.surfaceCategory, colors.surface)).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+
+  /**
+   * O mockup tem oito cinzas de apoio entre 2,45:1 e 3,90:1 — todos reprovam, e
+   * a variação de 2% entre eles esconde exatamente isso. Um só, legível.
+   */
+  it('há UM cinza de apoio, e ele passa nas três superfícies', () => {
+    expect(colors.textMuted).toBe(colors.placeholder);
+
+    for (const fundo of [colors.background, colors.surface, colors.surfaceInner]) {
+      expect(contraste(colors.textMuted, fundo)).toBeGreaterThanOrEqual(AA_NORMAL);
+    }
+  });
+
+  /**
+   * O rótulo de seção do mockup é 9px em `#98a19a` — 2,66:1. Tamanho pequeno
+   * com contraste baixo é a pior combinação possível, e aqui ele carrega a
+   * orientação da tela ("COMUNIDADE", "PRÓXIMOS DIAS").
+   */
+  it('o rótulo de seção não é minúsculo nem apagado', () => {
+    expect(type.eyebrow.fontSize).toBeGreaterThanOrEqual(10);
+    expect(contraste(colors.textMuted, colors.surface)).toBeGreaterThanOrEqual(AA_NORMAL);
   });
 });
 
-describe('alvos de toque', () => {
-  it('respeita o mínimo praticável', () => {
+describe('invariantes que sobrevivem a troca de paleta', () => {
+  it('o texto do acento nunca some no próprio acento', () => {
+    expect(colors.textOnAccent.toUpperCase()).not.toBe(colors.surfaceAccent.toUpperCase());
+    expect(colors.textOnCategorySoft.toUpperCase()).not.toBe(colors.surfaceCategorySoft.toUpperCase());
+  });
+
+  /**
+   * WCAG 1.4.11: o foco é indicador NÃO textual e precisa de 3:1. É por isso
+   * que o anel usa tinta e não `hairline` — o fio de borda mede 1,2:1 e serve
+   * para dividir superfície, não para dizer onde o teclado está.
+   */
+  it('o anel de foco é perceptível nas três superfícies', () => {
+    for (const fundo of [colors.background, colors.surface, colors.surfaceInner]) {
+      expect(contraste(colors.text, fundo)).toBeGreaterThanOrEqual(AA_NAO_TEXTUAL);
+    }
+  });
+
+  /**
+   * O fio NÃO precisa de 3:1, e a asserção fixa isso de propósito.
+   *
+   * Um fio que só separa superfícies não carrega informação; engrossá-lo até
+   * 3:1 desenharia uma caixa a caneta em volta de cada cartão. Quem separa
+   * cartão de página no Grove é a sombra mais a diferença de tom. Se alguém um
+   * dia usar `hairline` como indicador de estado, é aqui que a decisão está
+   * escrita.
+   */
+  it('o fio de borda é decorativo, e por isso pode ser tênue', () => {
+    expect(contraste(colors.hairline, colors.surface)).toBeLessThan(AA_NAO_TEXTUAL);
+    expect(colors.hairline).toBe(colors.divider);
+  });
+
+  /**
+   * **Verde e âmbar têm a mesma luminância.** 1,01:1 entre eles — quem não
+   * distingue matiz (acromatopsia, ou uma tela em escala de cinza) vê os dois
+   * como o mesmo tom.
+   *
+   * Isto não é defeito a corrigir: separá-los em luminância exigiria clarear o
+   * âmbar até o amarelo ou escurecer o verde até o musgo, e o desenho do mockup
+   * se perderia. É **restrição a respeitar**, e o teste existe para deixá-la
+   * visível: enquanto esta asserção passar, categoria não pode ser comunicada
+   * só por cor. Todo cartão categórico carrega ícone e rótulo escrito, e é isso
+   * que faz a distinção — a cor é reforço.
+   *
+   * Se um dia alguém trocar a paleta e os dois se separarem, este teste falha e
+   * obriga a reler a regra antes de relaxá-la.
+   */
+  it('verde e âmbar são indistinguíveis sem matiz — por isso a cor nunca informa sozinha', () => {
+    expect(contraste(colors.surfaceAccent, colors.surfaceCategory)).toBeLessThan(1.3);
+  });
+});
+
+describe('tipografia', () => {
+  /**
+   * A hierarquia do Grove é feita por PESO, não por tamanho: o nome da marca e
+   * o rótulo de seção têm quase o mesmo corpo e se distinguem por 800 contra
+   * 400. Sem os pesos carregados em `app/_layout.tsx`, tudo cai no mais próximo
+   * e a hierarquia desaparece sem nenhum erro aparecer.
+   */
+  it('a escala usa apenas famílias declaradas em `fonts`', () => {
+    const declaradas = new Set(Object.values(fonts));
+
+    for (const [nome, variante] of Object.entries(type)) {
+      expect(declaradas.has(variante.fontFamily as never), `${nome} usa fonte não declarada`).toBe(true);
+    }
+  });
+
+  it('o rótulo de seção é mais pesado que o corpo', () => {
+    expect(type.eyebrow.fontFamily).toBe(fonts.black);
+    expect(type.body.fontFamily).toBe(fonts.regular);
+  });
+
+  it('a escala cresce sem saltos invertidos', () => {
+    const ordem = [
+      type.eyebrow,
+      type.caption,
+      type.captionBody,
+      type.body,
+      type.bodyLg,
+      type.headingSm,
+      type.heading,
+      type.headingLg,
+      type.display,
+    ];
+
+    for (let i = 1; i < ordem.length; i++) {
+      expect(ordem[i]!.fontSize).toBeGreaterThanOrEqual(ordem[i - 1]!.fontSize);
+    }
+  });
+
+  it('toda variante tem entrelinha maior que o corpo', () => {
+    for (const [nome, variante] of Object.entries(type)) {
+      expect(variante.lineHeight, `${nome}`).toBeGreaterThan(variante.fontSize);
+    }
+  });
+});
+
+describe('forma e alvo', () => {
+  it('o alvo de toque mínimo é 44pt', () => {
     expect(touch.minTarget).toBeGreaterThanOrEqual(44);
     expect(touch.comfortable).toBeGreaterThanOrEqual(touch.minTarget);
   });
-});
 
-describe('escala tipográfica', () => {
-  it('define lineHeight em todas as variantes', () => {
-    for (const [nome, estilo] of Object.entries(type)) {
-      expect(estilo.lineHeight, `${nome} sem lineHeight`).toBeGreaterThan(0);
+  /**
+   * Raio menor que o do Perk (28px) porque o Grove tem sombra: arredondamento
+   * grande junto com sombra difusa lê como bolha, não como cartão.
+   */
+  it('o cartão é mais arredondado que a superfície interna', () => {
+    expect(radius.cards).toBeGreaterThan(radius.smallCards);
+    expect(radius.smallCards).toBeGreaterThan(radius.inputs);
+  });
+
+  it('botão e etiqueta são pílula', () => {
+    expect(radius.buttons).toBeGreaterThanOrEqual(999);
+    expect(radius.tags).toBeGreaterThanOrEqual(999);
+  });
+
+  it('a paleta não guarda tom morto', () => {
+    const usados = new Set(Object.values(colors).map((c) => c.toUpperCase()));
+
+    for (const [nome, tom] of Object.entries(palette)) {
+      expect(usados.has(tom.toUpperCase()), `palette.${nome} não é usado por nenhum token`).toBe(true);
     }
-  });
-
-  it('a hierarquia de heading nunca é menor que a de corpo', () => {
-    const interfaceMax = Math.max(
-      type.body.fontSize,
-      type.bodyLg.fontSize,
-      type.bodyStrong.fontSize,
-      type.subheading.fontSize,
-    );
-    const displayMin = Math.min(
-      type.headingSm.fontSize,
-      type.heading.fontSize,
-      type.headingLg.fontSize,
-      type.display.fontSize,
-    );
-
-    expect(displayMin).toBeGreaterThanOrEqual(interfaceMax);
-  });
-
-  it('comprime o tracking conforme o corpo cresce', () => {
-    expect(type.display.letterSpacing).toBeLessThan(type.headingLg.letterSpacing);
-    expect(type.headingLg.letterSpacing).toBeLessThan(type.heading.letterSpacing);
-    expect(type.heading.letterSpacing).toBeLessThan(type.headingSm.letterSpacing);
-  });
-
-  it('abre o tracking dos micro-rótulos em caixa alta', () => {
-    // §3: rótulo em caixa alta com tracking de ~0.1em.
-    expect(type.eyebrow.letterSpacing).toBeCloseTo(type.eyebrow.fontSize * 0.1, 1);
-  });
-
-  it('usa uma família só — nenhuma variante escapa para fora de Inter', () => {
-    for (const [nome, estilo] of Object.entries(type)) {
-      expect(estilo.fontFamily.startsWith('Inter_'), `${nome} não usa Inter`).toBe(true);
-    }
-  });
-
-  it('nenhuma variante usa peso 600 ou 700 (D2)', () => {
-    // A §3 admite 400 e 500 apenas. O peso 600 também foi removido do
-    // carregamento em `app/_layout.tsx` — se voltar aqui, a fonte não existe
-    // e o React Native cai na do sistema em silêncio.
-    for (const [nome, estilo] of Object.entries(type)) {
-      expect(estilo.fontFamily, `${nome} usa peso proibido`).not.toMatch(/600|700/u);
-    }
-  });
-
-  it('o título de página fica na faixa que a §3 pede para dashboard', () => {
-    expect(type.display.fontSize).toBeLessThanOrEqual(40);
-    expect(type.heading.fontSize).toBeGreaterThanOrEqual(28);
-  });
-});
-
-describe('raios', () => {
-  it('a superfície interna é menos arredondada que o cartão que a contém', () => {
-    // Raio interno maior que o externo faz o encaixe parecer errado mesmo que
-    // ninguém saiba dizer por quê.
-    expect(radius.smallCards).toBeLessThan(radius.cards);
-    expect(radius.inputs).toBeLessThan(radius.smallCards);
-  });
-
-  it('cartão e campo seguem a tabela da §5', () => {
-    expect(radius.cards).toBe(28);
-    expect(radius.inputs).toBe(8);
   });
 });

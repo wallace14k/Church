@@ -1,4 +1,10 @@
-import { assignMemberFamily, changeMemberStatus, getMember, updateMember, type Member } from '@congrega/api-client/members';
+import {
+  assignMemberFamily,
+  changeMemberStatus,
+  getMember,
+  updateMember,
+  type MemberDetail,
+} from '@congrega/api-client/members';
 import { createFamily, type Family } from '@congrega/api-client/families';
 import { describeError } from '@congrega/api-client/errors';
 import { isProbablyEmail } from '@congrega/core/validation';
@@ -6,6 +12,7 @@ import { Button } from '@congrega/ui/Button';
 import { Chip } from '@congrega/ui/Chip';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { Screen } from '@congrega/ui/Screen';
+import { ScreenLoading } from '@congrega/ui/ScreenLoading';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
@@ -16,6 +23,13 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiClient } from '../../../../src/api';
+import {
+  CampoDeEndereco,
+  enderecoDe,
+  enderecoVazio,
+  paraPayload,
+  type EnderecoEditavel,
+} from '../../../../src/CampoDeEndereco';
 import { useFamilies } from '../../../../src/useFamilies';
 
 /** Só dígitos, no máximo 11 — o backend guarda sem formatação. */
@@ -53,7 +67,11 @@ export default function EditarMembro() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const [membro, setMembro] = useState<Member | null>(null);
+  const [membro, setMembro] = useState<MemberDetail | null>(null);
+
+  // Preenchido quando o membro carrega. Estado, e não ref: a busca de CEP
+  // reescreve vários campos de uma vez e isso precisa re-renderizar.
+  const [endereco, setEndereco] = useState<EnderecoEditavel>(enderecoVazio);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregar, setErroCarregar] = useState<string | null>(null);
 
@@ -80,6 +98,7 @@ export default function EditarMembro() {
       .then((encontrado) => {
         if (cancelado) return;
         setMembro(encontrado);
+        setEndereco(enderecoDe(encontrado.address));
         nome.current = encontrado.fullName;
         email.current = encontrado.email ?? '';
         telefone.current = encontrado.phone ?? '';
@@ -125,6 +144,10 @@ export default function EditarMembro() {
         ...(email.current.trim() ? { email: email.current.trim() } : {}),
         ...(telefone.current ? { phone: telefone.current } : {}),
         ...(dataIso ? { birthDate: dataIso } : {}),
+        // Vai SEMPRE na edição, mesmo vazio: é assim que a tela diz "apaguei o
+        // endereço". Omiti-lo significaria "não mexa", e limpar os campos não
+        // teria efeito nenhum.
+        address: paraPayload(endereco),
       });
 
       router.replace(`/membros/${id}`);
@@ -142,7 +165,12 @@ export default function EditarMembro() {
     try {
       const novoStatus = membro.status === 'Ativo' ? 'Inativo' : 'Ativo';
       const atualizado = await changeMemberStatus(apiClient, id ?? '', novoStatus);
-      setMembro(atualizado);
+      // Mescla em vez de substituir: changeMemberStatus e assignMemberFamily
+      // devolvem Member, sem endereço — trocar o objeto
+      // inteiro apagaria o endereço já carregado e a tela ficaria em branco
+      // depois de inativar alguém. Nenhuma das duas operações mexe no endereço,
+      // então preservá-lo é o comportamento correto, não um remendo.
+      setMembro((atual) => (atual === null ? null : { ...atual, ...atualizado }));
     } catch (causa) {
       setErroGeral(describeError(causa));
     } finally {
@@ -156,7 +184,12 @@ export default function EditarMembro() {
     setAlterandoFamilia(true);
     try {
       const atualizado = await assignMemberFamily(apiClient, id ?? '', familyId);
-      setMembro(atualizado);
+      // Mescla em vez de substituir:  e
+      //  devolvem , sem endereço — trocar o objeto
+      // inteiro apagaria o endereço já carregado e a tela ficaria em branco
+      // depois de inativar alguém. Nenhuma das duas operações mexe no endereço,
+      // então preservá-lo é o comportamento correto, não um remendo.
+      setMembro((atual) => (atual === null ? null : { ...atual, ...atualizado }));
     } catch (causa) {
       setErroGeral(describeError(causa));
     } finally {
@@ -184,8 +217,8 @@ export default function EditarMembro() {
 
   if (carregando) {
     return (
-      <Screen wide style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={theme.colors.text} />
+      <Screen wide>
+        <ScreenLoading what="os dados do membro" />
       </Screen>
     );
   }
@@ -277,6 +310,8 @@ export default function EditarMembro() {
             keyboardType="number-pad"
             hint="Usada no relatório de aniversariantes"
           />
+
+          <CampoDeEndereco valor={endereco} onChange={setEndereco} />
 
           <View style={{ gap: theme.space[8] }}>
             <Text variant="eyebrow" tone="muted">

@@ -12,7 +12,7 @@ export interface TextProps extends RNTextProps {
    * lima mede 1,4:1, e é o erro natural de quem vem do sistema anterior, onde
    * todo botão primário tinha texto branco.
    */
-  readonly tone?: 'ink' | 'body' | 'muted' | 'onAccent' | 'onDark';
+  readonly tone?: 'ink' | 'body' | 'muted' | 'accent' | 'onAccent' | 'onAccentSoft' | 'onDark';
 }
 
 /**
@@ -27,6 +27,8 @@ export function Text({ variant = 'body', tone = 'ink', style, ...rest }: TextPro
 
   const color =
     tone === 'muted' ? theme.colors.textMuted
+    : tone === 'accent' ? theme.colors.textOnAccentSoft
+    : tone === 'onAccentSoft' ? theme.colors.textOnAccentSoft
     : tone === 'body' ? theme.colors.textBody
     : tone === 'onAccent' ? theme.colors.textOnAccent
     : tone === 'onDark' ? theme.colors.textOnDark

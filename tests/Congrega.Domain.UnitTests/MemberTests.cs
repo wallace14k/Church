@@ -42,15 +42,13 @@ public sealed class MemberTests
     {
         var membro = Register();
         var nascimento = new DateOnly(1990, 5, 20);
-        var endereco = new Address { City = "Recife", State = "PE" };
-
-        membro.UpdateProfile("João Silva", "joao@igreja.com", "81999998888", nascimento, endereco, Now);
+        membro.UpdateProfile("João Silva", "joao@igreja.com", "81999998888", nascimento, addressId: 7, Now);
 
         Assert.Equal("João Silva", membro.FullName);
         Assert.Equal("joao@igreja.com", membro.Email);
         Assert.Equal("81999998888", membro.Phone);
         Assert.Equal(nascimento, membro.BirthDate);
-        Assert.Equal("Recife", membro.Address.City);
+        Assert.Equal(7, membro.AddressId);
     }
 
     [Fact]
@@ -59,7 +57,7 @@ public sealed class MemberTests
         var membro = Register();
 
         Assert.Throws<ArgumentException>(() =>
-            membro.UpdateProfile("   ", null, null, null, Address.Empty, Now));
+            membro.UpdateProfile("   ", null, null, null, addressId: null, Now));
     }
 
     [Fact]
@@ -71,7 +69,7 @@ public sealed class MemberTests
         // A mesma checagem de Register: editar não pode abrir uma porta que
         // cadastrar fecha.
         Assert.Throws<ArgumentException>(() =>
-            membro.UpdateProfile("Maria Aparecida", null, null, futura, Address.Empty, Now));
+            membro.UpdateProfile("Maria Aparecida", null, null, futura, addressId: null, Now));
     }
 
     [Fact]
@@ -79,7 +77,7 @@ public sealed class MemberTests
     {
         var membro = Register();
 
-        membro.UpdateProfile("Maria Aparecida", null, null, null, Address.Empty, Now);
+        membro.UpdateProfile("Maria Aparecida", null, null, null, addressId: null, Now);
 
         Assert.Null(membro.Email);
         Assert.Null(membro.Phone);

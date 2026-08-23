@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Platform,
   StyleSheet,
@@ -18,6 +18,21 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'value' |
   /** Valor inicial. Ver a nota sobre componente não controlado. */
   readonly defaultValue?: string;
   readonly onValueChange?: (value: string) => void;
+
+  /**
+   * Valor imposto de fora, quando **muda**.
+   *
+   * Não transforma o campo em controlado: digitar continua sem passar pelo
+   * React, que é o ponto do componente. Isto cobre o caso em que o valor muda
+   * por algo que não foi a digitação — a busca de CEP preenchendo logradouro,
+   * bairro e cidade de uma vez.
+   *
+   * <b>Só escreve quando o valor difere do que o campo já tem.</b> Sem essa
+   * comparação, o efeito reescreveria o input a cada render e o cursor saltaria
+   * para o fim a cada tecla — que é exatamente o defeito do campo controlado
+   * que este componente existe para evitar.
+   */
+  readonly syncedValue?: string;
   /** Transforma o texto a cada tecla — máscara de CPF, filtro de dígitos do OTP. */
   readonly transform?: (raw: string) => string;
   readonly containerStyle?: ViewStyle;
@@ -51,7 +66,7 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'value' |
  * sem passar por render.
  */
 export const TextField = forwardRef<TextInput, TextFieldProps>(function TextField(
-  { label, hint, error, defaultValue, onValueChange, transform, containerStyle, inputStyle, ...inputProps },
+  { label, hint, error, defaultValue, syncedValue, onValueChange, transform, containerStyle, inputStyle, ...inputProps },
   forwardedRef,
 ) {
   const theme = useTheme();
@@ -87,6 +102,23 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
     },
     [onValueChange, transform],
   );
+
+  // Escreve o valor externo no nativo pelo MESMO caminho que a máscara usa —
+  // node.value no web, setNativeProps no nativo — em vez de por estado.
+  // Dois caminhos de escrita divergiriam, e o de estado traria de volta o
+  // cursor saltando que o componente inteiro existe para evitar.
+  useEffect(() => {
+    if (syncedValue === undefined || syncedValue === lastValue.current) return;
+
+    lastValue.current = syncedValue;
+
+    if (Platform.OS === 'web') {
+      const node = innerRef.current as unknown as { value?: string } | null;
+      if (node) node.value = syncedValue;
+    } else {
+      innerRef.current?.setNativeProps({ text: syncedValue });
+    }
+  }, [syncedValue]);
 
   const hasError = error !== undefined && error.length > 0;
   const borderColor = hasError

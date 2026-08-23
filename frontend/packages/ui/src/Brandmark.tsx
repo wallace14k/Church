@@ -6,6 +6,15 @@ export interface BrandmarkProps {
   readonly size?: number;
   /** Sobre superfície escura, a cruz inverte para branco. */
   readonly onDark?: boolean;
+
+  /**
+   * Cor explícita, quando a marca vive dentro de um bloco colorido.
+   *
+   * Vence `onDark`. Existe porque o quadrado verde-claro da barra superior não
+   * é nem claro nem escuro para efeito de contraste — a tinta desaparece nele e
+   * o branco também. Quem criou o bloco é quem sabe qual tom passa ali.
+   */
+  readonly color?: string;
 }
 
 /**
@@ -30,10 +39,10 @@ export interface BrandmarkProps {
  * nos 12% inferiores, e o travessão está a 36% do topo. Fixá-las aqui é o que
  * impede a marca de deformar quando alguém muda só um valor.
  */
-export function Brandmark({ size = 28, onDark = false }: BrandmarkProps) {
+export function Brandmark({ size = 28, onDark = false, color }: BrandmarkProps) {
   const theme = useTheme();
 
-  const cor = onDark ? theme.colors.textOnDark : theme.colors.text;
+  const cor = color ?? (onDark ? theme.colors.textOnDark : theme.colors.text);
 
   const alturaCruz = size * 0.74;
   const espessura = Math.max(2, size * 0.13);

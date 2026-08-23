@@ -1,9 +1,11 @@
 using System.Text.Json;
 using Congrega.Application.Abstractions;
 using Congrega.Domain.Billing;
+using Congrega.Domain.Addressing;
 using Congrega.Domain.Calendar;
 using Congrega.Domain.Common;
 using Congrega.Domain.Congregation;
+using Congrega.Domain.Connectors;
 using Congrega.Domain.Giving;
 using Congrega.Domain.Identity;
 using Congrega.Domain.Tenancy;
@@ -48,7 +50,15 @@ public sealed class CongregaDbContext(
     internal DbSet<Family> Families => Set<Family>();
     internal DbSet<GivingCategory> GivingCategories => Set<GivingCategory>();
     internal DbSet<GivingEntry> GivingEntries => Set<GivingEntry>();
+    internal DbSet<FinancialAccount> FinancialAccounts => Set<FinancialAccount>();
+    internal DbSet<FiscalDocument> FiscalDocuments => Set<FiscalDocument>();
+    internal DbSet<FiscalDocumentFile> FiscalDocumentFiles => Set<FiscalDocumentFile>();
+    internal DbSet<VaultMovement> VaultMovements => Set<VaultMovement>();
+    internal DbSet<TenantConnector> TenantConnectors => Set<TenantConnector>();
     internal DbSet<CalendarEvent> Events => Set<CalendarEvent>();
+    internal DbSet<EventType> EventTypes => Set<EventType>();
+    internal DbSet<Address> Addresses => Set<Address>();
+    internal DbSet<PostalCode> PostalCodes => Set<PostalCode>();
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     /// <summary>
@@ -131,10 +141,52 @@ public sealed class CongregaDbContext(
                 tenantContext.IsCrossTenantOperation ||
                 e.TenantId == tenantContext.TenantId);
 
+        modelBuilder.Entity<FinancialAccount>()
+            .HasQueryFilter(a =>
+                tenantContext.IsCrossTenantOperation ||
+                a.TenantId == tenantContext.TenantId);
+
+        modelBuilder.Entity<FiscalDocument>()
+            .HasQueryFilter(d =>
+                tenantContext.IsCrossTenantOperation ||
+                d.TenantId == tenantContext.TenantId);
+
+        modelBuilder.Entity<FiscalDocumentFile>()
+            .HasQueryFilter(f =>
+                tenantContext.IsCrossTenantOperation ||
+                f.TenantId == tenantContext.TenantId);
+
+        modelBuilder.Entity<VaultMovement>()
+            .HasQueryFilter(m =>
+                tenantContext.IsCrossTenantOperation ||
+                m.TenantId == tenantContext.TenantId);
+
+        modelBuilder.Entity<TenantConnector>()
+            .HasQueryFilter(c =>
+                tenantContext.IsCrossTenantOperation ||
+                c.TenantId == tenantContext.TenantId);
+
         modelBuilder.Entity<CalendarEvent>()
             .HasQueryFilter(e =>
                 tenantContext.IsCrossTenantOperation ||
                 e.TenantId == tenantContext.TenantId);
+
+        modelBuilder.Entity<EventType>()
+            .HasQueryFilter(t =>
+                tenantContext.IsCrossTenantOperation ||
+                t.TenantId == tenantContext.TenantId);
+
+        modelBuilder.Entity<Address>()
+            .HasQueryFilter(a =>
+                tenantContext.IsCrossTenantOperation ||
+                a.TenantId == tenantContext.TenantId);
+
+        // `PostalCode` NÃO tem filtro, e a ausência é a decisão.
+        //
+        // É tabela de referência global, como `roles` e `permissions`: o CEP
+        // 01001-000 é a Praça da Sé para toda igreja. Um filtro por tenant aqui
+        // esconderia o cache de quem o consultou primeiro e faria cada igreja
+        // repetir a chamada à ViaCEP.
 
         modelBuilder.Entity<Subscription>()
             .HasQueryFilter(s =>
@@ -189,6 +241,16 @@ public sealed class CongregaDbContext(
         } pg)
         {
             throw new UniqueConstraintViolationException(pg.ConstraintName ?? "desconhecida", ex);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+        {
+            // 23503 = foreign_key_violation. Chega aqui quando um RESTRICT
+            // recusa a exclusão de uma linha ainda referenciada — hoje, apagar
+            // um tipo de evento que a agenda usa.
+            SqlState: "23503"
+        } pg)
+        {
+            throw new ForeignKeyViolationException(pg.ConstraintName ?? "desconhecida", ex);
         }
     }
 

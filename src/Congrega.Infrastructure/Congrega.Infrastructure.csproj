@@ -17,6 +17,10 @@
          mesmo com o using de DependencyInjection presente. -->
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- IHttpClientFactory, para a consulta de CEP na ViaCEP. Sem a fábrica, um
+         HttpClient por chamada esgotaria portas do sistema sob carga. -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="MailKit" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -58,6 +62,24 @@
                       LogicalName="Congrega.Db.110_criancas.sql" />
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/012_tipo_de_evento.sql"
                       LogicalName="Congrega.Db.120_tipo_evento.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/013_tipos_de_evento_por_igreja.sql"
+                      LogicalName="Congrega.Db.130_tipos_por_igreja.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/014_enderecos.sql"
+                      LogicalName="Congrega.Db.140_enderecos.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/015_tipos_de_residencia.sql"
+                      LogicalName="Congrega.Db.150_tipos_residencia.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/016_lancamento_detalhado.sql"
+                      LogicalName="Congrega.Db.160_lancamento_detalhado.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/017_lancamentos_periodicos.sql"
+                      LogicalName="Congrega.Db.170_lancamentos_periodicos.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/018_documento_fiscal.sql"
+                      LogicalName="Congrega.Db.180_documento_fiscal.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/019_cofre.sql"
+                      LogicalName="Congrega.Db.190_cofre.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/020_conectores.sql"
+                      LogicalName="Congrega.Db.200_conectores.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/021_cor_do_tipo_de_evento.sql"
+                      LogicalName="Congrega.Db.210_cor_tipo_evento.sql" />
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/seed.sql"
                       LogicalName="Congrega.Db.900_seed.sql" />
   </ItemGroup>

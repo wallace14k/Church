@@ -14,6 +14,8 @@
     "./Button": "./src/Button.tsx",
     "./TextField": "./src/TextField.tsx",
     "./Card": "./src/Card.tsx",
+    "./Dropdown": "./src/Dropdown.tsx",
+    "./Topbar": "./src/Topbar.tsx",
     "./Chip": "./src/Chip.tsx",
     "./EyebrowPill": "./src/EyebrowPill.tsx",
     "./Screen": "./src/Screen.tsx",
@@ -27,7 +29,8 @@
     "./AsyncContent": "./src/AsyncContent.tsx",
     "./MonthNavigator": "./src/MonthNavigator.tsx",
     "./useReducedMotion": "./src/useReducedMotion.ts",
-    "./Skeleton": "./src/Skeleton.tsx"
+    "./Skeleton": "./src/Skeleton.tsx",
+    "./ScreenLoading": "./src/ScreenLoading.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

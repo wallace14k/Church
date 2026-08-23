@@ -197,7 +197,31 @@ export function businessMonthRange(period: YearMonth): { readonly from: string; 
   };
 }
 
+/** `2026-08-22` — data de calendário, sem hora e sem fuso. */
+const SO_DATA = /^\d{4}-\d{2}-\d{2}$/u;
+
 function toDate(value: Date | string): Date {
+  if (typeof value === 'string' && SO_DATA.test(value)) {
+    // **Uma data de calendário não tem fuso, e tratá-la como se tivesse
+    // desloca o dia.**
+    //
+    // `new Date('2026-08-22')` produz meia-noite UTC. Formatada em
+    // `America/Sao_Paulo` (UTC−3), isso vira 21/08 às 21h — e a tela mostra a
+    // despesa um dia antes de quando ela aconteceu. Num livro-caixa isso não é
+    // cosmético: o lançamento do dia 1º aparece no mês anterior.
+    //
+    // Ancorar ao MEIO-DIA UTC sobrevive a qualquer fuso de −11 a +12, que
+    // cobre o planeta inteiro. As dez chamadas que já colavam `T12:00:00Z` à
+    // mão faziam exatamente isto; agora não é mais preciso lembrar.
+    const meioDia = new Date(`${value}T12:00:00Z`);
+
+    if (Number.isNaN(meioDia.getTime())) {
+      throw new TypeError(`Data inválida: ${String(value)}`);
+    }
+
+    return meioDia;
+  }
+
   const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) {
     throw new TypeError(`Data inválida: ${String(value)}`);

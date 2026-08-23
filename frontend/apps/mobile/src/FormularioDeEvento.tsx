@@ -1,15 +1,26 @@
 import { describeError } from '@congrega/api-client/errors';
+import type { Address } from '@congrega/api-client/addresses';
 import type { SaveEventInput } from '@congrega/api-client/events';
 import { Button } from '@congrega/ui/Button';
+import { Dropdown } from '@congrega/ui/Dropdown';
 import { Screen } from '@congrega/ui/Screen';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
 import { useTheme } from '@congrega/ui/theme';
+import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  CampoDeEndereco,
+  enderecoDe,
+  paraPayload,
+  temEndereco,
+  type EnderecoEditavel,
+} from './CampoDeEndereco';
+import { useEventTypes } from './useEventTypes';
 
 /** `dd/mm/aaaa` + `hh:mm` → ISO com o offset do aparelho. */
 function paraIso(dataBr: string, hora: string): string | undefined {
@@ -59,6 +70,18 @@ export function partesLocais(iso: string): { readonly data: string; readonly hor
   };
 }
 
+/**
+ * Converte o nome de ícone vindo do servidor no glifo do Feather.
+ *
+ * O servidor valida contra a mesma lista, então na prática o `??` nunca cai —
+ * mas ele é o que impede a tela de quebrar se um app antigo receber um ícone
+ * que a versão dele não embarca. Degrada para o genérico, como o
+ * `LerTipo` fazia no servidor.
+ */
+function iconeDe(nome: string): keyof typeof Feather.glyphMap {
+  return nome in Feather.glyphMap ? (nome as keyof typeof Feather.glyphMap) : 'calendar';
+}
+
 export interface FormularioDeEventoProps {
   readonly titulo: string;
   readonly eyebrow: string;
@@ -68,6 +91,8 @@ export interface FormularioDeEventoProps {
     readonly location: string | null;
     readonly startsAt: string;
     readonly endsAt: string;
+    readonly type: { readonly id: string } | null;
+    readonly address: Address | null;
   };
   readonly onSalvar: (entrada: SaveEventInput) => Promise<void>;
 }
@@ -93,6 +118,22 @@ export function FormularioDeEvento({ titulo, eyebrow, inicial, onSalvar }: Formu
   const horaInicio = useRef(inicioPartes?.hora ?? '');
   const dataFim = useRef(fimPartes?.data ?? '');
   const horaFim = useRef(fimPartes?.hora ?? '');
+
+  // Só os ativos: oferecer um tipo desativado desfaria o propósito de
+  // desativá-lo.
+  const { tipos, carregando: carregandoTipos, erro: erroDeTipos } = useEventTypes();
+
+  // Estado, e não ref como os campos de texto: o seletor precisa re-renderizar
+  // para marcar a opção escolhida. Os TextField usam ref porque são não
+  // controlados e o valor só importa no envio.
+  //
+  // Começa no tipo do evento em edição, ou em nenhum. **Não** pré-seleciona o
+  // primeiro da lista: isso classificaria como "Culto" todo evento de quem não
+  // olhou o campo, e o resumo do mês passaria a contar cultos que ninguém
+  // marcou como tal.
+  const [tipoId, setTipoId] = useState<string | null>(inicial?.type?.id ?? null);
+
+  const [endereco, setEndereco] = useState<EnderecoEditavel>(() => enderecoDe(inicial?.address));
 
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
@@ -131,6 +172,14 @@ export function FormularioDeEvento({ titulo, eyebrow, inicial, onSalvar }: Formu
     try {
       await onSalvar({
         title: nome.current.trim(),
+        // Ausente quando não há tipo; `clearType` só na edição, onde a
+        // ausência sozinha significaria "não mexa" em vez de "remova".
+        ...(tipoId === null ? {} : { typeId: tipoId }),
+        ...(inicial !== undefined && tipoId === null ? { clearType: true } : {}),
+        // Na edição o endereço vai SEMPRE, mesmo vazio: é assim que a tela diz
+        // 'apaguei o endereço'. No cadastro novo, um objeto vazio criaria uma
+        // linha em branco no banco, então é omitido.
+        ...(inicial !== undefined || temEndereco(endereco) ? { address: paraPayload(endereco) } : {}),
         startsAt: inicioIso!,
         endsAt: fimIso!,
         ...(local.current.trim() ? { location: local.current.trim() } : {}),
@@ -176,6 +225,29 @@ export function FormularioDeEvento({ titulo, eyebrow, inicial, onSalvar }: Formu
             {...(erros['titulo'] ? { error: erros['titulo'] } : {})}
             autoCapitalize="sentences"
             autoFocus={inicial === undefined}
+          />
+
+          <Dropdown
+            label="Tipo"
+            value={tipoId}
+            onChange={setTipoId}
+            options={tipos.map((t) => ({
+              value: t.id,
+              label: t.name,
+              icon: <Feather name={iconeDe(t.icon)} size={16} color={theme.colors.surfaceAccent} />,
+            }))}
+            placeholder={carregandoTipos ? 'Carregando tipos…' : 'Sem tipo'}
+            clearable
+            clearLabel="Sem tipo"
+            {...(erroDeTipos !== null
+              ? { emptyMessage: erroDeTipos.description }
+              : carregandoTipos
+                ? {}
+                : {
+                    emptyMessage:
+                      'Nenhum tipo cadastrado. O evento pode ser salvo sem tipo, ou cadastre um em Agenda › Tipos de evento.',
+                  })}
+            disabled={carregandoTipos}
           />
 
           <View style={{ flexDirection: 'row', gap: theme.space[8] }}>
@@ -257,6 +329,9 @@ export function FormularioDeEvento({ titulo, eyebrow, inicial, onSalvar }: Formu
               local.current = v;
             }}
           />
+
+          <CampoDeEndereco valor={endereco} onChange={setEndereco} titulo="Endereço do evento" />
+
 
           <TextField
             label="Descrição"

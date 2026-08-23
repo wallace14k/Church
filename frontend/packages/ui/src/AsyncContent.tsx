@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { EmptyState } from './EmptyState';
 import { SignatureButton } from './SignatureButton';
+import { ScreenLoading } from './ScreenLoading';
 import { useTheme } from './theme';
 
 /**
@@ -104,8 +105,6 @@ export function AsyncContent({
   fill = false,
   children,
 }: AsyncContentProps) {
-  const theme = useTheme();
-
   if (loading) {
     if (skeleton !== undefined) {
       return (
@@ -115,19 +114,9 @@ export function AsyncContent({
       );
     }
 
-    return (
-      <View
-        accessibilityRole="progressbar"
-        accessibilityLabel="Carregando"
-        style={
-          fill
-            ? { flex: 1, alignItems: 'center', justifyContent: 'center' }
-            : { paddingVertical: theme.space[32], alignItems: 'center' }
-        }
-      >
-        <ActivityIndicator color={theme.colors.text} />
-      </View>
-    );
+    // Sem esqueleto, cai no carregamento padrão — que atrasa a entrada para
+    // não piscar e anuncia a espera para quem não a enxerga.
+    return <ScreenLoading fill={fill} />;
   }
 
   if (failure !== null) {

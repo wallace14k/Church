@@ -21,11 +21,13 @@ INSERT INTO permissions (code, name) VALUES
     ('members.write',      'Cadastrar e editar membros'),
     ('giving.read',        'Ver contribuições'),
     ('giving.write',       'Lançar contribuições'),
+    ('giving.vault',       'Administrar o cofre da igreja'),
     ('children.read',      'Ver fichas de crianças'),
     ('children.checkin',   'Registrar entrada de criança'),
     ('children.checkout',  'Autorizar retirada de criança'),
     ('events.write',       'Criar e editar eventos'),
-    ('billing.manage',     'Gerenciar assinatura da igreja')
+    ('billing.manage',     'Gerenciar assinatura da igreja'),
+    ('connectors.manage',  'Configurar integrações da igreja')
 ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name;
 
 -- -----------------------------------------------------------------------------
@@ -55,12 +57,22 @@ WITH concessoes (role_code, permission_code) AS (
         ('ChurchAdmin', 'events.write'),
         ('ChurchAdmin', 'children.read'),
         ('ChurchAdmin', 'billing.manage'),
+        -- Quem configura conectores digita a senha da conta de e-mail da
+        -- igreja — a mesma que recupera as outras senhas dela. Não acompanha
+        -- members.write; é configuração da igreja.
+        ('ChurchAdmin', 'connectors.manage'),
 
         -- Tesoureiro: lança dinheiro, e SÓ dinheiro. Não vê ficha de criança.
         -- Menor privilégio aplicado ao caso concreto: não há razão operacional
         -- para a tesouraria acessar alergia e foto de menor de idade.
         ('Treasurer', 'giving.read'),
         ('Treasurer', 'giving.write'),
+        -- O cofre guarda dinheiro em espécie, e essa é a função da tesouraria.
+        -- ChurchAdmin fica de fora de propósito: ele tem giving.read e não
+        -- giving.write — enxerga o caixa sem movimentá-lo. Dar-lhe o cofre
+        -- entregaria mais poder sobre o dinheiro físico do que ele tem sobre o
+        -- livro que o registra.
+        ('Treasurer', 'giving.vault'),
         ('Treasurer', 'members.read'),
 
         -- Líder de célula: enxerga membros para acompanhar o grupo, e nada de

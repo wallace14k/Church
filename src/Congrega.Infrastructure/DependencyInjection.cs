@@ -1,16 +1,20 @@
 using System.Text.Json;
 using Congrega.Application.Abstractions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Congrega.Infrastructure.Notifications;
 using Congrega.Application.Billing;
 using Congrega.Application.Outbox;
 using Congrega.Domain.Billing;
+using Congrega.Domain.Addressing;
 using Congrega.Domain.Calendar;
 using Congrega.Domain.Congregation;
+using Congrega.Domain.Connectors;
 using Congrega.Domain.Giving;
 using Congrega.Domain.Identity;
 using Congrega.Infrastructure.Locking;
 using Congrega.Infrastructure.Payments;
+using Congrega.Infrastructure.Addressing;
 using Congrega.Infrastructure.Persistence;
 using Congrega.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
@@ -117,7 +121,13 @@ public static class DependencyInjection
         services.AddScoped<IFamilyRepository, FamilyRepository>();
         services.AddScoped<IGivingCategoryRepository, GivingCategoryRepository>();
         services.AddScoped<IGivingEntryRepository, GivingEntryRepository>();
+        services.AddScoped<IFinancialAccountRepository, FinancialAccountRepository>();
+        services.AddScoped<IFiscalDocumentRepository, FiscalDocumentRepository>();
+        services.AddScoped<IVaultRepository, VaultRepository>();
         services.AddScoped<IEventRepository, EventRepository>();
+        services.AddScoped<IEventTypeRepository, EventTypeRepository>();
+        services.AddScoped<IAddressRepository, AddressRepository>();
+        services.AddScoped<IPostalCodeRepository, PostalCodeRepository>();
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         services.AddScoped<IEntitlementRepository, EntitlementRepository>();
         services.AddScoped<ISubscriptionStore, SubscriptionStore>();
@@ -135,6 +145,25 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         services.AddCongregaPersistence(configuration);
+
+        // Consulta de CEP na ViaCEP.
+        //
+        // `AddHttpClient` e não um `HttpClient` novo por chamada: instanciar
+        // um por requisição esgota portas do sistema sob carga (o socket fica
+        // em TIME_WAIT depois do dispose), e é o erro clássico de cliente HTTP
+        // em .NET. A fábrica recicla o handler.
+        //
+        // Timeout curto de propósito. A ViaCEP é conveniência com caminho
+        // alternativo pronto — o preenchimento manual — então esperar 100
+        // segundos (o padrão do HttpClient) travaria a tela de cadastro por
+        // um serviço de terceiro. Cinco segundos é mais do que a ViaCEP leva
+        // quando está de pé, e curto o bastante para a pessoa não desistir.
+        services
+            .AddHttpClient<IPostalCodeLookup, ViaCepPostalCodeLookup>(http =>
+            {
+                http.BaseAddress = new Uri("https://viacep.com.br/");
+                http.Timeout = TimeSpan.FromSeconds(5);
+            });
 
         services
             .AddOptions<AuthenticationOptions>()
@@ -157,14 +186,90 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // Credenciais de integração têm chave PRÓPRIA — ver ConnectorOptions.
+        // Rotacionar a chave dos conectores não pode tornar ilegível a ficha de
+        // alergia de nenhuma criança.
         services.AddSingleton<ISecretHasher, SecretHasher>();
-        services.AddSingleton<IFieldEncryptor, AesGcmFieldEncryptor>();
+
+        // A fábrica nomeia a origem da chave. Sem isso, "DataKey não é Base64
+        // válido" — com mais de um segredo configurado no processo — não diz qual
+        // dos dois corrigir. A chave dos conectores é outra, e vive em
+        // AddCongregaConnectors.
+        services.AddSingleton<IFieldEncryptor>(sp => new AesGcmFieldEncryptor(
+            sp.GetRequiredService<IOptions<ChildSafetyOptions>>().Value.DataKey,
+            $"{ChildSafetyOptions.SectionName}:DataKey"));
         services.AddSingleton<IOtpGenerator, OtpGenerator>();
         services.AddSingleton<ITokenIssuer, JwtTokenIssuer>();
 
         // Verificação de assinatura de webhook. Scoped porque lê PaymentOptions
         // e TimeProvider; sem estado próprio entre requisições.
         services.AddScoped<IWebhookSignatureVerifier, WebhookSignatureVerifier>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Integrações que cada igreja configura: e-mail, Telegram, Google Drive.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Método próprio porque os dois processos precisam dele, e por caminhos
+    /// diferentes.</b> A API o usa para a tela de configurações; o worker o usa
+    /// porque o remetente de e-mail lê o conector da igreja antes de enviar.
+    /// </para>
+    /// <para>
+    /// Isto já quebrou de duas formas em uma tarde, e as duas em silêncio. Os
+    /// testadores ficaram num método que a API não chamava, e o endpoint
+    /// respondia "sem teste disponível" para uma integração que sabe se testar.
+    /// Depois o protetor de segredo ficou num método que o <b>worker</b> não
+    /// chamava — e ali o estrago seria maior: o envio de e-mail não resolveria,
+    /// e todo código de login iria para dead letter. Reunir num método com nome
+    /// próprio, chamado explicitamente pelos dois, é o que impede a terceira vez.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddCongregaConnectors(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        // Chave própria — ver ConnectorOptions. Rotacionar a chave dos conectores
+        // não pode tornar ilegível a ficha de alergia de nenhuma criança.
+        services
+            .AddOptions<ConnectorOptions>()
+            .Bind(configuration.GetSection(ConnectorOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddSingleton<IConnectorSecretProtector>(sp => new ConnectorSecretProtector(
+            new AesGcmFieldEncryptor(
+                sp.GetRequiredService<IOptions<ConnectorOptions>>().Value.DataKey,
+                $"{ConnectorOptions.SectionName}:DataKey")));
+
+        services.AddScoped<ITenantConnectorRepository, TenantConnectorRepository>();
+
+        // Cada testador fala com o serviço de verdade — o valor do botão
+        // "Testar" está justamente em não simular nada.
+        services.AddScoped<IConnectorTester, SmtpConnectorTester>();
+        services.AddScoped<IConnectorTester, TelegramConnectorTester>();
+        services.AddScoped<IConnectorTester, GoogleDriveConnectorTester>();
+
+        // **O log de URL fica desligado para o Telegram.**
+        //
+        // A API dele carrega o token do bot no CAMINHO da requisição
+        // (`/bot<token>/sendMessage`). Com o log padrão do HttpClient, o token de
+        // toda igreja apareceria em texto claro em cada linha de log — e logs
+        // costumam ir para onde a credencial não deveria ir.
+        services
+            .AddHttpClient(TelegramConnectorTester.HttpClientName, cliente =>
+            {
+                cliente.BaseAddress = new Uri("https://api.telegram.org/");
+                cliente.Timeout = TimeSpan.FromSeconds(15);
+            })
+            .RemoveAllLoggers();
+
+        services.AddHttpClient(GoogleDriveConnectorTester.HttpClientName, cliente =>
+        {
+            cliente.Timeout = TimeSpan.FromSeconds(20);
+        });
 
         return services;
     }
@@ -246,6 +351,26 @@ public static class DependencyInjection
         if (isDevelopment)
         {
             services.AddScoped<IEmailSender, DevelopmentEmailSender>();
+        }
+
+        // O conector SMTP da igreja, por cima do remetente da plataforma.
+        //
+        // **Decoração, não substituição.** `SmtpEmailSender` desvia para o
+        // conector quando a igreja corrente tem um ligado, e delega ao anterior
+        // em todo o resto. Substituir faria uma única igreja com credencial
+        // errada derrubar o envio da plataforma inteira — inclusive o código de
+        // login, que nem tem igreja para consultar.
+        //
+        // Registrado só quando já existe um remetente para decorar: sem isso, a
+        // resolução da cadeia falharia no startup em Production, que é
+        // exatamente onde nenhum remetente está registrado ainda (premissa P8).
+        if (isDevelopment)
+        {
+            services.AddScoped<IEmailSender>(sp => new SmtpEmailSender(
+                sp.GetRequiredService<ITenantConnectorRepository>(),
+                sp.GetRequiredService<IConnectorSecretProtector>(),
+                new DevelopmentEmailSender(sp.GetRequiredService<ILogger<DevelopmentEmailSender>>()),
+                sp.GetRequiredService<ILogger<SmtpEmailSender>>()));
         }
 
         services.AddScoped<IOutboxMessageHandler, SendOtpEmailHandler>();

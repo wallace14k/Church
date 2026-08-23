@@ -5,12 +5,13 @@ import { AsyncContent } from '@congrega/ui/AsyncContent';
 import { Card } from '@congrega/ui/Card';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { Screen } from '@congrega/ui/Screen';
+import { ScreenLoading } from '@congrega/ui/ScreenLoading';
 import { Text } from '@congrega/ui/Text';
 import { useTheme } from '@congrega/ui/theme';
 import { Feather } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAniversariantes } from '../../../src/useAniversariantes';
 
@@ -92,8 +93,11 @@ export default function Aniversariantes() {
           onEndReachedThreshold={0.6}
           ListFooterComponent={
             carregandoMais ? (
-              <View style={{ paddingVertical: theme.space[24] }}>
-                <ActivityIndicator color={theme.colors.text} />
+              <View>
+                {/* Mesmo componente da tela inteira, sem ocupar a altura: o
+                    rodapé de paginação também não anunciava nada, e quem rola
+                    até o fim com leitor de tela ouvia silêncio. */}
+                <ScreenLoading what="mais aniversariantes" fill={false} />
               </View>
             ) : temMais ? null : (
               <Text

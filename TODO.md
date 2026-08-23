@@ -729,3 +729,177 @@
 | Sessão web sobrevive a reload | **verificado pela UI real**: login, F5/navegação, continua autenticado — dois bugs corrigidos nesta rodada (ver abaixo) |
 | Stack completa (Postgres + API + Workers + app web) | subida e exercitada junta nesta sessão: Outbox drena OTP novo em segundos, login ponta a ponta pela UI |
 | CI (`.github/workflows/ci.yml`) | **escrito, nunca executado** — comandos validados um a um localmente |
+| Acento verde (troca do lima) | **verificado ao vivo nas 5 telas** — login, início, membros, financeiro, agenda e assinatura renderizam sem crash após a troca global de tokens. Contrastes recalculados e fixados em 29 testes (`tokens.test.ts`); a inversão de `textOnAccent` (tinta → branco) está coberta por asserção que falha se alguém reverter. Decisão registrada como D9 em `docs/07-design-system.md` |
+| Tipo de evento | **verificado ponta a ponta**: coluna `events.event_type` com `CHECK (1..5)` e default 5 aplicada ao banco real; evento criado pelo formulário com tipo "Ensaio" gravou, voltou na listagem com o ícone certo e mudou o resumo de "3 Outros" para "1 Ensaio · 3 Outros". Os 3 eventos anteriores ficaram em `Outro`, sem inventar classificação para dado antigo |
+| Nome do usuário na sessão | **corrigido ao subir a stack**: `SessionResponse` nunca carregava `FullName` — o domínio tinha, o DTO não. A sidebar quebrava a aplicação inteira ao tentar iniciais de `undefined`. Corrigido no contrato HTTP **e** na borda do cliente (`?? null`), porque o tipo do TypeScript promete um campo que só o servidor pode garantir |
+| Agenda idêntica ao mockup | **verificada em 1280px e 390px**: cartão único com fio recuado, bloco de data por dia, navegador de mês em faixa, sino inerte e nome no cabeçalho. Em 390px nada estoura (`scrollWidth == 390`) e o ícone de tipo fica **na mesma linha** do título — provado medindo as caixas do glifo e do texto, não por `isVisible()` |
+| CRUD de tipo de evento | **verificado ao vivo pela UI real**: cadastrar, renomear, trocar ícone, desativar/reativar e excluir. O enum de cinco valores virou a tabela `event_types` por igreja — a migration transferiu os eventos já classificados **antes** do `DROP COLUMN`, e "Outro" virou `NULL`, que é o que ele significava. Provado no banco: nenhum evento perdeu classificação |
+| Tipo em uso não pode ser apagado | **verificado ao vivo**: `DELETE` de um tipo com eventos responde **409** vindo da FK `RESTRICT`, com a mensagem que aponta para desativar. Quem recusa é a constraint, não a contagem — a contagem só decide se o botão aparece. Desativado sai do formulário de evento (verificado: 0 opções no dropdown) e continua na tela de administração, senão nunca poderia ser reativado |
+| Nome de tipo duplicado | **verificado ao vivo**: 409 "Já existe um tipo chamado…" vindo do índice único `uq_event_types_tenant_nome`, não de um `SELECT` antes do `INSERT` |
+| `Dropdown` no design system | componente novo — `Modal` em vez de painel absoluto, porque em RN não há `z-index` confiável entre árvores e o painel ficaria recortado pelo `ScrollView` do formulário. Opções são `radio` com `checked`, e a seleção tem marca ✓ além do fundo (WCAG 1.4.1) |
+| Endereço como entidade | **verificado ao vivo**: `addresses` (do tenant, com RLS) e `postal_codes` (global, cache da ViaCEP). A migration transferiu os 6 campos inline de `members` para linhas **antes** do `DROP COLUMN`, ligando por coluna temporária com o `members.id` — casar por conteúdo faria dois membros da mesma família disputarem a mesma linha. Conferido no banco: 3 endereços migrados, 0 órfãos. Revisa a decisão registrada em `db/002_members.sql`, que só valia enquanto o endereço fosse exclusivo do membro |
+| Busca de CEP | **cadeia inteira verificada ao vivo**: 1ª consulta a `01001000` responde `source: viacep`, grava no banco, e a 2ª responde `source: cache`. O campo `source` existe justamente para isso — sem ele, um cache quebrado seria indistinguível de um funcionando. CEP inexistente → 404 com "preencha manualmente"; CEP incompleto → 400 antes de sair pela rede. Persiste só os 5 campos pedidos: conferido contra `information_schema` |
+| ViaCEP fora do ar não derruba cadastro | timeout de 5s (não os 100s padrão do `HttpClient`) e **toda** falha vira `null` → preenchimento manual. Só o `CancellationToken` do próprio request escapa, porque insistir por quem desistiu é trabalho jogado fora |
+| Casa × apartamento | **verificado ao vivo e no banco**: o campo Andar só aparece com Apartamento, o rótulo do número vira "Número do apto", e um `INSERT` cru com andar em casa é **recusado** por `ck_addresses_andar`. A regra é assimétrica de propósito — casa nunca tem andar, apartamento pode ter — para não obrigar quem digita "Apto 32" de uma lista de papel a inventar um andar |
+| `syncedValue` no `TextField` | o campo continua **não controlado** (a decisão original, por causa do cursor saltando em aparelho modesto). A busca de CEP escreve pelo mesmo caminho que a máscara já usava — `node.value` no web, `setNativeProps` no nativo — e só quando o valor difere do que o campo tem |
+| Global Query Filter de `EventType` | **falha encontrada e corrigida**: a entidade nasceu sem filtro na rodada anterior. O RLS cobria, mas a defesa em profundidade do ADR-006 não é opcional. `Address` nasceu com filtro; `PostalCode` não tem, e a ausência está documentada — é tabela de referência global, como `roles` |
+| Sistema Grove (3ª troca de design) | **verificado ao vivo em 1440/900/390px**: barra superior no lugar da sidebar, painel com herói + 3 métricas + 2 painéis + atalhos + rodapé, fiel ao mockup enviado. Nenhuma largura tem rolagem horizontal; as 5 telas renderizam sem crash. Decisão registrada como D10 em `docs/07-design-system.md` |
+| Contraste do mockup | **18 pares reprovavam 4,5:1 e foram medidos um a um**, não estimados: o verde de ação (`#4c8b22`, 4,18 — falhava como texto **e** como fundo de texto branco), o âmbar (3,45), o rótulo de seção de 9px (2,66) e **oito** cinzas de apoio entre 2,45 e 3,90 que viraram um só. Cada correção é o tom do mockup escurecido pelo mínimo; 28 testes falham se alguém reverter |
+| Verde e âmbar são indistinguíveis sem matiz | achado pelo próprio teste: 1,01:1 de luminância entre os dois. Não é corrigível sem destruir o desenho, então virou **restrição registrada** — há uma asserção que a mantém visível, e enquanto ela passar, categoria nunca é comunicada só por cor. Todo cartão categórico carrega ícone e rótulo escrito |
+| Pesos tipográficos | Inter 600/700/800 acrescentados ao carregamento. A hierarquia do Grove é feita por **peso**, não por tamanho — sem carregar, tudo cai no peso mais próximo e a hierarquia some **sem nenhum erro aparecer** |
+| Painel sem dado inventado | o mockup traz "↑ 12,5% vs. mês anterior"; **não foi implementado** porque nada guarda a contagem de membros de meses passados. O que ficou sai de dados reais: próximo aniversário (do mês corrente), divisão dos eventos por tipo, janela de 7 dias, e o status Hoje/Celebrado/Em breve por comparação de data |
+| `useDashboard` alinhado ao padrão | passou de `erro: string` para `Failure`, como os outros seis hooks — o que lhe deu o botão "tentar de novo" que ele não tinha. Ganhou também os próximos eventos, numa terceira consulta em paralelo |
+| Tela de membros no Grove | **verificada ao vivo em 1440 e 390px**: herói com ações Importar/Cadastrar, 3 cartões de resumo, alternador Lista/Famílias, busca, chips de filtro e linhas com avatar, selo de aniversário, contatos e situação. Fiel ao mockup enviado; sem rolagem horizontal em nenhuma largura |
+| Chips de filtro contam o ACERVO, não a página | o mockup pede "Perfil incompleto **5**", "Sem telefone **3**" — números que a API não tinha. Em vez de contar os 30 itens carregados (que diria 5 numa igreja com 12), foram implementados de verdade: `GET /members/summary` com **uma** consulta agregada, e `?gap=` na listagem. **Verificado contra o banco**: os 4 números da API batem com o SQL direto, e cada filtro devolve exatamente o que o chip promete (11, 11, 12) |
+| Vazio conta como ausente, não só nulo | importação de planilha com célula em branco grava string vazia; um filtro só de `IS NULL` diria que a pessoa tem telefone e deixaria de fora justamente quem a secretaria precisa cobrar |
+| Onde a tela diverge do mockup | **paginação por "carregar mais"**, não por números de página: a lista acumula, e páginas numeradas fariam quem rolou até o fim voltar ao topo. **A situação de vínculo (Inativo/Transferido/Falecido) aparece como selo** além do "Incompleto" — o mockup só tem completude, e um membro falecido passando sem marca esconderia o que importa |
+| Tela de cadastro de membro no Grove | **verificada ao vivo em 1280 e 390px**: trilha, cabeçalho com "Voltar", dois painéis com ícone (Dados pessoais / Endereço), resumo lateral com avatar de iniciais, lista de conferência, barra de progresso, cartão de dica e barra de ações fixa com frase contextual. Fiel ao mockup; sem rolagem horizontal em nenhuma largura |
+| Tipo de residência: 2 → 4 valores | o mockup pede Casa, Apartamento, Sítio/Chácara e Outro; o domínio só tinha dois, com `CHECK (1..2)`. Um select oferecendo opções que a API recusa seria pior que a divergência, então foi estendido de verdade: enum, `CHECK (1..4)` e migration aplicada |
+| A regra do andar precisou ser INVERTIDA | era negativa (`residence_type <> 1 OR andar IS NULL` — "casa não tem andar"), o que cobria tudo com dois valores e passaria a **permitir** andar em sítio e "outro". Virou positiva (`residence_type = 2 OR andar IS NULL`). **Verificado**: `INSERT` cru de sítio com andar é recusado por `ck_addresses_andar`, e 5 testes de domínio novos cobrem os quatro tipos |
+| Campos de estado sem virar controlados | o resumo lateral acompanha a digitação, o que exigiu espelhar os campos em estado. O `TextField` continua **não controlado** — nada é escrito de volta no input, então o cursor não salta. O anti-padrão que o componente evita é `value={...}`, não "estado que espelha o input" |
+| Resumo sem dado inventado | o mockup mostra idade e cidade na prévia; aqui a prévia mostra a cidade **quando digitada** e, sem ela, diz o que a prévia é. Progresso, selo de nascimento e frase da barra saem do que foi preenchido |
+| Lançamento financeiro detalhado | **verificado ao vivo e contra o banco**: título, tipo próprio, conta, recorrência e cor de categoria. O resumo bate com o SQL direto (3/2/1) e cada filtro devolve o que o chip promete. Migration transferiu o sinal de `giving_categories.kind` para `giving_entries.kind` **antes** do `NOT NULL` — 0 divergências em 3 lançamentos existentes |
+| O sinal do dinheiro mudou de dono | o `db/006_financeiro.sql` registrava "o sinal vem de `giving_categories.kind`". **O que invalidou foi a categoria poder ser `Ambos`** — uma categoria que serve a entrada e saída não tem sinal para emprestar. O sinal desceu para o lançamento; a categoria virou **restrição**. Continua sendo uma verdade só, em outra coluna. Verificado: saída em categoria de entrada responde 400; em categoria `Ambos`, 201 |
+| Badge Entrada/Saída em 100% das linhas | era bug de UI, não falta de coluna: `lancamento.kind` já vinha em toda linha, e a tela renderizava o selo só quando `isSaida` — a ausência tinha de ser lida como "entrada" |
+| Forma de pagamento estendida | já era enum (não texto livre). Ganhou `CartaoCredito`, `CartaoDebito` e `Boleto`. **`Cartao` ficou**: os lançamentos gravados com ele não dizem se era crédito ou débito, e escolher um seria inventar informação financeira. O formulário não o oferece; a listagem o desenha |
+| Recorrência marca, não gera | a coluna registra que a despesa se repete. **A geração automática não existe** e é fatia própria: exige worker com janela, idempotência por período e regra para edição da série — qualquer uma errada duplica dinheiro no relatório |
+| `unaccent` na semeadura de categoria | o índice único é por `lower(name)` e não ignora acento, então a semeadura criou "Dízimo" ao lado do "Dizimo" existente. Encontrado ao conferir o banco depois de aplicar; corrigido com `NOT EXISTS` acento-insensível e o duplicado removido do banco de desenvolvimento |
+| Anexo de comprovante | **NÃO implementado.** Depende de "Fornecedor de mídia", decisão pendente declarada — a mesma que segura a foto da criança no ADR-014. Guardar binário em coluna não escala, e escolher um bucket sem a decisão criaria migração de storage depois |
+| Lançamentos periódicos | **verificado ao vivo**: uma série mensal cria o original + **12 parcelas** numa transação só. `generatedCount` volta na resposta para a tela poder dizer o que criou. Conferido no banco: 13 linhas na série, 12 previstas |
+| Previsto ≠ realizado | **a geração colidia com uma regra do domínio**: `Register` recusa data futura, porque "um lançamento de 2027 sairia silenciosamente do fechamento". Gerar 12 meses à frente faria o caixa de setembro afirmar que o aluguel de setembro já foi pago. Resolvido com o par da contabilidade — previsto/realizado. **Verificado**: a parcela de setembro aparece na listagem, marcada, e o fechamento de setembro soma R$ 0,00 |
+| Fim de mês na série | **bug pego pelo próprio teste**: eu avançava a partir da parcela anterior, então 31/jan encolhia para 28/fev e a série inteira deslizava para o dia 28 para sempre. Corrigido calculando cada parcela a partir da data ORIGINAL. Verificado ao vivo: 31/jul → 31/ago → 30/set → 31/out → 28/fev |
+| Fechamento somava pelo lado errado | **bug que eu introduzi na rodada anterior e não peguei**: o fechamento agrupava por categoria e lia o sinal dela, então uma categoria `Ambos` produzia uma linha que não entrava nem em receita nem em despesa. **R$ 84,00 de saídas estavam invisíveis** no fechamento de agosto. Corrigido agrupando por (categoria, tipo do lançamento); verificado contra o SQL direto: 128400 = 128400 |
+| Série não duplica | índice único parcial `(series_id, occurred_on) WHERE series_id IS NOT NULL`. Clique duplo ou retry de rede é recusado pela constraint em vez de gravar uma segunda parcela do mesmo mês — em livro-caixa, parcela duplicada é dinheiro que não existe |
+| Tela do financeiro no Grove | **verificada ao vivo em 1440/900/390px**: herói com navegador de mês, 3 cartões de total com nota, barra de ações, busca, chips, painel de lançamentos com ícone de direção e valor com sinal, e painel "Resumo do mês" com barra e percentual por categoria. Fiel ao mockup; sem rolagem horizontal em nenhuma largura |
+| Exportar CSV | o mockup traz o botão e ele **não existia**. Implementado de verdade: varre **todas as páginas** do mês (não só as 100 carregadas — exportar 100 de 130 e chamar de "lançamentos de agosto" é prestação de contas incompleta que ninguém percebe olhando o arquivo). Separador `;` e BOM UTF-8 por causa do Excel pt-BR. **Só no navegador**: baixar arquivo em iOS/Android exige outro fluxo, e botão que não faz nada ensina a desconfiar dos outros. Verificado: download real, 6 linhas para 6 lançamentos, BOM presente |
+| Percentual é dentro do próprio tipo | "54% das entradas", não "54% do mês". Misturar entrada e saída num denominador só produziria um número sem significado — R$ 100 de dízimo não são fração de R$ 1.200 de aluguel |
+| Cartão e chip contam coisas diferentes | **inconsistência encontrada na captura**: o cartão dizia "4 lançamentos" ao lado de um valor que continha 3, porque a contagem vinha do resumo (todos os estados) e o valor do fechamento (só realizado). A contagem passou a sair do **mesmo objeto** que o valor, e a tela explica a diferença quando há previsto no mês. Verificado ao vivo: cartão=3, chip=4 |
+
+## Documento fiscal, detalhe do lançamento e cofre — verificados rodando
+
+| Item | Estado |
+|---|---|
+| Documento fiscal em saída | **verificado ao vivo**: painel aparece só quando o tipo é Saída, começa em "Sem documento", e os campos (tipo, número, série, CNPJ/CPF, chave) só surgem em "Possui" |
+| "Documento só em saída" é constraint | FK composta `(entry_id, entry_kind) → giving_entries (id, kind)` + `CHECK (entry_kind = 2)`. **Provado contra o Postgres**: o `INSERT` numa entrada é recusado pelo banco, não por um `if` |
+| Anexo em Base64 | o contrato recebe e devolve Base64 — JSON não carrega binário. **O banco guarda BYTEA**: persistir o texto custaria 33% a mais de disco por comprovante e um decode a cada leitura. Verificado: o PNG volta byte a byte idêntico ao que subiu |
+| `CHECK (octet_length(content) = size_bytes)` | sem ele, declarar `size_bytes = 1` passaria pelo teto de 10 MB e gravaria o arquivo inteiro — o CHECK de tamanho protegeria um número, não o arquivo. **Provado**: o banco recusa o tamanho mentido |
+| Dígito verificador de CPF/CNPJ | conferido no domínio, incluindo a rejeição de "111.111.111-11" e afins, que **passam** na fórmula e são o buraco clássico. Um dígito trocado ao copiar do papel produziria um fornecedor inexistente, descoberto só na conferência anual |
+| Detalhe do lançamento | **verificado**: ficha completa com autor e data de registro, documento fiscal com CNPJ formatado, anexo com nome e tamanho, e "Ver comprovante" abrindo o arquivo real via `blob:` |
+| Anexar depois | endpoint próprio, e não um bloco no `POST /entries`: 13 MB de Base64 viajando junto fariam uma queda de conexão perder também o lançamento. E **a nota costuma chegar dias depois** do pagamento — o detalhe permite anexá-la sem relançar a despesa |
+| Cofre | **verificado ao vivo**: saldo, extrato com saldo resultante por linha, autoria e depósito/retirada funcionando (R$ 3.620 → R$ 3.740) |
+| Cofre não é entrada nem saída | tabela própria, fora do fechamento. **Provado**: depositar R$ 5.000 no cofre não moveu as saídas do mês. Se fosse lançamento, guardar dinheiro apareceria no relatório como gastá-lo |
+| Saldo do cofre não fica negativo | `CHECK (balance_after_cents >= 0)` + `UNIQUE (tenant_id, sequence_number)`. **Provado**: as duas constraints recusam. O índice é o que serializa dois saques simultâneos — um `if (saldo >= valor)` aprovaria os dois contra a mesma leitura |
+| Permissão `giving.vault` | criada agora porque os perfis vêm depois: restringir vira **tirar uma linha de `role_permissions`**. Só `Treasurer` recebe — `ChurchAdmin` tem `giving.read` e não `giving.write`, e dar-lhe o cofre entregaria mais poder sobre o dinheiro físico do que ele tem sobre o livro |
+| **Bug de fuso encontrado e corrigido** | `formatDate('2026-08-22')` virava meia-noite UTC e, em São Paulo, exibia **21/08**. Dez telas contornavam colando `T12:00:00Z` à mão; o detalhe novo não. Corrigido em `toDate`, com 4 testes — inclusive o caso que dói: o dia 1º aparecendo no mês anterior, e portanto no fechamento errado |
+
+### Aberto
+
+| Item | Por quê |
+|---|---|
+| Anexo no celular | escrito e tipado, **não executado**: não há dispositivo nesta máquina. O caminho web foi verificado ponta a ponta com arquivo real |
+| Trocar um documento fiscal já anexado | hoje o segundo é recusado com 409 (`UNIQUE (entry_id)`) — dois comprovantes na mesma despesa é o começo de uma despesa prestada em dobro. Corrigir um documento errado exige apagar e refazer o lançamento |
+| Perfis com acesso restrito ao cofre | a permissão existe e está concedida só ao tesoureiro; falta a tela que administra papéis |
+
+## Tela de configurações e conectores — verificada rodando
+
+| Item | Estado |
+|---|---|
+| Tela `/configuracoes` | **verificada ao vivo em 1440/900/390px**: os três conectores (E-mail, Telegram, Google Drive), com quatro estados distintos — não configurado, desligado, nunca testado, último teste falhou. "Nunca testado" e "falhou" são coisas diferentes, e só a segunda exige ação agora |
+| Credencial cifrada em repouso | AES-256-GCM com **chave própria** (`Connectors:DataKey`), separada da do check-in infantil: rotacionar uma não pode invalidar a outra. **Provado por SQL**: a senha não aparece nos bytes, e o tamanho é exatamente `conteúdo + 28` (nonce 12 + tag 16) |
+| `CHECK (octet_length(secret_enc) >= 29)` | alarme contra alguém gravar senha em claro contornando o cifrador — texto cifrado real nunca é menor que nonce + tag |
+| O segredo nunca sai da API | o contrato **não tem campo de leitura** para ele: nem cifrado, nem mascarado, nem "últimos quatro". Só `hasSecret`. Verificado no JSON de resposta |
+| Editar sem redigitar a senha | **preserva a credencial** — verificado: 54 bytes antes, 54 depois, com o remetente alterado. Sem isso, corrigir a porta apagaria a senha, e a causa seria o campo que ninguém tocou |
+| "Testar conexão" fala com o serviço | não simula: o SMTP **envia um e-mail de verdade** (conectar e autenticar não prova relay), o Telegram manda mensagem no chat configurado, o Drive assina um JWT e lê a pasta. O resultado é **persistido**, porque a pergunta que importa dias depois é "isto chegou a funcionar?" |
+| Mensagens de erro orientam | "O servidor não oferece STARTTLS nesta porta. Tente 587 com StartTls, ou 465 com SslOnConnect" em vez de repetir um código SMTP. Verificado contra o Mailpit |
+| Sem opção de SMTP em claro | e sem "ignorar erro de certificado". As duas destravariam servidores mal configurados e transformariam o TLS em teatro — a senha da conta de e-mail da igreja costuma ser a que recupera as outras senhas dela |
+| Permissão `connectors.manage` | vale para **ler** também: a configuração revela para onde a igreja manda dados e com qual conta. Só `ChurchAdmin` |
+| Mailpit no compose (perfil `dev`) | servidor SMTP local para exercer o conector sem mandar mensagem a ninguém |
+| **Dois bugs de composição encontrados rodando** | os testadores ficaram num método que a **API** não chamava — o endpoint respondia "sem teste disponível" para uma integração que sabe se testar. Depois o protetor de segredo ficou num método que o **worker** não chamava, e ali o estrago seria maior: o envio não resolveria e **todo código de login iria para dead letter**. Os dois foram reunidos em `AddCongregaConnectors`, chamado explicitamente pelos dois processos |
+| Dispatcher do Outbox | **rodou pela primeira vez nesta verificação**: 9 mensagens reivindicadas, 9 processadas, 0 em dead letter |
+
+### Aberto
+
+| Item | Por quê |
+|---|---|
+| Envio bem-sucedido por SMTP real | **não executado**: o Mailpit local não oferece TLS, e o código recusa conexão sem ele — corretamente. Falta uma credencial de provedor de verdade (senha de aplicativo do Gmail) para fechar o caminho ponta a ponta |
+| Teste do Telegram e do Drive contra o serviço real | escritos e compilando, **não executados**: exigem token de bot e JSON de conta de serviço reais |
+| Consumidor para Telegram e Drive | as credenciais são guardadas e testáveis, e **nada as usa ainda**. A tela diz isso em cada card em vez de apresentar os três como equivalentes |
+| E-mail de login por conta da igreja | **não é possível por construção**: o OTP é enviado antes de haver igreja selecionada — `users` não tem `tenant_id`. Precisa de um remetente de plataforma, configurado fora do banco |
+
+## Seletor de mês e ano — verificado rodando
+
+| Item | Estado |
+|---|---|
+| Salto direto para qualquer mês | **verificado ao vivo**: um clique no ano e um no mês chegam a março do ano passado, e os dados daquele mês carregam. Antes eram 17 toques na seta |
+| O ícone de calendário deixou de ser enfeite | ele sempre pareceu um botão e não era nada. Agora o período inteiro — ícone, rótulo e chevron — é o gatilho: um alvo de 16px é difícil de acertar no celular, e o rótulo ao lado já é para onde o olho vai |
+| `onSelect` é obrigatório no componente | e não opcional. É o que impede o ícone de voltar a ser decorativo por descuido em uma tela nova |
+| Piso de 10 anos, teto de 2 | **verificado: para em 2016 e a seta fica `aria-disabled`**, não inerte. Sem limite dá para chegar a 1998 e concluir que o sistema perdeu os lançamentos — um mês vazio é indistinguível de um mês perdido. O teto de +2 não é folga: uma série criada em dezembro gera parcelas **previstas** até dezembro do ano seguinte, e elas precisam ser alcançáveis |
+| Sair do piso reabilita a seta | verificado — senão o limite vira armadilha |
+| Reabrir mostra onde estou | e não o ano que eu estava folheando quando desisti. Sem isso, quem abre, vai até 2021, fecha e reabre é recebido por 2021 e conclui que navegou sem querer |
+| "hoje" é marcado com palavra | e o mês escolhido, com preenchimento. Depois de navegar, "onde estou" e "onde é hoje" deixam de ser a mesma célula — dois estados pedem dois sinais, e um ponto colorido sozinho não serviria |
+| Agenda e fechamento também | é o mesmo controle. Deixar um deles para trás faria o mesmo ícone ser botão numa tela e enfeite na outra |
+| Alvo de toque | 114×44 no desktop, 108×44 em 390px — acima do mínimo, verificado nas três larguras |
+| **Erro de medição no meu próprio teste** | a primeira asserção do piso lia `body.innerText` e capturava o "março de 2025" do cabeçalho **atrás** do modal: passou dizendo "parou em 2025" enquanto o seletor estava em 2016. Passar pelo motivo errado é pior do que falhar. Corrigida para ler de dentro do modal |
+
+## Previsto visível e confirmável — a partir de um relatório de bug
+
+O relato: setembro mostrava a saída recorrente de R$ 1.200 na lista e **R$ 0,00**
+no cartão de SAÍDAS. O total estava certo — o aluguel de 30/09 não foi pago — mas
+a tela não dizia isso, e investigar revelou uma lacuna maior.
+
+| Item | Estado |
+|---|---|
+| **A lacuna real** | um lançamento `Previsto` **nunca podia virar realizado**: `GivingEntry.Confirmar()` existia e era testado, e não havia endpoint nem botão. As doze parcelas de toda série eram um beco sem saída — o aluguel seria pago no mundo real e continuaria valendo R$ 0,00 no caixa, para sempre |
+| `POST /entries/{id}/confirm` | criado. Recusa data futura com 409 e o motivo escrito; confirmar o que já está realizado é **silencioso**, não erro — dois cliques chegam ao mesmo estado. **Verificado**: status vira 1 no banco, o valor entra no fechamento (251260 + 31337 = 282597) e a tela reflete |
+| Botão "Confirmar" na linha e no detalhe | **só aparece quando a confirmação pode dar certo**. O domínio recusa confirmar o futuro, e oferecer o botão assim mesmo produziria um erro que a própria tela sugeriu. Verificado: mês futuro não mostra o botão; parcela de ontem mostra |
+| O previsto ficou visível | `R$ 1.200,00 ainda previsto` sob o total, **nunca somado a ele**. Somar faria o fechamento afirmar um pagamento que não aconteceu; esconder faz a tela mostrar R$ 0,00 ao lado de uma lista com lançamentos — foi exatamente isso que pareceu defeito |
+| "ainda previsto", e não "+ R$ 1.200" | o sinal de mais convidaria a somar de cabeça com o número de cima, que é o que este campo existe para impedir |
+| Comparação de data por texto ISO | e não por `Date`: ler `2026-09-30` como meia-noite UTC diria, em São Paulo, que o dia 30 ainda não chegou às 21h do próprio dia 30. É o mesmo deslize de fuso já corrigido em `formatDate` |
+| Testes de domínio | 2 novos fixam o caso relatado: previsto não entra em `TotalExpenseCents` nem no saldo, **e** continua visível em `PlannedExpenseCents` |
+| **Duas falhas no meu próprio teste** | ele parseava o command tag do `psql` junto do valor (`"120000\nUPDATE 1"` → `NaN`) e reprovou uma conta que estava certa. E movia uma **parcela real** da igreja para ontem — o que alterava a contabilidade de desenvolvimento do usuário e, na segunda execução, colidiu com `UNIQUE (series_id, occurred_on)`. Passou a criar um lançamento próprio, sem série, e apagá-lo no fim |
+
+### Aberto
+
+| Item | Por quê |
+|---|---|
+| Confirmar em lote | hoje é uma parcela por vez. Uma igreja que deixou três meses acumularem confirma três vezes |
+| Desfazer uma confirmação | `Confirmar()` não tem inverso. Quem confirmar por engano precisa apagar e relançar |
+
+## Carregamento de tela — `ScreenLoading`
+
+| Item | Estado |
+|---|---|
+| Um componente, oito cópias a menos | o bloco `<Screen><ActivityIndicator /></Screen>` estava copiado em **seis telas** (as duas de detalhe de membro e evento, as duas de edição, a família e o lançamento) e o rodapé de "carregar mais" em outras duas. Todas com os mesmos dois defeitos |
+| **O defeito grave era de acessibilidade** | um `ActivityIndicator` solto **não tem nome acessível**: quem usa leitor de tela chegava numa tela que não anunciava nada, ouvia silêncio e concluía que o aplicativo travou. A única informação disponível era visual — a única que essa pessoa não recebe. **Verificado**: `role="progressbar"` com `aria-label="Carregando a ficha do membro…"` presente **desde o primeiro instante**, antes mesmo de o indicador aparecer |
+| Atraso de 250 ms antes de aparecer | uma resposta de 90 ms é percebida como instantânea, e um indicador que surge e some nessa janela é ruído puro — faz o layout saltar duas vezes em vez de uma. **Verificado nos dois sentidos**: com a API atrasada em 1,5 s o indicador aparece (opacidade 0 → 1); com a API em 60 ms ele **nunca** fica visível, medido em 12 amostras de 25 ms |
+| Sem salto de layout | o bloco ocupa o espaço desde o início e só a opacidade muda — a entrada do indicador não empurra nada |
+| Diz **o que** está carregando | "Carregando a ficha do membro…" em vez de um giro mudo. O texto entra também no nome acessível |
+| Respeita `prefers-reduced-motion` | o giro some e fica o texto. O `ActivityIndicator` do React Native não tem como parar de girar; a saída é não desenhá-lo, e o texto sozinho diz tudo o que ele dizia |
+| `AsyncContent` caiu no mesmo componente | o ramo sem esqueleto usava a própria cópia. Agora há uma implementação só |
+
+### Aberto
+
+| Item | Por quê |
+|---|---|
+| Rodapé de "carregar mais" | trocado nas duas listas e **não verificado rodando**: com 17 membros a lista cabe numa página e o rodapé nunca aparece. Forjar uma segunda página seria testar um cenário que este banco não tem. O que foi verificado é que as duas telas continuam renderizando |
+| Teste de componente no `@congrega/ui` | o pacote só tem teste de lógica pura (`tokens.test.ts`); não há React Testing Library configurada. O atraso e o rótulo foram fixados por verificação ao vivo, não por teste automatizado |
+
+## Agenda refatorada conforme o mockup
+
+| Item | Estado |
+|---|---|
+| Estrutura do mockup | **verificada ao vivo em 1440/900/390px**: herói com subtítulo que conta os eventos do mês, barra de período com Tipos e Agendar, quatro cartões de resumo com ícone, painel com busca, chips de filtro por tipo, linhas com faixa colorida e etiqueta, paginação e rodapé |
+| **Cor por tipo de evento** | `event_types.color_hex`, mesma coluna e mesmo CHECK de `giving_categories` — é o mesmo problema resolvido do mesmo jeito. A migration dá uma cor inicial aos tipos que já existiam: sem isso toda igreja abriria a agenda nova com faixas cinzas e concluiria que a cor não funciona, em vez de que ela ainda não foi escolhida |
+| A cor é escolhida pela igreja | seletor na tela de tipos, **paleta fechada de seis**. Campo livre deixaria escolher amarelo-claro e o tipo sumiria do cartão branco; as seis foram medidas contra o branco e passam de 3:1 (1.4.11). **Verificado ponta a ponta**: trocar para Roxo grava `#7C5CBF` e a agenda passa a desenhar `rgba(124, 92, 191, 0.18)` |
+| Cada cor tem nome | "Verde", "Azul", "Roxo"… — um seletor cujas opções só se distinguem por matiz é inacessível por definição, e "opção 3" não diz qual foi escolhida. O visto marca a ativa **além** da borda |
+| A cor nunca informa sozinha | a faixa e o ponto do chip são decorativos e escondidos do leitor de tela; a etiqueta com o **nome do tipo** está sempre ao lado |
+| Busca e filtro por tipo | no cliente, sobre o mês já carregado — algumas dezenas de linhas. Se a agenda um dia paginar dentro do mês, isto volta para o servidor: senão o filtro veria só um pedaço e diria "nenhum evento" sobre uma agenda cheia |
+| Editar e apagar na linha | alvos **irmãos** do conteúdo, nunca aninhados: no navegador o clique sobe, e apagar abriria o detalhe do evento que acabou de sumir. **Verificado**: apagar removeu do banco, sumiu da tela e não navegou |
+| Ações somem em 390px | competiriam com o título por uma largura que não existe, e o detalhe oferece as duas |
+| **O que do mockup NÃO entrou** | o alternador Lista/Semana/Mês. Duas das três visões não existem, e um controle em que 2 de 3 opções não fazem nada é o mesmo defeito do ícone de calendário que virou botão nesta sessão |
+
+### Aberto
+
+| Item | Por quê |
+|---|---|
+| Visões de Semana e Mês | o alternador do mockup pressupõe as três. Cada uma é uma tela própria, com layout de grade e cálculo de semana |

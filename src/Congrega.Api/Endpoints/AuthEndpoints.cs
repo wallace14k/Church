@@ -68,6 +68,19 @@ public sealed record SessionResponse
     public required DateTimeOffset ExpiresAt { get; init; }
     public string? RefreshToken { get; init; }
     public required Guid UserId { get; init; }
+
+    /// <summary>
+    /// Nome da pessoa, para a interface identificar quem está logado.
+    /// </summary>
+    /// <remarks>
+    /// **Não é claim do JWT, e não deve virar uma.** O token viaja em todo
+    /// request e é lido por quem tiver acesso ao tráfego ou ao storage do
+    /// cliente; nome próprio é dado pessoal e não participa de nenhuma decisão
+    /// de autorização. Aqui ele viaja uma vez, no corpo da resposta de sessão,
+    /// que é onde a interface precisa dele.
+    /// </remarks>
+    public required string FullName { get; init; }
+
     public Guid? TenantId { get; init; }
     public required IReadOnlyList<string> Roles { get; init; }
 }
@@ -274,6 +287,7 @@ public static class AuthEndpoints
             ExpiresAt = session.AccessTokenExpiresAt,
             RefreshToken = isBrowser ? null : session.RefreshToken,
             UserId = session.UserPublicId,
+            FullName = session.FullName,
             TenantId = session.TenantPublicId,
             Roles = session.Roles
         });

@@ -1,3 +1,4 @@
+import type { Address, AddressPayload } from './addresses';
 import type { ApiClient } from './client';
 
 /**
@@ -30,11 +31,35 @@ export interface Paged<T> {
   readonly hasNext: boolean;
 }
 
+/**
+ * Lacuna do cadastro a filtrar.
+ *
+ * `Any` é "perfil incompleto": falta telefone **ou** e-mail.
+ */
+export type MemberGap = 'Any' | 'SemTelefone' | 'SemEmail';
+
+/**
+ * Contagens do acervo, para os chips de filtro.
+ *
+ * **Do acervo inteiro, não da página.** Contar no cliente sobre os 50 itens
+ * carregados diria "5 incompletos" numa igreja com 9 — e o número apareceria ao
+ * lado de um filtro que devolve os 9.
+ */
+export interface MemberSummary {
+  readonly total: number;
+  readonly birthdayThisMonth: number;
+  /** Sem telefone ou sem e-mail. */
+  readonly incomplete: number;
+  readonly withoutPhone: number;
+  readonly withoutEmail: number;
+}
+
 export interface ListMembersInput {
   readonly search?: string;
   readonly page?: number;
   readonly pageSize?: number;
   readonly birthdayMonth?: number;
+  readonly gap?: MemberGap;
   /** `Todos` remove o filtro. Sem valor, o servidor devolve só os ativos. */
   readonly status?: MemberStatus | 'Todos';
 }
@@ -48,12 +73,13 @@ export interface CreateMemberInput {
   readonly maritalStatus?: 1 | 2 | 3 | 4 | 5;
   readonly membershipDate?: string;
   readonly baptismDate?: string;
-  readonly addressStreet?: string;
-  readonly addressNumber?: string;
-  readonly addressDistrict?: string;
-  readonly addressCity?: string;
-  readonly addressState?: string;
-  readonly addressZip?: string;
+  /**
+   * Endereço do membro.
+   *
+   * Substitui os seis campos planos. Ausente na edição significa "não mexa";
+   * um objeto com tudo em branco significa "apague".
+   */
+  readonly address?: AddressPayload;
   readonly notes?: string;
 }
 
@@ -72,6 +98,7 @@ export async function listMembers(
   if (input.page !== undefined) query.set('page', String(input.page));
   if (input.pageSize !== undefined) query.set('pageSize', String(input.pageSize));
   if (input.birthdayMonth !== undefined) query.set('birthdayMonth', String(input.birthdayMonth));
+  if (input.gap !== undefined) query.set('gap', input.gap);
   if (input.status !== undefined) query.set('status', input.status);
 
   const sufixo = query.size > 0 ? `?${query.toString()}` : '';
@@ -81,8 +108,38 @@ export async function listMembers(
   });
 }
 
-export function getMember(client: ApiClient, id: string): Promise<Member> {
-  return client.request<Member>(`/api/v1/members/${id}`);
+/**
+ * Contagens para os chips de filtro da listagem.
+ *
+ * O mês dos aniversariantes vem do **servidor**: se o cliente o mandasse, dois
+ * usuários em fusos diferentes veriam contagens diferentes para a mesma igreja.
+ */
+export function getMemberSummary(
+  client: ApiClient,
+  status?: MemberStatus | 'Todos',
+  signal?: AbortSignal,
+): Promise<MemberSummary> {
+  const sufixo = status === undefined ? '' : `?status=${status}`;
+
+  return client.request<MemberSummary>(`/api/v1/members/summary${sufixo}`, {
+    ...(signal ? { signal } : {}),
+  });
+}
+
+/**
+ * O membro na tela de detalhe — tudo de `Member` mais o endereço.
+ *
+ * Tipo separado, e não um campo opcional em `Member`: a listagem não carrega
+ * endereço de propósito (seriam N junções para desenhar uma tela que não o
+ * mostra), e um `address: null` na lista seria indistinguível de "este membro
+ * não tem endereço". O servidor espelha isso com `MemberDetailResponse`.
+ */
+export interface MemberDetail extends Member {
+  readonly address: Address | null;
+}
+
+export function getMember(client: ApiClient, id: string): Promise<MemberDetail> {
+  return client.request<MemberDetail>(`/api/v1/members/${id}`);
 }
 
 export function createMember(client: ApiClient, input: CreateMemberInput): Promise<Member> {
@@ -101,12 +158,13 @@ export interface UpdateMemberInput {
   readonly email?: string;
   readonly phone?: string;
   readonly birthDate?: string;
-  readonly addressStreet?: string;
-  readonly addressNumber?: string;
-  readonly addressDistrict?: string;
-  readonly addressCity?: string;
-  readonly addressState?: string;
-  readonly addressZip?: string;
+  /**
+   * Endereço do membro.
+   *
+   * Substitui os seis campos planos. Ausente na edição significa "não mexa";
+   * um objeto com tudo em branco significa "apague".
+   */
+  readonly address?: AddressPayload;
 }
 
 export function updateMember(client: ApiClient, id: string, input: UpdateMemberInput): Promise<Member> {

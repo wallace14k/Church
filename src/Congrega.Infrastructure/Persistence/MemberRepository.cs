@@ -37,15 +37,7 @@ internal sealed class MemberConfiguration : IEntityTypeConfiguration<Member>
         // Uma pessoa tem um endereço no ChMS; normalizar em tabela separada
         // acrescentaria um JOIN a toda listagem para resolver um problema que a
         // igreja não tem.
-        builder.ComplexProperty(m => m.Address, endereco =>
-        {
-            endereco.Property(e => e.Street).HasColumnName("address_street").HasMaxLength(200);
-            endereco.Property(e => e.Number).HasColumnName("address_number").HasMaxLength(20);
-            endereco.Property(e => e.District).HasColumnName("address_district").HasMaxLength(100);
-            endereco.Property(e => e.City).HasColumnName("address_city").HasMaxLength(100);
-            endereco.Property(e => e.State).HasColumnName("address_state").HasMaxLength(2);
-            endereco.Property(e => e.ZipCode).HasColumnName("address_zip").HasMaxLength(9);
-        });
+        builder.Property(m => m.AddressId).HasColumnName("address_id");
 
         builder.HasIndex(m => m.PublicId).IsUnique();
 
@@ -84,7 +76,7 @@ internal sealed class MemberRepository(CongregaDbContext db, TimeProvider timePr
             // A expressão é idêntica à do índice ix_members_busca. Divergir aqui
             // faria o índice existir sem nunca ser usado: custo de escrita em toda
             // inserção, zero benefício na leitura.
-            string alvo = RemoverAcentos(termo).ToLowerInvariant();
+            string alvo = NormalizacaoDeBusca.RemoverAcentos(termo).ToLowerInvariant();
 
             // ILike já é insensível a caixa no PostgreSQL, então o lower() do lado
             // do banco é redundante — e removê-lo elimina o alerta de cultura, que
@@ -99,6 +91,8 @@ internal sealed class MemberRepository(CongregaDbContext db, TimeProvider timePr
         {
             source = source.Where(m => m.BirthDate != null && m.BirthDate.Value.Month == mes);
         }
+
+        source = AplicarLacuna(source, query.Gap);
 
         // Uma contagem e uma página. Duas idas ao banco, não N+1: a alternativa
         // (contar em memória) traria a tabela inteira para o processo.
@@ -191,19 +185,75 @@ internal sealed class MemberRepository(CongregaDbContext db, TimeProvider timePr
     /// substituição escrita à mão costuma cobrir.
     /// </para>
     /// </remarks>
-    private static string RemoverAcentos(string texto)
-    {
-        string decomposto = texto.Normalize(NormalizationForm.FormD);
-
-        var construtor = new StringBuilder(decomposto.Length);
-        foreach (char caractere in decomposto)
+    /// <summary>
+    /// Filtra por lacuna do cadastro.
+    /// </summary>
+    /// <remarks>
+    /// <b>Vazio conta como ausente, não só nulo.</b> Uma importação de planilha
+    /// que traga a célula em branco grava string vazia, e um filtro que olhasse
+    /// só `IS NULL` diria que a pessoa tem telefone — deixando de fora
+    /// exatamente quem a secretaria precisa cobrar.
+    /// </remarks>
+    private static IQueryable<Member> AplicarLacuna(IQueryable<Member> source, MemberGap? gap) =>
+        gap switch
         {
-            if (CharUnicodeInfo.GetUnicodeCategory(caractere) != UnicodeCategory.NonSpacingMark)
-            {
-                construtor.Append(caractere);
-            }
+            MemberGap.SemTelefone => source.Where(m => m.Phone == null || m.Phone == ""),
+            MemberGap.SemEmail => source.Where(m => m.Email == null || m.Email == ""),
+            MemberGap.Any => source.Where(m =>
+                m.Phone == null || m.Phone == "" || m.Email == null || m.Email == ""),
+            _ => source,
+        };
+
+    public async Task<MemberSummary> GetSummaryAsync(
+        MemberStatus? status,
+        int birthdayMonth,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<Member> source = db.Members.AsNoTracking();
+
+        if (status is { } filtro)
+        {
+            source = source.Where(m => m.Status == filtro);
         }
 
-        return construtor.ToString().Normalize(NormalizationForm.FormC);
+        // Uma passada só. Cinco `CountAsync` separados seriam cinco varreduras
+        // da mesma tabela para desenhar uma linha de chips.
+        //
+        // O EF traduz este `GroupBy` constante para um SELECT de agregados sem
+        // GROUP BY — é o idioma que ele reconhece para "agregue a tabela
+        // inteira". Escrever cinco `Count(x => ...)` soltos não teria o mesmo
+        // efeito: cada um vira sua própria consulta.
+        var agregado = await source
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                Aniversariantes = g.Count(m => m.BirthDate != null && m.BirthDate.Value.Month == birthdayMonth),
+                SemTelefone = g.Count(m => m.Phone == null || m.Phone == ""),
+                SemEmail = g.Count(m => m.Email == null || m.Email == ""),
+                Incompletos = g.Count(m =>
+                    m.Phone == null || m.Phone == "" || m.Email == null || m.Email == ""),
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // Igreja sem membro nenhum: o `GroupBy` não produz linha, e sem este
+        // caminho o resumo viria nulo em vez de cinco zeros.
+        return agregado is null
+            ? new MemberSummary
+            {
+                Total = 0,
+                BirthdayThisMonth = 0,
+                Incomplete = 0,
+                WithoutPhone = 0,
+                WithoutEmail = 0,
+            }
+            : new MemberSummary
+            {
+                Total = agregado.Total,
+                BirthdayThisMonth = agregado.Aniversariantes,
+                Incomplete = agregado.Incompletos,
+                WithoutPhone = agregado.SemTelefone,
+                WithoutEmail = agregado.SemEmail,
+            };
     }
 }

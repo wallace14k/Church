@@ -9,29 +9,6 @@ public enum EventStatus : short
 }
 
 /// <summary>
-/// Natureza do evento. Espelha <c>events.event_type</c>.
-/// </summary>
-/// <remarks>
-/// <b>Dado, não bifurcação de lógica.</b> Nenhuma regra do domínio muda com o
-/// tipo — ele existe para a agenda agrupar e a interface diferenciar. Assim que
-/// alguma regra passar a depender dele (quem pode agendar culto, por exemplo),
-/// isso vira permissão, não um <c>switch</c> aqui dentro.
-///
-/// <para>
-/// <c>Outro</c> é o padrão de quem não classificou, e é o único valor que não
-/// afirma nada falso sobre um evento antigo.
-/// </para>
-/// </remarks>
-public enum EventType : short
-{
-    Culto = 1,
-    Reuniao = 2,
-    Estudo = 3,
-    Ensaio = 4,
-    Outro = 5,
-}
-
-/// <summary>
 /// Um evento da agenda da igreja — culto, reunião de oração, ensaio, batismo.
 /// </summary>
 /// <remarks>
@@ -73,7 +50,35 @@ public sealed class CalendarEvent : AggregateRoot
     public DateTimeOffset StartsAt { get; private set; }
     public DateTimeOffset EndsAt { get; private set; }
     public EventStatus Status { get; private set; }
-    public EventType Type { get; private set; }
+    /// <summary>
+    /// Tipo escolhido pela igreja, ou <c>null</c> para evento não classificado.
+    /// </summary>
+    /// <remarks>
+    /// <b>Dado, não bifurcação de lógica.</b> Nenhuma regra do domínio muda com
+    /// o tipo — ele existe para a agenda agrupar e a interface diferenciar.
+    /// Assim que alguma regra passar a depender dele (quem pode agendar culto,
+    /// por exemplo), isso vira permissão, não um <c>switch</c> aqui dentro.
+    ///
+    /// <para>
+    /// Guarda a chave, e não a entidade: carregar <see cref="EventType"/> junto
+    /// obrigaria toda leitura da agenda a materializar o tipo inteiro, e o único
+    /// campo que a listagem usa dele é o nome. A junção fica no repositório, que
+    /// é quem sabe o que a consulta vai mostrar.
+    /// </para>
+    /// </remarks>
+    public long? TypeId { get; private set; }
+
+    /// <summary>
+    /// Endereço do evento, ou <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Convive com <see cref="Location"/>, não o substitui.</b> São coisas
+    /// diferentes: <c>Location</c> é o nome do lugar como a igreja o chama —
+    /// "Templo", "Salão de baixo", "Chácara do irmão João" — e o endereço é onde
+    /// fica. Um culto no templo não precisa de CEP; um retiro fora precisa dos
+    /// dois, porque "Chácara do irmão João" não cabe num GPS.
+    /// </remarks>
+    public long? AddressId { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -86,7 +91,8 @@ public sealed class CalendarEvent : AggregateRoot
         DateTimeOffset now,
         string? description = null,
         string? location = null,
-        EventType type = EventType.Outro)
+        long? typeId = null,
+        long? addressId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(tenantId);
@@ -102,7 +108,8 @@ public sealed class CalendarEvent : AggregateRoot
             StartsAt = startsAt.ToUniversalTime(),
             EndsAt = endsAt.ToUniversalTime(),
             Status = EventStatus.Agendado,
-            Type = type,
+            TypeId = typeId,
+            AddressId = addressId,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -121,7 +128,10 @@ public sealed class CalendarEvent : AggregateRoot
         DateTimeOffset now,
         string? description = null,
         string? location = null,
-        EventType? type = null)
+        long? typeId = null,
+        bool clearType = false,
+        long? addressId = null,
+        bool clearAddress = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         EnsurePeriodoValido(startsAt, endsAt);
@@ -131,12 +141,29 @@ public sealed class CalendarEvent : AggregateRoot
         Location = Blank(location);
         StartsAt = startsAt.ToUniversalTime();
         EndsAt = endsAt.ToUniversalTime();
-
-        // Nulo mantém o tipo atual: quem edita só o horário não deve reclassificar
-        // o evento como "Outro" por omissão.
-        if (type is { } novoTipo)
+        // Três estados, não dois. `typeId` nulo com `clearType` falso significa
+        // "não mexa no tipo" — quem edita só o horário não deve desclassificar o
+        // evento por omissão. `clearType` é o pedido explícito de remover a
+        // classificação, que sem a bandeira seria indistinguível do primeiro caso
+        // e ficaria impossível de fazer pela API.
+        if (clearType)
         {
-            Type = novoTipo;
+            TypeId = null;
+        }
+        else if (typeId is { } novoTipo)
+        {
+            TypeId = novoTipo;
+        }
+
+        // Mesmos três estados do tipo, e pelo mesmo motivo: nulo sem a bandeira
+        // é "não mexa", e remover o endereço precisa de um pedido explícito.
+        if (clearAddress)
+        {
+            AddressId = null;
+        }
+        else if (addressId is { } novoEndereco)
+        {
+            AddressId = novoEndereco;
         }
 
         UpdatedAt = now;

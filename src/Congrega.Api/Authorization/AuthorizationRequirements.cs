@@ -137,6 +137,17 @@ public static class Policies
     public const string GivingWrite = "Giving.Write";
 
     /// <summary>
+    /// Mexer no cofre.
+    /// </summary>
+    /// <remarks>
+    /// Não basta ter <c>Giving.Write</c>: no seed, só o <c>Treasurer</c> recebe
+    /// <c>giving.vault</c>, e nem o <c>ChurchAdmin</c> a tem. Dinheiro em
+    /// espécie guardado num cofre é o ativo mais fácil de sumir sem rastro, e a
+    /// permissão dedicada é o gancho para os perfis que ainda virão.
+    /// </remarks>
+    public const string GivingVault = "Giving.Vault";
+
+    /// <summary>
     /// Qualquer pessoa com vínculo ativo na igreja, sem exigir permissão
     /// específica.
     /// </summary>
@@ -153,6 +164,16 @@ public static class Policies
     public const string ChildrenCheckout = "Children.Checkout";
     public const string PremiumContent = "Premium.Content";
     public const string BillingManage = "Billing.Manage";
+
+    /// <summary>
+    /// Configurar as integrações da igreja.
+    /// </summary>
+    /// <remarks>
+    /// Vale para LER também, e não só para escrever: a configuração revela para
+    /// onde a igreja manda dados, com qual conta e para qual pasta — é mapa de
+    /// superfície de ataque, não informação operacional.
+    /// </remarks>
+    public const string ConnectorsManage = "Connectors.Manage";
 
     /// <summary>
     /// Abrir checkout do Congrega+.
@@ -172,7 +193,9 @@ public static class Policies
         AddTenantPolicy(builder, MembersWrite, Permissions.MembersWrite);
         AddTenantPolicy(builder, GivingRead, Permissions.GivingRead);
         AddTenantPolicy(builder, GivingWrite, Permissions.GivingWrite);
+        AddTenantPolicy(builder, GivingVault, Permissions.GivingVault);
         AddTenantPolicy(builder, EventsWrite, Permissions.EventsWrite);
+        AddTenantPolicy(builder, ConnectorsManage, Permissions.ConnectorsManage);
 
         // Sem PermissionRequirement: exige apenas identidade verificada e
         // vínculo com a igreja corrente. O TenantScopedRequirement continua

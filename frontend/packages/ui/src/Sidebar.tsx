@@ -24,10 +24,21 @@ export interface SidebarProps {
   readonly tenants: readonly SidebarTenant[];
   readonly onSelectTenant: (tenantId: string) => void;
   /**
+   * Nome da pessoa logada.
+   *
+   * A sessão não carregava isto: até então o cliente só recebia claims de
+   * autorização, e a sidebar identificava o usuário pela função. `fullName`
+   * passou a viajar em `SessionResponse` justamente para este bloco — sem ele,
+   * a alternativa seria imprimir o e-mail ou o UUID, e nenhum dos dois é como
+   * uma pessoa se reconhece.
+   */
+  readonly userName: string | null;
+
+  /**
    * Papéis do usuário na igreja atual, já formatados ("Administração ·
-   * Tesouraria"). Não é o nome da pessoa — a sessão não carrega nome nem
-   * e-mail, só claims de autorização — então a sidebar identifica pela
-   * função, não por uma identidade que o cliente não tem.
+   * Tesouraria"). Fica **sob** o nome: junto, o par responde "quem sou eu e o
+   * que posso fazer aqui", que é a pergunta de quem participa de mais de uma
+   * igreja com papéis diferentes em cada.
    */
   readonly roleLabel: string | null;
   readonly onSignOut: () => void;
@@ -77,6 +88,7 @@ export function Sidebar({
   tenantName,
   tenants,
   onSelectTenant,
+  userName,
   roleLabel,
   onSignOut,
   collapsed,
@@ -232,15 +244,120 @@ export function Sidebar({
           alignItems: collapsed ? 'center' : 'stretch',
         }}
       >
-        {!collapsed && roleLabel !== null && (
+        {/* Bloco de identidade: avatar de iniciais, nome e papel. Recolhida, só
+            o avatar sobrevive — é o que ainda identifica em 68px de largura, e
+            some com menos ambiguidade do que um nome truncado em duas letras. */}
+        {userName !== null && (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: theme.space[8],
+              paddingBottom: theme.space[4],
+            }}
+            // Recolhida, o nome não está escrito em lugar nenhum e as iniciais
+            // são decorativas — sem este rótulo o bloco ficaria mudo. Expandida
+            // o texto ao lado já diz tudo, e um rótulo aqui faria o leitor de
+            // tela anunciar o nome duas vezes.
+            {...(collapsed
+              ? {
+                  accessible: true,
+                  accessibilityLabel:
+                    roleLabel === null ? userName : `${userName}, ${roleLabel}`,
+                }
+              : {})}
+          >
+            <Avatar nome={userName} />
+
+            {!collapsed && (
+              <View style={{ flex: 1 }}>
+                <Text variant="captionBody" numberOfLines={1}>
+                  {userName}
+                </Text>
+                {roleLabel !== null && (
+                  <Text variant="caption" tone="muted" numberOfLines={2}>
+                    {roleLabel}
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Sem nome — sessão antiga, ou papel sem identidade carregada — o papel
+            volta a ser o identificador, que era o comportamento anterior. */}
+        {userName === null && !collapsed && roleLabel !== null && (
           <Text variant="captionBody" tone="muted" numberOfLines={1}>
             {roleLabel}
           </Text>
         )}
+
         <Pressable onPress={onSignOut} accessibilityRole="button" accessibilityLabel="Sair da conta">
           <Text variant="captionBody">{collapsed ? '⏻' : 'Sair da conta'}</Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+/**
+ * Iniciais do nome — no máximo duas, primeira e última palavra.
+ *
+ * Ignora as partículas ("de", "da", "dos") porque em nome brasileiro elas caem
+ * quase sempre no meio: "Ana Paula **de** Souza" precisa render "AS", e um
+ * `split(' ')` ingênuo pegando as duas primeiras palavras daria "AP" — que é o
+ * nome próprio duplicado, não a identificação da pessoa.
+ */
+function iniciais(nome: string): string {
+  const PARTICULAS = ['de', 'da', 'do', 'das', 'dos', 'e'];
+
+  const partes = nome
+    .trim()
+    .split(/\s+/)
+    .filter((parte) => parte.length > 0 && !PARTICULAS.includes(parte.toLowerCase()));
+
+  if (partes.length === 0) return '?';
+
+  const primeira = partes[0]!.charAt(0);
+  const ultima = partes.length > 1 ? partes[partes.length - 1]!.charAt(0) : '';
+
+  return (primeira + ultima).toUpperCase();
+}
+
+/**
+ * Avatar de iniciais.
+ *
+ * **Preenchido com o acento**, o que só passou a ser possível com o verde: o
+ * lima media 1,19:1 contra branco e 1,4:1 contra a tinta — nenhuma letra ficava
+ * legível dentro dele, e o avatar teria de ser um círculo cinza. Ver D1 em
+ * `docs/07-design-system.md`.
+ *
+ * Sem foto por enquanto: `users` não guarda avatar, e "Fornecedor de mídia" é
+ * decisão pendente. Iniciais identificam de verdade; um ícone genérico de
+ * silhueta identificaria todo mundo igual.
+ */
+function Avatar({ nome }: { readonly nome: string }) {
+  const theme = useTheme();
+
+  return (
+    <View
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        flexShrink: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.surfaceAccent,
+      }}
+      // Decorativo: as iniciais repetem o nome que está escrito ao lado, e no
+      // estado recolhido o nome vai no `accessibilityLabel` do bloco.
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <Text variant="caption" tone="onAccent" style={{ letterSpacing: 0 }}>
+        {iniciais(nome)}
+      </Text>
     </View>
   );
 }

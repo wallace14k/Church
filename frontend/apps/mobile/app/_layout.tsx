@@ -1,5 +1,12 @@
 import { ThemeProvider } from '@congrega/ui/theme';
-import { Inter_400Regular, Inter_500Medium, useFonts as useInter } from '@expo-google-fonts/inter';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+  useFonts as useInter,
+} from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
@@ -15,7 +22,17 @@ export default function RootLayout() {
   // system admite 400 e 500 e proíbe 600 e 700. O peso 600 foi removido daqui
   // junto com os tokens — deixá-lo carregado só convidaria alguém a usá-lo, e
   // `tokens.test.ts` falha se ele reaparecer na escala.
-  const [fontesProntas] = useInter({ Inter_400Regular, Inter_500Medium });
+  // Cinco pesos, e não dois. A hierarquia do sistema Grove é feita por PESO —
+  // o nome da marca e o rótulo de seção têm quase o mesmo corpo e se distinguem
+  // por 800 contra 400. Sem carregar aqui, tudo cai no peso mais próximo e a
+  // hierarquia some sem nenhum erro aparecer. Ver  em tokens.ts.
+  const [fontesProntas] = useInter({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
 
   return (
     <SafeAreaProvider>

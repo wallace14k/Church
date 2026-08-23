@@ -15,7 +15,10 @@
     "./families": "./src/families.ts",
     "./giving": "./src/giving.ts",
     "./events": "./src/events.ts",
-    "./billing": "./src/billing.ts"
+    "./event-types": "./src/eventTypes.ts",
+    "./addresses": "./src/addresses.ts",
+    "./billing": "./src/billing.ts",
+    "./connectors": "./src/connectors.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -67,7 +67,10 @@ export default function FechamentoDoMes() {
 
         <MonthNavigator
           label={`${nomeDoMes(periodo.month)} de ${periodo.year}`}
+          year={periodo.year}
+          month={periodo.month}
           onChange={(passos) => setPeriodo((a) => deslocarMes(a, passos))}
+          onSelect={(year, month) => setPeriodo({ year, month })}
         />
 
         <AsyncContent

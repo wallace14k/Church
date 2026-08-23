@@ -161,3 +161,29 @@ describe('businessMonthRange', () => {
     expect(to).toBe('2028-03-01T03:00:00.000Z');
   });
 });
+
+describe('data de calendário não desloca o dia', () => {
+  it('formata a data crua no dia certo, e não no anterior', () => {
+    // Este era um bug real na tela de detalhe do lançamento: `2026-08-22`
+    // virava meia-noite UTC, que em São Paulo é 21/08 às 21h — e a despesa
+    // aparecia um dia antes de ter acontecido.
+    expect(formatDate('2026-08-22')).toBe('22/08/2026');
+  });
+
+  it('o primeiro dia do mês não cai no mês anterior', () => {
+    // O caso que dói: um lançamento do dia 1º exibido como dia 31 muda o MÊS,
+    // e com ele o fechamento em que a pessoa vai procurá-lo.
+    expect(formatDate('2026-09-01')).toBe('01/09/2026');
+  });
+
+  it('o timestamp completo continua sendo convertido para o fuso de negócio', () => {
+    // A correção vale só para data pura. Um instante com fuso tem hora, e essa
+    // hora precisa mesmo ser convertida — é meia-noite UTC, que em São Paulo
+    // ainda é o dia anterior.
+    expect(formatDate('2026-08-22T00:00:00Z')).toBe('21/08/2026');
+  });
+
+  it('o "T12:00:00Z" que as telas colavam à mão continua funcionando', () => {
+    expect(formatDate('2026-08-22T12:00:00Z')).toBe('22/08/2026');
+  });
+});

@@ -115,6 +115,11 @@ builder.Services.AddSingleton<ITenantContext, WorkerTenantContext>();
 builder.Services.AddSingleton<IHostEnvironmentAccessor, WorkersHostEnvironmentAccessor>();
 builder.Services.AddCongregaPersistence(builder.Configuration);
 
+// Integrações da igreja. Os DOIS processos precisam: a API para a tela de
+// configurações, o worker porque o remetente de e-mail lê o conector antes
+// de enviar. Faltar aqui no worker manda todo código de login para dead letter.
+builder.Services.AddCongregaConnectors(builder.Configuration);
+
 // Gateway de pagamento — mesma extensão que a API usa, com o ambiente
 // explícito na composição (ver AddCongregaPayments). Em produção não há
 // adaptador registrado ainda, e a resolução falha ao processar o primeiro

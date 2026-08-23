@@ -1,3 +1,4 @@
+import type { Address, AddressPayload } from './addresses';
 import type { ApiClient } from './client';
 
 /**
@@ -10,7 +11,32 @@ import type { ApiClient } from './client';
 
 export type EventStatus = 'Agendado' | 'Cancelado';
 
-export type EventType = 'Culto' | 'Reuniao' | 'Estudo' | 'Ensaio' | 'Outro';
+/**
+ * O tipo do evento como a agenda precisa dele: nome e ícone, já resolvidos.
+ *
+ * O servidor manda o objeto aninhado, e não só o identificador, porque a lista
+ * desenha o nome e o ícone de cada linha — com só o `id` o app teria de cruzar
+ * com a lista de tipos a cada render, ou fazer uma segunda requisição para
+ * mostrar uma palavra.
+ *
+ * Recorte de `EventType` (em `eventTypes.ts`): sem `isActive` e sem
+ * `eventCount`, que dizem respeito a administrar o vocabulário e não a desenhar
+ * um evento.
+ */
+export interface EventTypeRef {
+  readonly id: string;
+  readonly name: string;
+  readonly icon: string;
+
+  /**
+   * Cor do tipo, `#RRGGBB`, ou `null` para a cor padrão.
+   *
+   * **Nunca sozinha.** Na agenda ela aparece na faixa da linha e no ponto do
+   * filtro, sempre ao lado do nome do tipo escrito — uma cor sem rótulo não
+   * diria nada a quem não distingue matiz.
+   */
+  readonly colorHex: string | null;
+}
 
 export interface CalendarEvent {
   readonly id: string;
@@ -20,11 +46,37 @@ export interface CalendarEvent {
   readonly startsAt: string;
   readonly endsAt: string;
   readonly status: EventStatus;
-  readonly type: EventType;
+  /** `null` quando o evento não foi classificado — estado legítimo, não erro. */
+  readonly type: EventTypeRef | null;
+
+  /**
+   * Endereço do evento, ou `null`.
+   *
+   * Convive com `location`: aquele é o nome do lugar como a igreja o chama
+   * ("Templo", "Chácara do irmão João"), este é onde fica.
+   */
+  readonly address: Address | null;
 }
 
 export interface SaveEventInput {
   readonly title: string;
+
+  /**
+   * Identificador do tipo, ou ausente para evento sem classificação.
+   *
+   * Na **edição**, ausente significa "não mexa no tipo" — quem edita só o
+   * horário não deve desclassificar o evento por omissão. Para remover a
+   * classificação existe `clearType`, porque sem essa distinção os dois pedidos
+   * chegariam idênticos ao servidor.
+   */
+  readonly typeId?: string;
+
+  /** Remove a classificação do evento. Só faz sentido na edição. */
+  readonly clearType?: boolean;
+
+  /** Endereço do evento. Ausente na edição significa "não mexa". */
+  readonly address?: AddressPayload;
+
   readonly description?: string;
   readonly location?: string;
   readonly startsAt: string;

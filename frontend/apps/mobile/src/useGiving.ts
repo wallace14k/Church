@@ -6,6 +6,8 @@ import {
   type GivingCategory,
   type GivingEntry,
   type MonthlyClosing,
+  getGivingSummary,
+  type GivingSummary,
 } from '@congrega/api-client/giving';
 import { monthName, shiftMonth, type YearMonth } from '@congrega/core/datetime';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -69,7 +71,12 @@ interface EstadoLancamentos {
   readonly erro: Failure | null;
 }
 
-export function useGivingEntries(year: number, month: number): EstadoLancamentos & {
+export function useGivingEntries(
+  year: number,
+  month: number,
+  filtro?: { readonly kind?: 'Entrada' | 'Saida'; readonly categoryId?: string },
+): EstadoLancamentos & {
+  readonly resumo: GivingSummary | null;
   readonly recarregar: () => void;
 } {
   const [estado, setEstado] = useState<EstadoLancamentos>({
@@ -78,6 +85,15 @@ export function useGivingEntries(year: number, month: number): EstadoLancamentos
     carregando: true,
     erro: null,
   });
+
+  /**
+   * Contagens do mês, para os chips.
+   *
+   * `null` enquanto carrega ou se a consulta falhar — e os chips então saem da
+   * tela em vez de mostrar zero. Um chip "Saídas 0" num mês que tem três seria
+   * pior do que chip nenhum.
+   */
+  const [resumo, setResumo] = useState<GivingSummary | null>(null);
   const emVoo = useRef<AbortController | null>(null);
 
   const carregar = useCallback(async () => {
@@ -90,7 +106,13 @@ export function useGivingEntries(year: number, month: number): EstadoLancamentos
     try {
       const resultado = await listGivingEntries(
         apiClient,
-        { year, month, pageSize: 100 },
+        {
+          year,
+          month,
+          pageSize: 100,
+          ...(filtro?.kind === undefined ? {} : { kind: filtro.kind }),
+          ...(filtro?.categoryId === undefined ? {} : { categoryId: filtro.categoryId }),
+        },
         controlador.signal,
       );
       setEstado({
@@ -103,14 +125,34 @@ export function useGivingEntries(year: number, month: number): EstadoLancamentos
       if (controlador.signal.aborted) return;
       setEstado((anterior) => ({ ...anterior, carregando: false, erro: describeFailure(causa) }));
     }
-  }, [year, month]);
+  }, [year, month, filtro?.kind, filtro?.categoryId]);
 
   useEffect(() => {
     void carregar();
     return () => emVoo.current?.abort();
   }, [carregar]);
 
-  return { ...estado, recarregar: carregar };
+  /**
+   * O resumo é carregado à parte da listagem, e de propósito.
+   *
+   * Ele não depende do filtro — as contagens são do mês inteiro, e refazê-las a
+   * cada chip clicado devolveria sempre os mesmos números por uma consulta a
+   * mais. Só o período as afeta.
+   */
+  useEffect(() => {
+    const controlador = new AbortController();
+
+    getGivingSummary(apiClient, year, month, controlador.signal)
+      .then(setResumo)
+      .catch(() => {
+        // Silencioso: os chips somem, a listagem continua. Barrar o caixa da
+        // igreja porque uma contagem acessória falhou seria desproporcional.
+      });
+
+    return () => controlador.abort();
+  }, [year, month]);
+
+  return { ...estado, resumo, recarregar: carregar };
 }
 
 interface EstadoFechamento {

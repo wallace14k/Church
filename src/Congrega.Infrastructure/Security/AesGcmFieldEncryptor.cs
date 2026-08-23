@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using Congrega.Application.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace Congrega.Infrastructure.Security;
 
@@ -30,28 +29,47 @@ internal sealed class AesGcmFieldEncryptor : IFieldEncryptor, IDisposable
 {
     private readonly AesGcm _aes;
 
-    public AesGcmFieldEncryptor(IOptions<ChildSafetyOptions> options)
+    /// <summary>Tamanho exato da chave AES-256, em bytes.</summary>
+    internal const int TamanhoDaChave = 32;
+
+    /// <summary>
+    /// Constrói o cifrador a partir de uma chave em Base64.
+    /// </summary>
+    /// <param name="chaveBase64">A chave, do secret manager.</param>
+    /// <param name="origem">
+    /// Onde a chave foi configurada — <c>"ChildSafety:DataKey"</c>. Entra só nas
+    /// mensagens de erro, e é o que permite a quem provisiona saber <b>qual</b>
+    /// segredo está malformado quando existem vários.
+    /// </param>
+    /// <remarks>
+    /// <b>A chave é parâmetro, e não uma seção fixa de configuração.</b> Cada
+    /// domínio de segredo tem a própria: rotacionar a chave dos conectores
+    /// porque um integrador viu o secret não pode invalidar a ficha de alergia
+    /// de nenhuma criança. Ciclos de vida independentes exigem chaves
+    /// independentes — e a única forma de garantir isso é o cifrador não saber
+    /// de onde a dele veio.
+    /// </remarks>
+    internal AesGcmFieldEncryptor(string chaveBase64, string origem)
     {
         byte[] chave;
 
         try
         {
-            chave = Convert.FromBase64String(options.Value.DataKey);
+            chave = Convert.FromBase64String(chaveBase64);
         }
         catch (FormatException ex)
         {
-            throw new InvalidOperationException(
-                $"{ChildSafetyOptions.SectionName}:DataKey não é Base64 válido.", ex);
+            throw new InvalidOperationException($"{origem} não é Base64 válido.", ex);
         }
 
-        if (chave.Length != ChildSafetyOptions.DataKeyBytes)
+        if (chave.Length != TamanhoDaChave)
         {
             // Falhar aqui, na composição, e não no primeiro campo cifrado: uma
             // chave curta demais é erro de provisionamento, e descobri-lo no
             // meio de um check-in seria descobri-lo tarde.
             throw new InvalidOperationException(
-                $"{ChildSafetyOptions.SectionName}:DataKey precisa ter exatamente "
-                + $"{ChildSafetyOptions.DataKeyBytes} bytes (AES-256); tem {chave.Length}.");
+                $"{origem} precisa ter exatamente "
+                + $"{TamanhoDaChave} bytes (AES-256); tem {chave.Length}.");
         }
 
         _aes = new AesGcm(chave, AesGcm.TagByteSizes.MaxSize);

@@ -26,22 +26,6 @@ public enum MaritalStatus
     NaoInformado = 5
 }
 
-/// <summary>Endereço do membro. Objeto de valor — não tem identidade própria.</summary>
-public sealed record Address
-{
-    public string? Street { get; init; }
-    public string? Number { get; init; }
-    public string? District { get; init; }
-    public string? City { get; init; }
-    public string? State { get; init; }
-    public string? ZipCode { get; init; }
-
-    public static readonly Address Empty = new();
-
-    public bool IsEmpty =>
-        string.IsNullOrWhiteSpace(Street) && string.IsNullOrWhiteSpace(City);
-}
-
 public sealed record MemberRegistered(long MemberId, long TenantId, DateTimeOffset OccurredAt) : IDomainEvent;
 
 /// <summary>
@@ -69,7 +53,6 @@ public sealed class Member : AggregateRoot
     private Member()
     {
         FullName = string.Empty;
-        Address = Address.Empty;
     }
 
     public long Id { get; private set; }
@@ -84,7 +67,29 @@ public sealed class Member : AggregateRoot
     public DateOnly? BirthDate { get; private set; }
     public Gender? Gender { get; private set; }
     public MaritalStatus? MaritalStatus { get; private set; }
-    public Address Address { get; private set; }
+    /// <summary>
+    /// Endereço do membro, ou <c>null</c> quando não informado.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Era um objeto de valor em colunas inline (<c>address_street</c> e
+    /// companhia), com a justificativa registrada em <c>db/002_members.sql</c>:
+    /// uma pessoa tem um endereço, e normalizar custaria um JOIN.
+    /// </para>
+    /// <para>
+    /// <b>O que invalidou aquela decisão foi o endereço passar a ser preciso no
+    /// evento também.</b> Inline agora significaria repetir seis colunas mais as
+    /// regras de tipo de residência em duas tabelas, sem nada garantindo que as
+    /// cópias continuassem iguais. O JOIN que se evitava continua evitável: a
+    /// listagem de membros não seleciona endereço, só o detalhe seleciona.
+    /// </para>
+    /// <para>
+    /// Guarda a chave e não a entidade, pelo mesmo motivo de
+    /// <c>CalendarEvent.TypeId</c>: quem lista mil membros não deveria
+    /// materializar mil endereços que a tela não mostra.
+    /// </para>
+    /// </remarks>
+    public long? AddressId { get; private set; }
 
     public MemberStatus Status { get; private set; }
     public DateOnly? MembershipDate { get; private set; }
@@ -105,7 +110,7 @@ public sealed class Member : AggregateRoot
         DateOnly? birthDate = null,
         Gender? gender = null,
         MaritalStatus? maritalStatus = null,
-        Address? address = null,
+        long? addressId = null,
         DateOnly? membershipDate = null,
         DateOnly? baptismDate = null,
         string? notes = null)
@@ -132,7 +137,7 @@ public sealed class Member : AggregateRoot
             BirthDate = birthDate,
             Gender = gender,
             MaritalStatus = maritalStatus,
-            Address = address ?? Address.Empty,
+            AddressId = addressId,
             MembershipDate = membershipDate,
             BaptismDate = baptismDate,
             Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
@@ -145,11 +150,11 @@ public sealed class Member : AggregateRoot
         return member;
     }
 
-    public void UpdateContact(string? email, string? phone, Address address, DateTimeOffset now)
+    public void UpdateContact(string? email, string? phone, long? addressId, DateTimeOffset now)
     {
         Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant();
         Phone = NormalizePhone(phone);
-        Address = address;
+        AddressId = addressId;
         UpdatedAt = now;
     }
 
@@ -175,7 +180,7 @@ public sealed class Member : AggregateRoot
         string? email,
         string? phone,
         DateOnly? birthDate,
-        Address address,
+        long? addressId,
         DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fullName);
@@ -190,7 +195,7 @@ public sealed class Member : AggregateRoot
         Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant();
         Phone = NormalizePhone(phone);
         BirthDate = birthDate;
-        Address = address;
+        AddressId = addressId;
         UpdatedAt = now;
     }
 
@@ -264,7 +269,7 @@ public sealed class Member : AggregateRoot
         Email = null;
         Phone = null;
         BirthDate = null;
-        Address = Address.Empty;
+        AddressId = null;
         Notes = null;
         PhotoKey = null;
         AnonymizedAt = now;

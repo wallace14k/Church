@@ -166,4 +166,75 @@ public sealed class CalendarEventTests
         Assert.Equal(inicio, janela.From);
         Assert.Equal(3, janela.From.Hour);
     }
+
+    // ---------------------------------------------------------------------
+    // Tipo do evento: três estados, não dois
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public void Schedule_sem_tipo_nasce_sem_classificacao()
+    {
+        Assert.Null(Culto().TypeId);
+    }
+
+    [Fact]
+    public void Schedule_com_tipo_guarda_a_chave()
+    {
+        var evento = CalendarEvent.Schedule(1, "Culto", Inicio, Fim, Now, typeId: 42);
+        Assert.Equal(42, evento.TypeId);
+    }
+
+    /// <summary>
+    /// Quem edita só o horário não deve desclassificar o evento por omissão. Sem
+    /// esta distinção, salvar o formulário de horário apagaria o tipo.
+    /// </summary>
+    [Fact]
+    public void Update_sem_tipo_mantem_a_classificacao_atual()
+    {
+        var evento = CalendarEvent.Schedule(1, "Culto", Inicio, Fim, Now, typeId: 42);
+
+        evento.Update("Culto", Inicio, Fim, Now);
+
+        Assert.Equal(42, evento.TypeId);
+    }
+
+    [Fact]
+    public void Update_com_tipo_reclassifica()
+    {
+        var evento = CalendarEvent.Schedule(1, "Culto", Inicio, Fim, Now, typeId: 42);
+
+        evento.Update("Culto", Inicio, Fim, Now, typeId: 7);
+
+        Assert.Equal(7, evento.TypeId);
+    }
+
+    /// <summary>
+    /// O terceiro estado. Sem a bandeira, "remova o tipo" chegaria idêntico a
+    /// "não mexa no tipo" — e desclassificar um evento ficaria impossível pela
+    /// API.
+    /// </summary>
+    [Fact]
+    public void Update_com_clearType_remove_a_classificacao()
+    {
+        var evento = CalendarEvent.Schedule(1, "Culto", Inicio, Fim, Now, typeId: 42);
+
+        evento.Update("Culto", Inicio, Fim, Now, clearType: true);
+
+        Assert.Null(evento.TypeId);
+    }
+
+    /// <summary>
+    /// <c>clearType</c> vence: um pedido que manda remover E informa um tipo é
+    /// contraditório, e remover é a leitura segura — ela não grava uma
+    /// classificação que o usuário pode não ter escolhido.
+    /// </summary>
+    [Fact]
+    public void Update_com_clearType_ignora_o_tipo_informado()
+    {
+        var evento = CalendarEvent.Schedule(1, "Culto", Inicio, Fim, Now, typeId: 42);
+
+        evento.Update("Culto", Inicio, Fim, Now, typeId: 7, clearType: true);
+
+        Assert.Null(evento.TypeId);
+    }
 }

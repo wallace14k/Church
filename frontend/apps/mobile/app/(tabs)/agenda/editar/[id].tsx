@@ -3,6 +3,7 @@ import { getEvent, updateEvent, type CalendarEvent } from '@congrega/api-client/
 import { Button } from '@congrega/ui/Button';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { Screen } from '@congrega/ui/Screen';
+import { ScreenLoading } from '@congrega/ui/ScreenLoading';
 import { useTheme } from '@congrega/ui/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -41,8 +42,8 @@ export default function EditarEvento() {
 
   if (carregando) {
     return (
-      <Screen wide style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={theme.colors.text} />
+      <Screen wide>
+        <ScreenLoading what="os dados do evento" />
       </Screen>
     );
   }

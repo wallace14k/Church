@@ -1,13 +1,18 @@
-# Design System — Congrega (referência Perk)
+# Design System — Congrega (referência Grove)
 
-Fonte visual de verdade da interface. Substitui o sistema anterior (Mercury:
-índigo sobre branco, Inter 600, cartão de 12px com sombra) por completo.
+Fonte visual de verdade da interface.
 
-Baseado na referência visual Perk, adaptada para dashboard autenticado e
-aplicação administrativa. **O objetivo não é copiar um site de marketing ao pé da
-letra**, e sim preservar os princípios visuais: superfícies neutras quentes, lima
-elétrico como único acento cromático, tipografia forte, respiro generoso,
-superfícies muito arredondadas, hierarquia plana sem sombra.
+**Terceira substituição.** Mercury (índigo sobre branco, cartão de 12px com
+sombra) → Perk (lima elétrico sobre pergaminho, cartão de 28px, sem sombra) →
+**Grove**, o atual: superfícies brancas sobre canvas verde-acinzentado, cartão
+de 22px com sombra difusa, verde-oliva como cor de ação, âmbar como segunda cor
+categórica, navegação em barra superior.
+
+O conteúdo abaixo da §1 ainda descreve o sistema **Perk** em vários pontos. Ele
+fica como registro do que foi decidido e por quê — as decisões D1 a D8 explicam
+restrições que o lima impunha e que deixaram de existir. **O que vale hoje está
+nos tokens (`frontend/packages/ui/src/tokens.ts`), fixado por 28 testes em
+`tokens.test.ts`, e nas decisões D9 e D10 no fim deste documento.**
 
 ## 1. Princípios
 
@@ -343,3 +348,116 @@ A §15 admite cor de estado. `#1A8245` e `#D33B2C` já têm contraste verificado
 `tokens.test.ts`; trocá-los por tons quentes sem mandato do documento custaria
 contraste testado em troca de harmonia. Continuam restritos a traço e a delta
 numérico, nunca a texto corrido.
+
+## D9 — O lima virou verde, e isso soltou três restrições
+
+**Revisa a D1. Não a apaga:** o raciocínio dela continua correto para o lima, e
+é o que explica por que o token se chama `surfaceAccent` e não `brand`.
+
+`#beff50` media **1,19:1** sobre branco. Toda a D1, a D6 e metade da D8 eram
+consequências disso: link não podia ser acento (virou tinta sublinhada), seleção
+não podia ser borda colorida (virou preenchimento), e nenhum ícone ou avatar
+podia carregar a cor da marca.
+
+O acento passou a ser `#2E7D46`, o verde do mockup de referência. As medidas:
+
+| Par | Contraste | Serve para |
+|---|---|---|
+| `brandGreen` sobre branco | 5,07:1 | texto normal, ícone, traço |
+| `brandGreen` sobre pergaminho | 4,63:1 | texto normal, no limite |
+| `brandGreenDeep` sobre branco | 6,45:1 | texto que não quer depender da superfície |
+| `brandGreenDeep` sobre `greenWash` | 5,74:1 | rótulo do item ativo de navegação |
+| branco sobre `brandGreen` | 5,07:1 | texto dentro do botão primário |
+| tinta sobre `brandGreen` | 4,3:1 | **reprova** — não use |
+
+**A última linha é a inversão que importa.** No sistema lima, `textOnAccent` era
+tinta porque branco media 1,4:1. No verde é o contrário: a tinta fica abaixo do
+mínimo e o branco passa. Um token que trocasse de valor sem ninguém reler a
+medida deixaria todo botão primário em 4,3:1 — reprovado, mas não a ponto de
+alguém notar de olho, que é o pior tipo de regressão de acessibilidade.
+
+Três coisas passaram a ser possíveis, e as três já estão em uso:
+
+1. **Ícone na cor de acento** — o ícone de tipo de evento na linha da agenda.
+2. **Avatar preenchido com iniciais legíveis** — o bloco de identidade da
+   sidebar. Com lima seria um círculo cinza.
+3. **Chip de seleção com borda de acento** — o seletor de tipo do formulário.
+   A D6 continua valendo por um motivo próprio, e não mais por contraste: a
+   seleção é **preenchimento**, porque preenchimento sobrevive a quem não
+   distingue a borda do fundo. A borda virou reforço, não o sinal.
+
+O `AuthBackdrop` teve as opacidades reduzidas de 0,35/0,6 para 0,18/0,35. O
+verde é um tom escuro: manter os números daria um fundo com peso para competir
+com o cartão de login. O que se preservou foi a claridade resultante, não o
+valor — ver o comentário no próprio arquivo.
+
+## D10 — Grove: o mockup, corrigido onde ele reprovava
+
+**Substitui o sistema Perk por inteiro.** A referência é um mockup HTML de
+dashboard, e o alvo declarado foi fidelidade a ele. Este registro existe para
+separar o que veio do mockup do que precisou mudar — e por quê.
+
+### O que veio direto
+
+| Elemento | Grove |
+|---|---|
+| Navegação | **barra superior**, no lugar da sidebar de 240px |
+| Canvas | `#F5F7F2` — verde-acinzentado, não branco |
+| Cartão | branco, raio 22px, **com sombra** difusa (7%, 42px) |
+| Estrutura do painel | herói + 3 métricas + 2 painéis + atalhos + rodapé |
+| Hierarquia | por **peso** tipográfico (400 a 800), não por tamanho |
+
+A sidebar saiu por medida, não por gosto: 240px permanentes para cinco links que
+ninguém relê, e era ela que espremia a grade de três cartões em telas de 1280px.
+
+A sombra volta depois de o Perk a proibir, e a inversão é coerente: no Perk a
+hierarquia vinha do contraste entre canvas branco e cartão pergaminho. No Grove
+o cartão é branco e o canvas é o tom — e branco sobre verde-acinzentado claro
+tem diferença tonal pequena demais para separar sozinha.
+
+### O que precisou mudar, e o quanto
+
+**O mockup tem 18 pares que reprovam o mínimo de 4,5:1 da WCAG.** Cada tom foi
+escurecido pelo mínimo necessário; a diferença é imperceptível lado a lado.
+
+| Token | Mockup | Grove | Por quê |
+|---|---|---|---|
+| Verde de ação | `#4c8b22` (4,18) | `#44831A` (4,66) | falhava como texto **e** como fundo de texto branco |
+| Âmbar | `#c27a12` (3,45) | `#A45C00` (5,11 / 4,65 na lavagem) | falhava como texto de chip |
+| Cinza de apoio | 8 tons, 2,45 a 3,90 | `#68716B` (4,68) | ver abaixo |
+| Rótulo de seção | 9px, 2,66:1 | 10px, 4,92:1 | tamanho pequeno com contraste baixo é a pior combinação |
+
+**Os oito cinzas viraram um.** O mockup tem `#758078`, `#7c857f`, `#7d8780`,
+`#8a938d`, `#8b948e`, `#8d958f`, `#98a19a` e `#9aa19c` em papéis equivalentes —
+diferem por 2% e reprovam todos. A variação é acidental, não projetada, e
+esconde que nenhum deles era legível.
+
+**O fio de borda continua em 1,21:1, e isso está certo.** A WCAG 1.4.11 exige
+3:1 de *indicadores*; um fio que só separa superfícies não carrega informação, e
+engrossá-lo desenharia uma caixa a caneta em volta de cada cartão. Há um teste
+que fixa essa decisão em vez de deixá-la implícita.
+
+### Âmbar é categórico, nunca ação
+
+O Perk reservava uma cor cromática só (D1). O Grove admite duas, com uma regra
+que evita o arco-íris: **verde diz o que se pode fazer, âmbar diz sobre o que é.**
+Um botão âmbar quebra a regra e faz o usuário procurar a ação no lugar errado.
+
+**Verde e âmbar têm luminância quase idêntica — 1,01:1 entre eles.** Quem não
+distingue matiz vê os dois como o mesmo tom. Isto não é defeito a corrigir:
+separá-los exigiria clarear o âmbar até o amarelo ou escurecer o verde até o
+musgo, e o desenho se perderia. É **restrição a respeitar**, e há um teste que a
+mantém visível: enquanto ele passar, categoria nunca pode ser comunicada só por
+cor. Todo cartão categórico carrega ícone **e** rótulo escrito.
+
+### Onde o Grove diverge do mockup de propósito
+
+**A etiqueta de tipo de evento é de uma cor só.** O mockup pinta culto de verde,
+reunião de âmbar e estudo de roxo. Aqui os tipos são cadastrados pela igreja:
+ela pode ter dois ou quinze, e uma paleta fixa de três teria de repetir cores ou
+inventar tons a cada tipo novo. O nome escrito distingue sem depender de cor.
+
+**Não existe "↑ 12,5% vs. mês anterior".** O mockup traz esse delta no cartão de
+membros. Nada guarda a contagem de meses passados, e inventar a variação daria
+ao usuário um número em que ele confiaria para decidir. Os rodapés que ficaram —
+próximo aniversário, divisão dos eventos por tipo — saem de dados reais.

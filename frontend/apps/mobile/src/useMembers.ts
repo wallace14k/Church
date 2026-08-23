@@ -1,5 +1,11 @@
 import { describeFailure, type Failure } from '@congrega/api-client/errors';
-import { listMembers, type Member } from '@congrega/api-client/members';
+import {
+  getMemberSummary,
+  listMembers,
+  type Member,
+  type MemberGap,
+  type MemberSummary,
+} from '@congrega/api-client/members';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from './api';
 
@@ -10,6 +16,15 @@ interface EstadoMembros {
   readonly carregandoMais: boolean;
   readonly erro: Failure | null;
   readonly temMais: boolean;
+
+  /**
+   * Contagens do acervo, para os chips de filtro.
+   *
+   * `null` enquanto carrega ou se a consulta falhar — e os chips então saem da
+   * tela em vez de mostrar zero. Um chip "Sem telefone 0" numa igreja que tem
+   * três seria pior do que chip nenhum.
+   */
+  readonly resumo: MemberSummary | null;
 }
 
 const INICIAL: EstadoMembros = {
@@ -19,6 +34,7 @@ const INICIAL: EstadoMembros = {
   carregandoMais: false,
   erro: null,
   temMais: false,
+  resumo: null,
 };
 
 /** Espera antes de buscar enquanto o usuário digita. */
@@ -34,6 +50,7 @@ const DEBOUNCE_MS = 350;
  */
 export function useMembers(
   busca: string,
+  filtro?: MemberGap,
 ): EstadoMembros & { carregarMais: () => void; recarregar: () => void } {
   const [estado, setEstado] = useState<EstadoMembros>(INICIAL);
 
@@ -43,7 +60,10 @@ export function useMembers(
   const emVoo = useRef<AbortController | null>(null);
   const pagina = useRef(1);
 
-  const buscar = useCallback(async (termo: string, novaPagina: number) => {
+  // Refazer o resumo é pedido explícito, não consequência de digitar.
+  const [versaoDoResumo, setVersaoDoResumo] = useState(0);
+
+  const buscar = useCallback(async (termo: string, novaPagina: number, lacuna: MemberGap | undefined) => {
     emVoo.current?.abort();
     const controlador = new AbortController();
     emVoo.current = controlador;
@@ -58,11 +78,17 @@ export function useMembers(
     try {
       const resultado = await listMembers(
         apiClient,
-        { search: termo, page: novaPagina, pageSize: 30 },
+        {
+          search: termo,
+          page: novaPagina,
+          pageSize: 30,
+          ...(lacuna === undefined ? {} : { gap: lacuna }),
+        },
         controlador.signal,
       );
 
       setEstado((anterior) => ({
+        ...anterior,
         // Página 1 substitui; as seguintes acumulam.
         membros: novaPagina === 1 ? resultado.items : [...anterior.membros, ...resultado.items],
         total: resultado.totalCount,
@@ -70,6 +96,9 @@ export function useMembers(
         carregandoMais: false,
         erro: null,
         temMais: resultado.hasNext,
+        // O `...anterior` acima preserva `resumo`. Montar o objeto do zero
+        // apagaria as contagens a cada tecla digitada, e os chips piscariam
+        // para fora da tela durante a busca.
       }));
 
       pagina.current = novaPagina;
@@ -88,9 +117,29 @@ export function useMembers(
   }, []);
 
   useEffect(() => {
-    const id = setTimeout(() => void buscar(busca, 1), busca === '' ? 0 : DEBOUNCE_MS);
+    const id = setTimeout(() => void buscar(busca, 1, filtro), busca === '' ? 0 : DEBOUNCE_MS);
     return () => clearTimeout(id);
-  }, [busca, buscar]);
+  }, [busca, filtro, buscar]);
+
+  /**
+   * O resumo é carregado à parte da listagem, e de propósito.
+   *
+   * Ele não depende da busca nem do filtro — as contagens são do acervo, e
+   * refazê-las a cada tecla digitada seria uma agregação por caractere. Só o
+   * `status` as afeta, e a tela ainda não o troca.
+   */
+  useEffect(() => {
+    const controlador = new AbortController();
+
+    getMemberSummary(apiClient, undefined, controlador.signal)
+      .then((resumo) => setEstado((anterior) => ({ ...anterior, resumo })))
+      .catch(() => {
+        // Silencioso: os chips somem, a listagem continua. Barrar a tela porque
+        // uma contagem decorativa falhou seria desproporcional.
+      });
+
+    return () => controlador.abort();
+  }, [versaoDoResumo]);
 
   // Aborta ao desmontar: sem isso, a resposta chega para uma tela que já saiu e
   // o React avisa sobre atualização de estado em componente desmontado.
@@ -98,9 +147,9 @@ export function useMembers(
 
   const carregarMais = useCallback(() => {
     if (estado.temMais && !estado.carregando && !estado.carregandoMais) {
-      void buscar(busca, pagina.current + 1);
+      void buscar(busca, pagina.current + 1, filtro);
     }
-  }, [busca, buscar, estado.carregando, estado.carregandoMais, estado.temMais]);
+  }, [busca, filtro, buscar, estado.carregando, estado.carregandoMais, estado.temMais]);
 
   // Refaz a busca corrente do zero.
   //
@@ -110,7 +159,10 @@ export function useMembers(
   // Parecia funcionar, o que é pior do que não existir: quem caía num erro de
   // rede clicava, nada acontecia, e a conclusão razoável era que o app estava
   // quebrado.
-  const recarregar = useCallback(() => void buscar(busca, 1), [busca, buscar]);
+  const recarregar = useCallback(() => {
+    void buscar(busca, 1, filtro);
+    setVersaoDoResumo((v) => v + 1);
+  }, [busca, filtro, buscar]);
 
   return { ...estado, carregarMais, recarregar };
 }

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Congrega.Api.Authorization;
 using Congrega.Application.Abstractions;
+using Congrega.Domain.Addressing;
 using Congrega.Domain.Congregation;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -17,6 +18,51 @@ public sealed record MemberResponse
     public int? Age { get; init; }
     public required string Status { get; init; }
     public string? FamilyName { get; init; }
+}
+
+/// <summary>
+/// O membro na tela de detalhe — tudo de <see cref="MemberResponse"/> mais o
+/// endereço.
+/// </summary>
+/// <remarks>
+/// <b>Tipo separado, e não um campo opcional em <c>MemberResponse</c>.</b> A
+/// listagem não carrega endereço de propósito: seriam N junções para desenhar
+/// uma tela que não mostra endereço nenhum — é a mesma economia que a decisão
+/// original de manter as colunas inline buscava. Mas um <c>address: null</c>
+/// numa listagem seria indistinguível de "este membro não tem endereço", e o
+/// cliente não teria como saber qual das duas coisas leu. Dois tipos removem a
+/// ambiguidade sem carregar o que ninguém pediu.
+/// </remarks>
+public sealed record MemberDetailResponse
+{
+    public required Guid Id { get; init; }
+    public required string FullName { get; init; }
+    public string? Email { get; init; }
+    public string? Phone { get; init; }
+    public DateOnly? BirthDate { get; init; }
+    public int? Age { get; init; }
+    public required string Status { get; init; }
+    public string? FamilyName { get; init; }
+    public AddressResponse? Address { get; init; }
+}
+
+/// <summary>
+/// Contagens do acervo, para os chips de filtro da listagem.
+/// </summary>
+/// <remarks>
+/// <b>Do acervo inteiro, não da página.</b> Contar no cliente sobre os 50 itens
+/// carregados diria "5 incompletos" numa igreja com 9 — e o número apareceria ao
+/// lado de um filtro que devolve os 9. Um chip que mente sobre o que vai mostrar
+/// é pior do que chip nenhum.
+/// </remarks>
+public sealed record MemberSummaryResponse
+{
+    public required int Total { get; init; }
+    public required int BirthdayThisMonth { get; init; }
+    /// <summary>Sem telefone ou sem e-mail.</summary>
+    public required int Incomplete { get; init; }
+    public required int WithoutPhone { get; init; }
+    public required int WithoutEmail { get; init; }
 }
 
 public sealed record PagedResponse<T>
@@ -46,12 +92,15 @@ public sealed record CreateMemberRequest
     public DateOnly? MembershipDate { get; init; }
     public DateOnly? BaptismDate { get; init; }
 
-    [MaxLength(200)] public string? AddressStreet { get; init; }
-    [MaxLength(20)]  public string? AddressNumber { get; init; }
-    [MaxLength(100)] public string? AddressDistrict { get; init; }
-    [MaxLength(100)] public string? AddressCity { get; init; }
-    [MaxLength(2)]   public string? AddressState { get; init; }
-    [MaxLength(9)]   public string? AddressZip { get; init; }
+    /// <summary>
+    /// Endereço do membro.
+    /// </summary>
+    /// <remarks>
+    /// Substitui os seis campos planos (<c>addressStreet</c> e companhia).
+    /// Ausente significa "não mexa no endereço" na edição; um objeto com todos
+    /// os campos em branco significa "apague o endereço".
+    /// </remarks>
+    public AddressPayload? Address { get; init; }
 
     [MaxLength(2000)] public string? Notes { get; init; }
 }
@@ -78,12 +127,15 @@ public sealed record UpdateMemberRequest
 
     public DateOnly? BirthDate { get; init; }
 
-    [MaxLength(200)] public string? AddressStreet { get; init; }
-    [MaxLength(20)]  public string? AddressNumber { get; init; }
-    [MaxLength(100)] public string? AddressDistrict { get; init; }
-    [MaxLength(100)] public string? AddressCity { get; init; }
-    [MaxLength(2)]   public string? AddressState { get; init; }
-    [MaxLength(9)]   public string? AddressZip { get; init; }
+    /// <summary>
+    /// Endereço do membro.
+    /// </summary>
+    /// <remarks>
+    /// Substitui os seis campos planos (<c>addressStreet</c> e companhia).
+    /// Ausente significa "não mexa no endereço" na edição; um objeto com todos
+    /// os campos em branco significa "apague o endereço".
+    /// </remarks>
+    public AddressPayload? Address { get; init; }
 }
 
 public sealed record ChangeMemberStatusRequest
@@ -152,6 +204,10 @@ public static class MemberEndpoints
             .RequireAuthorization(Policies.MembersRead)
             .WithSummary("Lista membros da igreja");
 
+        group.MapGet("/summary", SummaryAsync)
+            .RequireAuthorization(Policies.MembersRead)
+            .WithSummary("Contagens do acervo para os filtros da listagem");
+
         group.MapGet("/{id:guid}", GetAsync)
             .RequireAuthorization(Policies.MembersRead)
             .WithSummary("Detalha um membro");
@@ -185,6 +241,7 @@ public static class MemberEndpoints
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         [FromQuery] int? birthdayMonth = null,
+        [FromQuery] string? gap = null,
         [FromQuery] string? status = "Ativo")
     {
         if (tenant.TenantId is null)
@@ -195,6 +252,7 @@ public static class MemberEndpoints
         var resultado = await members.ListAsync(
             new MemberQuery
             {
+                Gap = LerLacuna(gap),
                 Search = search,
                 Page = page,
                 PageSize = pageSize,
@@ -214,10 +272,54 @@ public static class MemberEndpoints
         });
     }
 
+    /// <summary>
+    /// Lê a lacuna do query string. Desconhecida ou ausente vira "sem filtro".
+    /// </summary>
+    /// <remarks>
+    /// Não recusa a requisição: um rótulo desconhecido no filtro devolve a
+    /// listagem inteira, que é resultado útil. Um 400 aqui transformaria um link
+    /// antigo colado no navegador numa tela de erro.
+    /// </remarks>
+    private static MemberGap? LerLacuna(string? valor) =>
+        Enum.TryParse<MemberGap>(valor, ignoreCase: true, out var lacuna) ? lacuna : null;
+
+    private static async Task<IResult> SummaryAsync(
+        IMemberRepository members,
+        ITenantContext tenant,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken,
+        [FromQuery] string? status = "Ativo")
+    {
+        if (tenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        // O mês vem do servidor, não do cliente.
+        //
+        // O cliente poderia mandar o mês dele, mas então dois usuários em fusos
+        // diferentes veriam contagens diferentes de "aniversariantes do mês"
+        // para a mesma igreja. O relógio da aplicação é a única referência que
+        // faz o número ser o mesmo para todo mundo.
+        var mes = timeProvider.GetUtcNow().Month;
+
+        var resumo = await members.GetSummaryAsync(ParseStatus(status), mes, cancellationToken);
+
+        return TypedResults.Ok(new MemberSummaryResponse
+        {
+            Total = resumo.Total,
+            BirthdayThisMonth = resumo.BirthdayThisMonth,
+            Incomplete = resumo.Incomplete,
+            WithoutPhone = resumo.WithoutPhone,
+            WithoutEmail = resumo.WithoutEmail,
+        });
+    }
+
     private static async Task<IResult> GetAsync(
         Guid id,
         IMemberRepository members,
         IFamilyRepository families,
+        IAddressRepository addresses,
         ITenantContext tenant,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
@@ -245,7 +347,11 @@ public static class MemberEndpoints
             ? await families.FindNameByIdAsync(familyId, cancellationToken)
             : null;
 
-        return TypedResults.Ok(new MemberResponse
+        var endereco = membro.AddressId is { } enderecoId
+            ? await addresses.FindByIdAsync(enderecoId, cancellationToken)
+            : null;
+
+        return TypedResults.Ok(new MemberDetailResponse
         {
             Id = membro.PublicId,
             FullName = membro.FullName,
@@ -255,12 +361,14 @@ public static class MemberEndpoints
             Age = membro.AgeOn(hoje),
             Status = membro.Status.ToString(),
             FamilyName = familyName,
+            Address = endereco?.ToResponse(),
         });
     }
 
     private static async Task<IResult> CreateAsync(
         [FromBody] CreateMemberRequest request,
         IMemberRepository members,
+        IAddressRepository addresses,
         IUnitOfWork unitOfWork,
         ITenantContext tenant,
         TimeProvider timeProvider,
@@ -272,6 +380,22 @@ public static class MemberEndpoints
         }
 
         var agora = timeProvider.GetUtcNow();
+
+        // O endereço é gravado ANTES do membro, porque a chave dele só existe
+        // depois do INSERT. Ver a nota em AddressPayloadExtensions.AplicarAsync.
+        long? addressId;
+        try
+        {
+            addressId = await request.Address.AplicarAsync(
+                atualId: null, tenantId, addresses, unitOfWork, agora, cancellationToken);
+        }
+        catch (ArgumentException ex)
+        {
+            return TypedResults.Problem(
+                title: "Endereço inválido",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
 
         Member membro;
         try
@@ -285,15 +409,7 @@ public static class MemberEndpoints
                 birthDate: request.BirthDate,
                 gender: (Gender?)request.Gender,
                 maritalStatus: (MaritalStatus?)request.MaritalStatus,
-                address: new Address
-                {
-                    Street = request.AddressStreet,
-                    Number = request.AddressNumber,
-                    District = request.AddressDistrict,
-                    City = request.AddressCity,
-                    State = request.AddressState?.ToUpperInvariant(),
-                    ZipCode = request.AddressZip,
-                },
+                addressId: addressId,
                 membershipDate: request.MembershipDate,
                 baptismDate: request.BaptismDate,
                 notes: request.Notes);
@@ -328,6 +444,7 @@ public static class MemberEndpoints
         [FromBody] UpdateMemberRequest request,
         IMemberRepository members,
         IFamilyRepository families,
+        IAddressRepository addresses,
         IUnitOfWork unitOfWork,
         ITenantContext tenant,
         TimeProvider timeProvider,
@@ -353,6 +470,20 @@ public static class MemberEndpoints
 
         var agora = timeProvider.GetUtcNow();
 
+        long? addressId;
+        try
+        {
+            addressId = await request.Address.AplicarAsync(
+                membro.AddressId, membro.TenantId, addresses, unitOfWork, agora, cancellationToken);
+        }
+        catch (ArgumentException ex)
+        {
+            return TypedResults.Problem(
+                title: "Endereço inválido",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         try
         {
             membro.UpdateProfile(
@@ -360,15 +491,7 @@ public static class MemberEndpoints
                 email: request.Email,
                 phone: request.Phone,
                 birthDate: request.BirthDate,
-                address: new Address
-                {
-                    Street = request.AddressStreet,
-                    Number = request.AddressNumber,
-                    District = request.AddressDistrict,
-                    City = request.AddressCity,
-                    State = request.AddressState?.ToUpperInvariant(),
-                    ZipCode = request.AddressZip,
-                },
+                addressId: addressId,
                 now: agora);
         }
         catch (ArgumentException ex)
@@ -525,6 +648,7 @@ public static class MemberEndpoints
     private static async Task<IResult> ImportAsync(
         [FromBody] ImportMembersRequest request,
         IMemberRepository members,
+        IAddressRepository addresses,
         IUnitOfWork unitOfWork,
         ITenantContext tenant,
         TimeProvider timeProvider,
@@ -561,6 +685,15 @@ public static class MemberEndpoints
         var issues = new List<ImportRowIssue>();
         int importados = 0;
 
+        // Duas fases, por causa da chave do endereço.
+        //
+        // A chave só existe depois do INSERT, e o membro precisa dela. Gravar
+        // linha a linha resolveria, mas ao custo de duas viagens ao banco por
+        // linha da planilha — uma importação de 800 membros viraria 1.600
+        // round-trips. Juntar os endereços numa gravação só e depois montar os
+        // membros mantém o lote em duas gravações no total.
+        var pendentes = new List<(int Linha, ImportMemberRow Dados, Address? Endereco)>();
+
         for (int i = 0; i < request.Rows.Count; i++)
         {
             int linha = i + 1;
@@ -576,8 +709,36 @@ public static class MemberEndpoints
                     issues.Add(new ImportRowIssue { Row = linha, Reason = "E-mail já cadastrado" });
                     continue;
                 }
+
+                emailsNesteLote.Add(emailNormalizado);
             }
 
+            // A planilha traz só a cidade. Um endereço com apenas isso é pouco,
+            // mas é o que a igreja tem no papel — e é mais do que nada quando
+            // alguém for procurar quem mora onde.
+            Address? endereco = null;
+            if (!string.IsNullOrWhiteSpace(dados.AddressCity))
+            {
+                endereco = Address.Register(
+                    tenantId, cep: null, logradouro: null, bairro: null,
+                    localidade: dados.AddressCity, estado: null,
+                    ResidenceType.Casa, numero: null, andar: null, agora);
+
+                addresses.Add(endereco);
+            }
+
+            pendentes.Add((linha, dados, endereco));
+        }
+
+        // Só grava se há endereço; uma planilha sem coluna de cidade não paga
+        // uma ida ao banco à toa.
+        if (pendentes.Any(p => p.Endereco is not null))
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        foreach (var (linha, dados, endereco) in pendentes)
+        {
             try
             {
                 var membro = Member.Register(
@@ -587,20 +748,18 @@ public static class MemberEndpoints
                     email: dados.Email,
                     phone: dados.Phone,
                     birthDate: dados.BirthDate,
-                    address: dados.AddressCity is not null ? new Address { City = dados.AddressCity } : null);
+                    addressId: endereco?.Id);
 
                 members.Add(membro);
                 importados++;
-
-                if (emailNormalizado is not null)
-                {
-                    emailsNesteLote.Add(emailNormalizado);
-                }
             }
             catch (ArgumentException ex)
             {
                 // Mesma regra do domínio que rejeita um cadastro avulso — nome
                 // vazio, nascimento futuro — rejeita aqui, com a mesma mensagem.
+                //
+                // O endereço desta linha já foi gravado e fica órfão. Inofensivo:
+                // ninguém o referencia e ele não aparece em tela nenhuma.
                 issues.Add(new ImportRowIssue { Row = linha, Reason = ex.Message });
             }
         }

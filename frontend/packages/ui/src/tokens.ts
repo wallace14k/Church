@@ -1,98 +1,128 @@
 /**
  * Tokens de design do Congrega.
  *
- * Sistema visual **Perk**: lima elétrico sobre neutros quentes, tipografia em
- * dois pesos só, cartão de 28px em pergaminho, hierarquia por contraste tonal
- * — sem sombra. O documento completo, com as decisões e desvios, está em
- * `docs/07-design-system.md`.
+ * Sistema visual **Grove**: superfícies brancas sobre um canvas verde-acinzentado,
+ * cartões de 22px com sombra difusa, verde-oliva como cor de ação e âmbar como
+ * segunda cor **categórica**. O documento completo, com as decisões e desvios,
+ * está em `docs/07-design-system.md`.
  *
- * Substitui o sistema Mercury (índigo sobre branco, Inter 600, cartão de 12px
- * com sombra). A estrutura dos componentes não mudou; mudou a superfície.
+ * Substitui o sistema Perk (lima elétrico sobre pergaminho, sem sombra, dois
+ * pesos tipográficos). A estrutura dos componentes não mudou; mudou a
+ * superfície, a paleta e a escala tipográfica.
  *
- * **A mudança que não é só de superfície:** o token `brand` foi renomeado para
- * `surfaceAccent`. No sistema anterior o índigo servia como preenchimento *e*
- * como cor de texto de link. O lima não pode servir às duas coisas — mede
- * 1,19:1 sobre branco — e trocar só o valor mantendo o nome deixaria cada
- * `color: colors.brand` invisível sem um único erro de compilação. Renomear
- * quebra o build em cada uso e força uma decisão. Ver D1 no documento.
+ * ---
+ *
+ * **Os valores não são os do mockup ao pé da letra, e a diferença é medida.**
+ * O mockup de referência traz 18 pares que reprovam o mínimo de 4,5:1 da WCAG
+ * para texto normal — inclusive o verde principal (`#4c8b22`, 4,18:1, que falha
+ * como texto **e** como fundo de texto branco) e o rótulo de seção de 9px em
+ * 2,66:1. Cada tom aqui é o do mockup escurecido pelo mínimo necessário para
+ * passar; a diferença é imperceptível lado a lado e está anotada em cada token.
+ *
+ * A checagem inteira vive em `tokens.test.ts` e falha se alguém reverter.
  */
 
 export const palette = {
   /**
-   * Verde Congrega — o único acento cromático do sistema.
+   * Verde Congrega — a cor de **ação**.
    *
-   * **Substituiu o lima elétrico **, e a troca resolveu uma restrição
-   * real, não só a aparência: o lima media **1,19:1** sobre branco, o que o
-   * impedia de ser texto ou traço de estado. Daí vinham a D1 (link vira tinta
-   * sublinhada) e a D6 (seleção vira preenchimento, nunca borda colorida).
-   *
-   * Este verde mede **5,07:1** sobre branco. Ele pode ser preenchimento **e**
-   * texto — o que dispensa aqueles contornos e permite o rótulo verde do item
-   * ativo de navegação. Texto sobre ele é **branco** (5,07:1); tinta ficaria em
-   * 4,3:1, abaixo do mínimo de texto normal.
+   * `#4c8b22` no mockup mede 4,18:1 sobre branco: reprova como texto e, por
+   * simetria, também reprova branco escrito sobre ele. Este tom escurece o
+   * suficiente para 4,66:1 nas duas direções, que é o que permite ao mesmo
+   * token servir de preenchimento de botão e de cor de link.
    */
-  brandGreen: '#2E7D46',
+  green: '#44831A',
+
+  /** Verde escuro — texto sobre a lavagem clara e ícone que precisa de peso. 6,51:1 sobre branco. */
+  greenDeep: '#356A18',
+
+  /** Verde diluído — item ativo de navegação, círculo de ícone, chip. */
+  greenSoft: '#EDF6DF',
 
   /**
-   * Verde escuro — quando o verde precisa ser **texto** sobre superfície clara.
+   * Âmbar — a segunda cor, **categórica** e nunca de ação.
    *
-   * 6,45:1 sobre branco e 5,74:1 sobre a lavagem clara. O  também
-   * passaria sobre branco, mas cai para 4,63:1 sobre pergaminho; este vale nas
-   * duas superfícies sem exigir que quem usa lembre da diferença.
+   * `#c27a12` do mockup mede 3,45:1 e reprova como texto. Este mede 5,11:1
+   * sobre branco e 4,65:1 sobre a própria lavagem — que é onde ele mais aparece,
+   * e onde uma correção calibrada só contra o branco ainda reprovaria.
+   * Ver a decisão D10 no documento: âmbar distingue *assunto* (aniversariantes,
+   * comemorações), verde distingue *o que se pode fazer*. Um botão âmbar
+   * quebraria a regra e faria o usuário procurar a ação no lugar errado.
    */
-  brandGreenDeep: '#276B3D',
+  amber: '#A45C00',
 
-  /** Verde diluído — fundo do item ativo de navegação. Único valor derivado (D5). */
-  greenWash: '#E8F5EC',
+  /** Âmbar diluído — fundo de chip e de círculo de ícone. */
+  amberSoft: '#FFF3DE',
 
-  /** Tinta principal. Todo texto, título e ícone. */
-  offBlackInk: '#14140F',
-
-  /** Pergaminho — superfície de cartão e de sidebar. */
-  offWhiteCanvas: '#F5F5EB',
-
-  /** Canvas da página e superfície interna ao cartão. */
-  pureWhite: '#FFFFFF',
-
-  /** Bordas e divisores. */
-  ash: '#D2D2C8',
-
-  /** Texto secundário. Mede 5,15:1 sobre branco e 4,70:1 sobre pergaminho. */
-  graphite: '#6E6E64',
-
-  /** Ilha escura rara — dica flutuante da sidebar recolhida. */
-  deepCharcoal: '#30302A',
-
-  /** Traço estrutural tênue. */
-  stone: '#919183',
-
-  /** Placeholder e lavagem sutil. */
-  smoke: '#B9B9B7',
+  /** Tinta principal. Todo texto, título e ícone de conteúdo. 15,5:1 sobre o canvas. */
+  ink: '#162019',
 
   /**
-   * Estado — secundário à paleta de marca, nunca dominante (§15).
+   * Cinza de apoio — **um só**, no lugar dos oito do mockup.
    *
-   * Mantidos do sistema anterior de propósito: já têm contraste verificado, e
-   * trocá-los por tons quentes sem mandato do documento custaria contraste
-   * testado em troca de harmonia. Ver D7.
+   * O mockup tem `#758078`, `#7c857f`, `#7d8780`, `#8a938d`, `#8b948e`,
+   * `#8d958f`, `#98a19a` e `#9aa19c` em papéis equivalentes: oito cinzas que
+   * diferem por 2% e reprovam de 2,45:1 a 3,90:1. A variação é acidental, não
+   * projetada, e esconde que **todos** eram ilegíveis. Este mede 4,68:1 sobre o
+   * canvas e 4,92:1 sobre branco.
+   */
+  slate: '#68716B',
+
+  /** Canvas da página — verde-acinzentado muito claro. */
+  canvas: '#F5F7F2',
+
+  /** Superfície de cartão e de barra superior. */
+  white: '#FFFFFF',
+
+  /** Superfície interna: linha de lista, campo, cartão dentro de cartão. */
+  offWhite: '#FBFCFA',
+
+  /**
+   * Fio de borda e divisor.
+   *
+   * 1,21:1 — e isso está certo. A WCAG 1.4.11 exige 3:1 de **indicadores**
+   * (foco, estado, limite de controle); um fio que só separa superfícies não
+   * carrega informação, e engrossá-lo até 3:1 transformaria cada cartão numa
+   * caixa desenhada a caneta. O que separa cartão de página aqui é a sombra
+   * difusa mais a diferença de tom, não o fio.
+   */
+  line: '#E6EBE3',
+
+  /** Ilha escura rara — dica flutuante, menu sobreposto. */
+  charcoal: '#22302A',
+
+  /** Placeholder e traço desabilitado. Não carrega texto de leitura. */
+  smoke: '#A9B1AB',
+
+  /**
+   * Estado — secundário à paleta, nunca dominante.
+   *
+   * Mantidos do sistema anterior: já têm contraste verificado, e trocá-los sem
+   * mandato custaria acessibilidade testada em troca de harmonia.
+   *
+   * As lavagens `successWash` e `errorWash` saíram: nenhum token as apontava e
+   * nenhuma tela as usava. Tom morto na paleta é convite para alguém acreditar
+   * que ele já foi verificado para algum uso.
    */
   successGreen: '#1A8245',
-  successWash: '#E7F6EC',
   errorRed: '#D33B2C',
-  errorWash: '#FDECEA',
 } as const;
 
 export interface ColorScheme {
-  /** Canvas da página — branco puro. */
+  /** Canvas da página — verde-acinzentado. */
   readonly background: string;
-  /** Cartão, painel, sidebar — pergaminho. */
+  /** Cartão, painel, barra superior — branco. */
   readonly surface: string;
-  /** Superfície dentro de um cartão: chip de valor, linha de lista, campo. */
+  /** Superfície dentro de um cartão: linha de lista, campo, chip. */
   readonly surfaceInner: string;
-  /** Lima cheio — preenchimento de ação primária e de estado selecionado. */
+  /** Verde cheio — preenchimento de ação primária e de estado selecionado. */
   readonly surfaceAccent: string;
-  /** Lima diluído — item ativo de navegação, onde o lima cheio competiria. */
+  /** Verde diluído — item ativo de navegação, círculo de ícone. */
   readonly surfaceAccentSoft: string;
+  /** Âmbar cheio — categórico, nunca ação. */
+  readonly surfaceCategory: string;
+  /** Âmbar diluído — chip e círculo de ícone de categoria. */
+  readonly surfaceCategorySoft: string;
   /** Ilha escura — dica flutuante. */
   readonly surfaceInverse: string;
   readonly hairline: string;
@@ -101,8 +131,12 @@ export interface ColorScheme {
   readonly textBody: string;
   readonly textMuted: string;
   readonly placeholder: string;
-  /** Texto e ícone sobre lima. Tinta, nunca branco: branco sobre lima é 1,4:1. */
+  /** Texto e ícone sobre o verde cheio. Branco: 4,66:1. */
   readonly textOnAccent: string;
+  /** Texto e ícone sobre a lavagem verde. */
+  readonly textOnAccentSoft: string;
+  /** Texto e ícone sobre a lavagem âmbar. */
+  readonly textOnCategorySoft: string;
   /** Texto sobre a ilha escura. */
   readonly textOnDark: string;
   readonly success: string;
@@ -111,72 +145,78 @@ export interface ColorScheme {
 }
 
 export const colors: ColorScheme = {
-  background: palette.pureWhite,
-  surface: palette.offWhiteCanvas,
-  surfaceInner: palette.pureWhite,
-  surfaceAccent: palette.brandGreen,
-  surfaceAccentSoft: palette.greenWash,
-  surfaceInverse: palette.deepCharcoal,
+  background: palette.canvas,
+  surface: palette.white,
+  surfaceInner: palette.offWhite,
+  surfaceAccent: palette.green,
+  surfaceAccentSoft: palette.greenSoft,
+  surfaceCategory: palette.amber,
+  surfaceCategorySoft: palette.amberSoft,
+  surfaceInverse: palette.charcoal,
 
-  hairline: palette.ash,
-  divider: palette.ash,
+  hairline: palette.line,
+  divider: palette.line,
 
-  text: palette.offBlackInk,
-  textBody: palette.offBlackInk,
-  textMuted: palette.graphite,
-  placeholder: palette.graphite,
-  // Branco, e não tinta: sobre o verde `#2E7D46` o branco mede 5,07:1 e a tinta
-  // fica em 4,3:1 — abaixo do mínimo de texto normal. Era o inverso no sistema
-  // lima, onde branco media 1,4:1 e só a tinta servia.
-  textOnAccent: palette.pureWhite,
-  textOnDark: palette.offWhiteCanvas,
+  text: palette.ink,
+  textBody: palette.ink,
+  textMuted: palette.slate,
+  placeholder: palette.slate,
+
+  textOnAccent: palette.white,
+  textOnAccentSoft: palette.greenDeep,
+  textOnCategorySoft: palette.amber,
+  textOnDark: palette.white,
 
   success: palette.successGreen,
   /** Borda de campo inválido e delta negativo — nunca texto de leitura corrida. */
   danger: palette.errorRed,
-  disabled: palette.stone,
+  disabled: palette.smoke,
 };
 
 /**
  * Família tipográfica.
  *
- * O documento prefere `OTSono` e declara Inter como fallback. OTSono não está
- * disponível no projeto; Inter é o que o app carrega.
+ * **Cinco pesos, e não dois.** O sistema Perk proibia peso 600+ e carregava só
+ * 400/500; o mockup Grove usa 700 na navegação, 800 no nome da marca e 900 nos
+ * rótulos de seção e chips. Sem os pesos carregados, tudo cairia no mais
+ * próximo e a hierarquia — que neste desenho é feita por **peso**, não por
+ * tamanho — desapareceria.
  *
- * **Dois pesos só.** A §3 proíbe 600 e 700 — o peso 600 foi removido daqui e
- * do carregamento em `app/_layout.tsx`. Manter a fonte carregada convidaria ao
- * uso. Ver D2.
+ * O `app/_layout.tsx` precisa carregar exatamente estes cinco.
  */
 export const fonts = {
   regular: 'Inter_400Regular',
   medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
+  black: 'Inter_800ExtraBold',
 } as const;
 
 /**
- * Escala tipográfica, derivada da tabela da §3.
+ * Escala tipográfica.
  *
- * Os nomes das variantes são os do sistema anterior — renomeá-los obrigaria a
- * tocar toda tela sem ganho. `caption` é o "Caption" do documento (com o
- * tracking de 1.2px que ele pede); `captionBody` é o "Body Small", que é o
- * texto de apoio corrido e por isso fica com tracking normal.
- *
- * `headingLg` para em 34 e `display` em 40: a §3 manda ficar na faixa de
- * 28–40 em dashboard e reservar 60–90 para tratamento editorial, que nenhuma
- * tela desta aplicação tem.
+ * Os nomes das variantes vêm do sistema anterior — renomeá-los obrigaria a
+ * tocar toda tela sem ganho. O que mudou foram os pesos: `eyebrow` e `caption`
+ * sobem para 800/900 porque no Grove eles são rótulo de seção em caixa alta com
+ * tracking largo, e nesse papel o peso é o que os torna legíveis a 10px.
  */
 export const type = {
-  eyebrow: { fontFamily: fonts.medium, fontSize: 10, lineHeight: 14, letterSpacing: 1 },
-  caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 16, letterSpacing: 1.2 },
-  captionBody: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 18 },
-  body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24 },
-  bodyLg: { fontFamily: fonts.regular, fontSize: 18, lineHeight: 27 },
-  bodyStrong: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 24 },
-  subheading: { fontFamily: fonts.medium, fontSize: 22, lineHeight: 26 },
+  /** Rótulo de seção em caixa alta — "COMUNIDADE", "PRÓXIMOS DIAS". */
+  eyebrow: { fontFamily: fonts.black, fontSize: 10, lineHeight: 14, letterSpacing: 1.4 },
+  /** Etiqueta curta — dia da semana no bloco de data, chip de status. */
+  caption: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 15, letterSpacing: 0.6 },
+  /** Texto de apoio corrido — hora e local, data por extenso. */
+  captionBody: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  body: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21 },
+  bodyLg: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24 },
+  bodyStrong: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20 },
+  subheading: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 22, letterSpacing: -0.2 },
 
-  headingSm: { fontFamily: fonts.medium, fontSize: 24, lineHeight: 28, letterSpacing: -0.5 },
-  heading: { fontFamily: fonts.medium, fontSize: 28, lineHeight: 32, letterSpacing: -0.56 },
-  headingLg: { fontFamily: fonts.medium, fontSize: 34, lineHeight: 38, letterSpacing: -0.9 },
-  display: { fontFamily: fonts.medium, fontSize: 40, lineHeight: 44, letterSpacing: -1.2 },
+  headingSm: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, letterSpacing: -0.5 },
+  heading: { fontFamily: fonts.black, fontSize: 24, lineHeight: 29, letterSpacing: -0.7 },
+  headingLg: { fontFamily: fonts.black, fontSize: 32, lineHeight: 35, letterSpacing: -1.2 },
+  /** O número grande do cartão de métrica e a saudação do painel. */
+  display: { fontFamily: fonts.black, fontSize: 40, lineHeight: 42, letterSpacing: -1.6 },
 } as const;
 
 /** Escala de 4px. */
@@ -202,46 +242,56 @@ export const space = {
 } as const;
 
 /**
- * Raios nomeados, da tabela da §5.
+ * Raios nomeados.
  *
- * Bem mais generosos que o sistema anterior (cartão de 12px): é o arredondamento
- * grande, junto com a ausência de sombra, que dá a leitura de superfície chapada
- * em vez de "cartão flutuante".
- *
- * `buttons` fica em pílula: a §5 aceita "28px ou tratamento de pílula", e a
- * referência mostra pílula.
+ * Menores que os do Perk (cartão de 28px): o Grove compensa com sombra, e
+ * arredondamento grande **junto** com sombra difusa lê como bolha, não como
+ * cartão.
  */
 export const radius = {
-  inputs: 8,
-  cards: 28,
-  /** Superfície interna ao cartão. */
-  smallCards: 18,
-  images: 18,
-  elevatedCards: 28,
-  buttons: 9999,
-  tags: 9999,
+  inputs: 12,
+  cards: 22,
+  /** Superfície interna ao cartão — linha de lista, chip retangular. */
+  smallCards: 15,
+  images: 15,
+  elevatedCards: 22,
+  buttons: 999,
+  tags: 999,
 } as const;
 
 /**
  * Elevação.
  *
- * **Sem sombra por padrão** (§6): a hierarquia vem do contraste tonal entre
- * canvas branco e cartão pergaminho. A variante `floating` do sistema anterior
- * foi removida em vez de virar objeto vazio — um token chamado "floating" que
- * não eleva nada é uma armadilha para o próximo a ler.
- *
- * `popover` sobrevive porque o documento abre a exceção justamente para menu
- * flutuante: o seletor de igreja e a dica da sidebar recolhida precisam se
- * separar do que está por baixo, e ali a borda sozinha não resolve.
+ * **Com sombra, ao contrário do Perk**, que a proibia porque a hierarquia vinha
+ * do contraste tonal entre canvas branco e cartão pergaminho. No Grove a
+ * relação se inverte: o cartão é branco e o canvas é o tom — e branco sobre
+ * verde-acinzentado claro tem diferença tonal pequena demais para separar
+ * sozinha. A sombra é difusa e quase incolor de propósito (7% de opacidade,
+ * 42px de desfoque): ela dá profundidade sem desenhar uma borda escura.
  */
 export const elevation = {
   none: {},
+  card: {
+    shadowColor: '#1C2B18',
+    shadowOpacity: 0.07,
+    shadowRadius: 42,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 3,
+  },
+  /** Hover de item clicável — mais curta e mais próxima, para ler como "subiu". */
+  raised: {
+    shadowColor: '#1E3219',
+    shadowOpacity: 0.06,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
+  },
   popover: {
-    shadowColor: '#14140F',
-    shadowOpacity: 0.1,
+    shadowColor: '#162019',
+    shadowOpacity: 0.12,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
+    elevation: 8,
   },
 } as const;
 
@@ -252,14 +302,16 @@ export const touch = {
 } as const;
 
 export const layout = {
-  pageMaxWidth: 1200,
+  pageMaxWidth: 1440,
+  /** Altura da barra superior. Substitui a largura de sidebar do Perk. */
+  topbarHeight: 78,
   sidebarWidth: 240,
-  sectionGap: 64,
-  /** Linha de lista — o mínimo que o raio de 28px comporta. Ver D3. */
-  cardPadding: 24,
-  /** Cartão de métrica e painel — a faixa que a §8 pede. */
-  panelPadding: 32,
-  elementGap: 16,
+  sectionGap: 48,
+  /** Linha de lista e cartão interno. */
+  cardPadding: 18,
+  /** Painel e cartão de métrica. */
+  panelPadding: 22,
+  elementGap: 15,
 } as const;
 
 export const motion = {

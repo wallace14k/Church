@@ -54,5 +54,28 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # Servidor SMTP de DESENVOLVIMENTO.
+  #
+  # Existe para que o conector de e-mail possa ser exercido de verdade sem
+  # mandar mensagem para ninguém: o Mailpit aceita qualquer credencial, retém
+  # tudo o que chega e mostra numa caixa de entrada web. É a diferença entre
+  # "o código compila" e "a mensagem saiu, e eu li ela".
+  #
+  # **Não sobe em produção.** O perfil  mantém isso explícito: um servidor
+  # que aceita qualquer senha e guarda todo e-mail seria, em produção,
+  # exatamente o que ninguém quer ao lado do banco.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: congrega-mailpit
+    profiles: [dev]
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      # 1025 = SMTP; 8025 = a caixa de entrada no navegador.
+      - '1025:1025'
+      - '8025:8025'
+    restart: unless-stopped
+
 volumes:
   congrega-pgdata:

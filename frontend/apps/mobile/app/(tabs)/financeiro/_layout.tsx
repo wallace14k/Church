@@ -13,6 +13,8 @@ export default function FinanceiroLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="fechamento" />
       <Stack.Screen name="categorias" />
+      <Stack.Screen name="cofre" />
+      <Stack.Screen name="[id]" />
       <Stack.Screen name="lancar" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
     </Stack>
   );

@@ -6,6 +6,7 @@ import { Card } from '@congrega/ui/Card';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { EyebrowPill } from '@congrega/ui/EyebrowPill';
 import { Screen } from '@congrega/ui/Screen';
+import { ScreenLoading } from '@congrega/ui/ScreenLoading';
 import { Text } from '@congrega/ui/Text';
 import { useTheme } from '@congrega/ui/theme';
 import { Feather } from '@expo/vector-icons';
@@ -64,8 +65,8 @@ export default function FichaDeFamilia() {
 
   if (carregando) {
     return (
-      <Screen wide style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={theme.colors.text} />
+      <Screen wide>
+        <ScreenLoading what="a família" />
       </Screen>
     );
   }

@@ -251,9 +251,27 @@ public static class Permissions
     public const string MembersWrite = "members.write";
     public const string GivingRead = "giving.read";
     public const string GivingWrite = "giving.write";
+
+    /// <summary>
+    /// Administrar o cofre — guardar e retirar dinheiro em espécie.
+    /// </summary>
+    /// <remarks>
+    /// Separada de <see cref="GivingWrite"/> de propósito, e não por simetria:
+    /// quem digita o livro-caixa não é necessariamente quem tem a chave do
+    /// cofre. Com a permissão própria, restringir depois é tirar uma linha de
+    /// <c>role_permissions</c> — sem tocar no endpoint.
+    /// </remarks>
+    public const string GivingVault = "giving.vault";
     public const string ChildrenRead = "children.read";
     public const string ChildrenCheckIn = "children.checkin";
     public const string ChildrenCheckout = "children.checkout";
     public const string EventsWrite = "events.write";
     public const string BillingManage = "billing.manage";
+
+    /// <summary>Configurar os serviços externos da igreja — e-mail, Telegram, Drive.</summary>
+    /// <remarks>
+    /// Separada porque quem a tem digita a senha da conta de e-mail da igreja, e
+    /// essa conta costuma ser a que recupera todas as outras senhas dela.
+    /// </remarks>
+    public const string ConnectorsManage = "connectors.manage";
 }

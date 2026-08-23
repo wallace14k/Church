@@ -124,11 +124,11 @@ public sealed class ChildcareSchemaTests : IAsyncLifetime
         var chave = new byte[ChildSafetyOptions.DataKeyBytes];
         RandomNumberGenerator.Fill(chave);
 
-        return new AesGcmFieldEncryptor(Options.Create(new ChildSafetyOptions
-        {
-            DataKey = Convert.ToBase64String(chave),
-            PickupCodePepper = new string('p', 32),
-        }));
+        // A chave passou a ser parâmetro do cifrador, e não uma seção fixa de
+        // configuração: cada domínio de segredo tem a própria, e rotacionar a dos
+        // conectores não pode invalidar a ficha de alergia de nenhuma criança.
+        return new AesGcmFieldEncryptor(
+            Convert.ToBase64String(chave), $"{ChildSafetyOptions.SectionName}:DataKey");
     }
 
     // -------------------------------------------------------------------------
@@ -203,11 +203,7 @@ public sealed class ChildcareSchemaTests : IAsyncLifetime
         var curta = Convert.ToBase64String(new byte[16]);
 
         var erro = Assert.Throws<InvalidOperationException>(() =>
-            new AesGcmFieldEncryptor(Options.Create(new ChildSafetyOptions
-            {
-                DataKey = curta,
-                PickupCodePepper = new string('p', 32),
-            })));
+            new AesGcmFieldEncryptor(curta, $"{ChildSafetyOptions.SectionName}:DataKey"));
 
         Assert.Contains("32 bytes", erro.Message, StringComparison.Ordinal);
     }

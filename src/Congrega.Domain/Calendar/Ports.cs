@@ -66,3 +66,40 @@ public interface IEventRepository
 
     void Remove(CalendarEvent calendarEvent);
 }
+
+public interface IEventTypeRepository
+{
+    /// <summary>
+    /// Tipos do tenant corrente, em ordem alfabética.
+    /// </summary>
+    /// <remarks>
+    /// Inativos entram só quando pedidos: o formulário de evento não deve
+    /// oferecê-los, mas a tela que administra os tipos precisa mostrá-los —
+    /// senão desativar um o faria sumir e ninguém conseguiria reativá-lo.
+    /// </remarks>
+    Task<IReadOnlyList<EventType>> ListAsync(bool includeInactive, CancellationToken cancellationToken);
+
+    Task<EventType?> FindByPublicIdAsync(Guid publicId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Quantos eventos usam cada tipo, indexado pela chave interna.
+    /// </summary>
+    /// <remarks>
+    /// A tela de administração precisa disto para dizer "3 eventos usam este
+    /// tipo" antes de alguém tentar excluí-lo. Uma contagem só, e não uma por
+    /// linha: a versão por linha faz N+1 consultas para desenhar uma lista de
+    /// cinco itens.
+    ///
+    /// <para>
+    /// Isto <b>não</b> substitui a FK <c>RESTRICT</c>. A contagem informa a
+    /// interface; quem recusa a exclusão é o banco. Decidir pela contagem seria
+    /// verificar antes de agir — race condition sob concorrência, que é
+    /// exatamente o que a constraint existe para evitar.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyDictionary<long, int>> CountEventsByTypeAsync(CancellationToken cancellationToken);
+
+    void Add(EventType type);
+
+    void Remove(EventType type);
+}

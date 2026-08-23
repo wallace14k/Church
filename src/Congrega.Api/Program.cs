@@ -30,6 +30,11 @@ builder.Services.AddSerilog((services, configuration) => configuration
 // -----------------------------------------------------------------------------
 builder.Services.AddCongregaInfrastructure(builder.Configuration);
 
+// Integrações da igreja. Chamado explicitamente pelos DOIS processos: a API para
+// a tela de configurações, o worker porque o remetente de e-mail lê o conector
+// antes de enviar. Deixar implícito num deles já custou duas falhas silenciosas.
+builder.Services.AddCongregaConnectors(builder.Configuration);
+
 // Gateway de pagamento. Em desenvolvimento entra o adaptador falso; em produção
 // nada é registrado e a resolução falha no startup, de propósito — ver a nota em
 // AddCongregaPayments.
@@ -219,7 +224,11 @@ app.MapAuthEndpoints();
 app.MapMemberEndpoints();
 app.MapFamilyEndpoints();
 app.MapGivingEndpoints();
+app.MapVaultEndpoints();
+app.MapConnectorEndpoints();
 app.MapEventEndpoints();
+app.MapEventTypeEndpoints();
+app.MapAddressEndpoints();
 app.MapBillingEndpoints();
 
 app.MapHealthChecks("/health/live");
