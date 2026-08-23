@@ -50,6 +50,18 @@ export interface CalendarEvent {
   readonly type: EventTypeRef | null;
 
   /**
+   * Identidade da série semanal, ou `null` num evento avulso.
+   *
+   * É o que permite oferecer "apagar a série inteira": sem ele a agenda
+   * mostraria cinquenta e duas linhas iguais sem nenhuma pista de que são a
+   * mesma decisão.
+   */
+  readonly seriesId: string | null;
+
+  /** Quantas repetições foram criadas junto. Só vem na criação de uma série. */
+  readonly generatedCount?: number;
+
+  /**
    * Endereço do evento, ou `null`.
    *
    * Convive com `location`: aquele é o nome do lugar como a igreja o chama
@@ -81,6 +93,15 @@ export interface SaveEventInput {
   readonly location?: string;
   readonly startsAt: string;
   readonly endsAt: string;
+
+  /**
+   * `Semanal` cria a série; ausente cria um evento avulso.
+   *
+   * **Só na criação.** Editar um evento nunca gera série: transformar um culto
+   * avulso em cinquenta e dois exigiria decidir a partir de quando, e a
+   * resposta errada encheria a agenda de linhas que ninguém pediu.
+   */
+  readonly recurrence?: 'Semanal';
 }
 
 export interface ListEventsInput {
@@ -140,4 +161,16 @@ export function reactivateEvent(client: ApiClient, id: string): Promise<Calendar
 
 export function deleteEvent(client: ApiClient, id: string): Promise<void> {
   return client.request<void>(`/api/v1/events/${id}`, { method: 'DELETE' });
+}
+
+/**
+ * Apaga todos os eventos de uma série semanal.
+ *
+ * **Sem isto, criar um evento semanal é uma armadilha:** cinquenta e duas
+ * linhas que só saem uma a uma, e ninguém termina. Apaga todas, inclusive as
+ * passadas — apagar só as futuras deixaria um pedaço órfão que ninguém
+ * consegue remover depois, já que a série teria deixado de existir.
+ */
+export function deleteEventSeries(client: ApiClient, seriesId: string): Promise<void> {
+  return client.request<void>(`/api/v1/events/series/${seriesId}`, { method: 'DELETE' });
 }

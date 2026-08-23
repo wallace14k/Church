@@ -1,4 +1,8 @@
-import { deleteEvent, type CalendarEvent } from '@congrega/api-client/events';
+import {
+  deleteEvent,
+  deleteEventSeries,
+  type CalendarEvent,
+} from '@congrega/api-client/events';
 import { formatTime, monthName, shiftMonth, type YearMonth } from '@congrega/core/datetime';
 import { AsyncContent } from '@congrega/ui/AsyncContent';
 import { Button } from '@congrega/ui/Button';
@@ -205,7 +209,63 @@ export default function Agenda() {
     }
   }
 
+  async function apagarSerie(evento: CalendarEvent) {
+    if (evento.seriesId === null) return;
+
+    try {
+      await deleteEventSeries(apiClient, evento.seriesId);
+    } finally {
+      recarregar();
+    }
+  }
+
+  /**
+   * Apagar um evento de série pergunta o QUE apagar.
+   *
+   * Um "apagar" que remove só a ocorrência deixa cinquenta e uma para trás; um
+   * que remove tudo apaga o ano inteiro sem avisar. A pergunta é curta e evita
+   * os dois erros — e o padrão do diálogo é a ocorrência, que é o dano menor
+   * quando alguém confirma sem ler.
+   */
+  function confirmarExclusaoDeSerie(evento: CalendarEvent) {
+    if (Platform.OS === 'web') {
+      // eslint-disable-next-line no-alert
+      const tudo = globalThis.confirm(
+        `"${evento.title}" se repete toda semana.\n\n` +
+          'OK apaga a SÉRIE INTEIRA (todos os encontros, inclusive os passados).\n' +
+          'Cancelar apaga somente este encontro.',
+      );
+
+      if (tudo) {
+        void apagarSerie(evento);
+      } else {
+        void apagar(evento);
+      }
+      return;
+    }
+
+    Alert.alert(
+      'Apagar evento repetido',
+      `"${evento.title}" se repete toda semana. O que você quer apagar?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Só este encontro', onPress: () => void apagar(evento) },
+        {
+          text: 'A série inteira',
+          style: 'destructive',
+          onPress: () => void apagarSerie(evento),
+        },
+      ],
+    );
+  }
+
   function confirmarExclusao(evento: CalendarEvent) {
+    // Evento de série tem uma pergunta a mais antes de qualquer exclusão.
+    if (evento.seriesId !== null) {
+      confirmarExclusaoDeSerie(evento);
+      return;
+    }
+
     if (Platform.OS === 'web') {
       // eslint-disable-next-line no-alert
       if (globalThis.confirm(`Apagar "${evento.title}" da agenda?`)) {
@@ -598,6 +658,7 @@ function LinhaDeEvento({
           `${evento.type === null ? 'Evento sem tipo' : evento.type.name}: ${evento.title}, ` +
           `${capitalizar(FORMATO_SEMANA.format(inicio))} ${FORMATO_DIA.format(inicio)} de ` +
           `${capitalizar(FORMATO_MES.format(inicio))}, às ${formatTime(evento.startsAt)}` +
+          (evento.seriesId === null ? '' : ', evento semanal') +
           (cancelado ? ', cancelado' : '')
         }
         style={({ pressed }) => ({
@@ -674,6 +735,11 @@ function LinhaDeEvento({
             </Text>
 
             {evento.type !== null && <EtiquetaDeTipo tipo={evento.type} />}
+
+            {/* O selo diz que a linha faz parte de uma série. Sem ele, apagar
+                um culto e ver outros cinquenta iguais no lugar pareceria
+                defeito. */}
+            {evento.seriesId !== null && <EyebrowPill label="Semanal" tone="neutral" />}
 
             {cancelado && <EyebrowPill label="Cancelado" tone="badge" />}
           </View>

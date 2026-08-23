@@ -903,3 +903,26 @@ a tela não dizia isso, e investigar revelou uma lacuna maior.
 | Item | Por quê |
 |---|---|
 | Visões de Semana e Mês | o alternador do mockup pressupõe as três. Cada uma é uma tela própria, com layout de grade e cálculo de semana |
+
+## Eventos recorrentes semanais
+
+| Item | Estado |
+|---|---|
+| "Todo domingo tem culto às 19h" | **verificado ao vivo**: 53 encontros criados, `dow = 0` em todos, `19:00` em todos, `02:00:00` de duração em todos. Um `series_id` só |
+| Linhas de verdade, não regra expandida na leitura | a igreja precisa mexer numa ocorrência — o culto do dia 25 será no salão, o de 1º de novembro está cancelado. Com regra expandida, cada exceção vira uma tabela de exceções e a agenda deixa de ser um `SELECT`. Custo: 52 linhas por série anual, que é nada |
+| **A soma acontece no relógio de parede** | e não em horas corridas. Somar 168h ao instante dá o mesmo resultado hoje e daria **uma hora de diferença** se o Brasil voltasse ao horário de verão: o culto das 19h cairia às 18h no meio da série, e ninguém olharia a agenda de agosto para descobrir isso em outubro. Fixado por teste |
+| Cada data sai da ORIGINAL | e não da anterior. Semanal é menos suscetível que mensal — foi lá que o bug apareceu — mas escrever a regra de dois jeitos é que produz o terceiro |
+| `UNIQUE (series_id, starts_at)` parcial | **provado contra o Postgres**: o banco recusa dois cultos no mesmo instante da série. Clique duplo e retry de rede não duplicam a agenda |
+| Apagar pergunta o quê | "só este encontro" ou "a série inteira". Um apagar que remove só a ocorrência deixa 51 para trás; um que remove tudo apaga o ano sem avisar. **Verificado nos dois caminhos**: recusar o diálogo levou 53 → 52; aceitar levou 52 → 0 |
+| Apagar a série existe desde o começo | gerar 52 linhas sem oferecer o caminho de volta seria a mesma armadilha das parcelas previstas do financeiro — um beco sem saída |
+| O formulário avisa antes | "cerca de 52 encontros… cobrindo os próximos 12 meses", e que dá para apagar a série. Sem isso, quem marca "toda semana" descobre o que criou ao trocar de mês, tarde demais para ser um clique de arrependimento |
+| Selo "Semanal" na linha | sem ele, apagar um culto e ver outros cinquenta iguais no lugar pareceria defeito |
+| Só na criação | editar um evento nunca gera série: transformar um culto avulso em 52 exigiria decidir a partir de quando, e a resposta errada enche a agenda de linhas que ninguém pediu |
+
+### Aberto
+
+| Item | Por quê |
+|---|---|
+| Editar a série inteira | não existe, e é deliberado: nada guarda a definição da repetição, só a identidade. Mudar o horário de todos os cultos futuros exige apagar e recriar. Guardar a definição traria a pergunta que todo calendário erra — "esta, as futuras, ou todas?" — cuja resposta errada reescreve o passado da igreja |
+| Frequência mensal | traria a ambiguidade "dia 5" *vs* "primeiro domingo", e a igreja que marca santa ceia no primeiro domingo não seria atendida por nenhuma das duas sem escolher qual |
+| Mais de um dia por semana | "toda terça e quinta" são duas séries hoje. Um conjunto de dias é a evolução natural |

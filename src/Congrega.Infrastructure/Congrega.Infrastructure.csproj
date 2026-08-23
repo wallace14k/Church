@@ -80,6 +80,8 @@
                       LogicalName="Congrega.Db.200_conectores.sql" />
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/021_cor_do_tipo_de_evento.sql"
                       LogicalName="Congrega.Db.210_cor_tipo_evento.sql" />
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/022_eventos_recorrentes.sql"
+                      LogicalName="Congrega.Db.220_eventos_recorrentes.sql" />
     <EmbeddedResource Include="$(MSBuildProjectDirectory)/../../db/seed.sql"
                       LogicalName="Congrega.Db.900_seed.sql" />
   </ItemGroup>

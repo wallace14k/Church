@@ -80,6 +80,18 @@ public sealed class CalendarEvent : AggregateRoot
     /// </remarks>
     public long? AddressId { get; private set; }
 
+    /// <summary>
+    /// Identidade da série semanal, quando o evento pertence a uma.
+    /// </summary>
+    /// <remarks>
+    /// Compartilhada pelo evento original e por todas as repetições geradas a
+    /// partir dele. Sem ela, "todo domingo tem culto" viraria cinquenta e duas
+    /// linhas soltas que só a memória de quem criou liga entre si — e cancelar a
+    /// pregação de domingo pelo resto do ano seria cinquenta e duas exclusões
+    /// que alguém deixa pela metade.
+    /// </remarks>
+    public Guid? SeriesId { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
@@ -92,7 +104,8 @@ public sealed class CalendarEvent : AggregateRoot
         string? description = null,
         string? location = null,
         long? typeId = null,
-        long? addressId = null)
+        long? addressId = null,
+        Guid? seriesId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(tenantId);
@@ -110,9 +123,86 @@ public sealed class CalendarEvent : AggregateRoot
             Status = EventStatus.Agendado,
             TypeId = typeId,
             AddressId = addressId,
+            SeriesId = seriesId,
             CreatedAt = now,
             UpdatedAt = now,
         };
+    }
+
+    /// <summary>
+    /// Até onde a série semanal chega.
+    /// </summary>
+    /// <remarks>
+    /// Doze meses, contados a partir do primeiro encontro — cerca de cinquenta e
+    /// duas repetições. É o mesmo horizonte da série de lançamentos financeiros,
+    /// e pelo mesmo motivo: gerar "para sempre" não existe, e um horizonte curto
+    /// obrigaria a igreja a recriar a agenda a cada trimestre.
+    /// </remarks>
+    public const int HorizonteEmMeses = 12;
+
+    /// <summary>
+    /// Os encontros seguintes de uma série semanal.
+    /// </summary>
+    /// <param name="fuso">Fuso da igreja. Ver o porquê abaixo.</param>
+    /// <returns>Pares (início, fim), sem incluir o encontro original.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>Cada data é calculada a partir da ORIGINAL, nunca da anterior.</b>
+    /// Caminhar de uma para a próxima acumula erro — foi um bug real na série de
+    /// lançamentos, onde 31/jan encolhia para 28/fev e a série inteira deslizava
+    /// para o dia 28. Semanal é menos suscetível, mas a regra é a mesma e não há
+    /// razão para escrevê-la de dois jeitos.
+    /// </para>
+    /// <para>
+    /// <b>A soma acontece no RELÓGIO DE PAREDE do fuso da igreja, e não em horas
+    /// corridas.</b> Somar 168 horas ao instante dá o mesmo resultado hoje, e
+    /// daria uma hora de diferença se o Brasil voltasse ao horário de verão: o
+    /// culto das 19h passaria a cair às 18h ou 20h no meio da série, e ninguém
+    /// olharia para a agenda de agosto para descobrir isso em outubro.
+    /// </para>
+    /// <para>
+    /// A duração é preservada — o fim anda junto com o início. Um culto de duas
+    /// horas continua com duas horas na quinquagésima repetição.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<(DateTimeOffset StartsAt, DateTimeOffset EndsAt)>
+        CalcularRepeticoesSemanais(DateTimeOffset startsAt, DateTimeOffset endsAt, TimeZoneInfo fuso)
+    {
+        ArgumentNullException.ThrowIfNull(fuso);
+        EnsurePeriodoValido(startsAt, endsAt);
+
+        var duracao = endsAt - startsAt;
+        var limite = startsAt.AddMonths(HorizonteEmMeses);
+
+        // O relógio de parede do primeiro encontro. É ele que se repete: "todo
+        // domingo às 19h" é uma afirmação sobre o relógio da parede da igreja,
+        // não sobre um instante UTC.
+        var paredeInicial = TimeZoneInfo.ConvertTime(startsAt, fuso).DateTime;
+
+        var repeticoes = new List<(DateTimeOffset, DateTimeOffset)>();
+
+        for (var passo = 1; ; passo++)
+        {
+            var parede = paredeInicial.AddDays(7 * passo);
+
+            // `ConvertTimeToUtc` LANÇA se a hora de parede não existir no fuso —
+            // o que só acontece na hora perdida de uma virada de horário de
+            // verão. O Brasil não adota desde 2019; se voltar, falhar alto é o
+            // comportamento certo: gerar o culto uma hora fora seria um erro
+            // silencioso que só a congregação descobriria, na porta fechada.
+            var instante = new DateTimeOffset(
+                TimeZoneInfo.ConvertTimeToUtc(
+                    DateTime.SpecifyKind(parede, DateTimeKind.Unspecified), fuso));
+
+            if (instante > limite)
+            {
+                break;
+            }
+
+            repeticoes.Add((instante, instante + duracao));
+        }
+
+        return repeticoes;
     }
 
     /// <summary>Edita título, descrição, local e horário de uma vez.</summary>

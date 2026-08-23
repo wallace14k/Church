@@ -4,6 +4,7 @@ import type { SaveEventInput } from '@congrega/api-client/events';
 import { Button } from '@congrega/ui/Button';
 import { Dropdown } from '@congrega/ui/Dropdown';
 import { Screen } from '@congrega/ui/Screen';
+import { Chip } from '@congrega/ui/Chip';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
@@ -136,6 +137,20 @@ export function FormularioDeEvento({ titulo, eyebrow, inicial, onSalvar }: Formu
   const [endereco, setEndereco] = useState<EnderecoEditavel>(() => enderecoDe(inicial?.address));
 
   const [erros, setErros] = useState<Record<string, string>>({});
+  /**
+   * O evento se repete toda semana.
+   *
+   * **Só existe no cadastro novo.** Na edição o campo não aparece:
+   * transformar um culto avulso em cinquenta e dois exigiria decidir a partir
+   * de quando, e a resposta errada encheria a agenda de linhas que ninguém
+   * pediu. O servidor também ignora o campo na edição — a tela não é a
+   * barreira, é a cortesia.
+   */
+  const [semanal, setSemanal] = useState(false);
+
+  /** Cadastro novo, e não edição: é `inicial` que distingue os dois usos. */
+  const ehNovo = inicial === undefined;
+
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -184,6 +199,7 @@ export function FormularioDeEvento({ titulo, eyebrow, inicial, onSalvar }: Formu
         endsAt: fimIso!,
         ...(local.current.trim() ? { location: local.current.trim() } : {}),
         ...(descricao.current.trim() ? { description: descricao.current.trim() } : {}),
+        ...(ehNovo && semanal ? { recurrence: 'Semanal' as const } : {}),
       });
     } catch (causa) {
       setErroGeral(describeError(causa));
@@ -341,6 +357,43 @@ export function FormularioDeEvento({ titulo, eyebrow, inicial, onSalvar }: Formu
               descricao.current = v;
             }}
           />
+
+          {/* Repetição: só no cadastro novo. */}
+          {ehNovo && (
+            <View style={{ gap: theme.space[8] }}>
+              <Text variant="eyebrow" tone="muted">
+                SE REPETE
+              </Text>
+
+              <View
+                style={{ flexDirection: 'row', gap: theme.space[8] }}
+                accessibilityRole="radiogroup"
+              >
+                <Chip
+                  label="Não"
+                  selected={!semanal}
+                  onPress={() => setSemanal(false)}
+                />
+                <Chip
+                  label="Toda semana"
+                  selected={semanal}
+                  onPress={() => setSemanal(true)}
+                />
+              </View>
+
+              {/* O aviso diz QUANTOS e ATÉ QUANDO antes de salvar.
+                  Sem ele, quem marca "toda semana" descobre que criou
+                  cinquenta e duas linhas ao trocar de mês — tarde demais para
+                  ser um clique de arrependimento. */}
+              {semanal && (
+                <Text variant="captionBody" tone="muted">
+                  Serão criados cerca de 52 encontros, um por semana no mesmo dia e horário,
+                  cobrindo os próximos 12 meses. Cada um pode ser editado ou cancelado sozinho,
+                  e a agenda oferece apagar a série inteira de uma vez.
+                </Text>
+              )}
+            </View>
+          )}
 
           {erroGeral !== null && (
             <View

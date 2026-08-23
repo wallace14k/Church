@@ -65,6 +65,19 @@ public interface IEventRepository
     void Add(CalendarEvent calendarEvent);
 
     void Remove(CalendarEvent calendarEvent);
+
+    /// <summary>
+    /// Todos os eventos de uma série semanal.
+    /// </summary>
+    /// <remarks>
+    /// Existe para tornar possível desfazer um "todo domingo". Sem ela, cancelar
+    /// a série seria cinquenta e duas exclusões — e é exatamente o tipo de
+    /// tarefa que alguém deixa pela metade, ficando com meio ano de cultos
+    /// fantasmas na agenda.
+    /// </remarks>
+    Task<IReadOnlyList<CalendarEvent>> ListBySeriesAsync(
+        Guid seriesId,
+        CancellationToken cancellationToken);
 }
 
 public interface IEventTypeRepository

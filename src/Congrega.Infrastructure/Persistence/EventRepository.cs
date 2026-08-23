@@ -22,6 +22,7 @@ internal sealed class EventConfiguration : IEntityTypeConfiguration<CalendarEven
         builder.Property(e => e.Status).HasColumnName("status").HasConversion<short>();
         builder.Property(e => e.TypeId).HasColumnName("event_type_id");
         builder.Property(e => e.AddressId).HasColumnName("address_id");
+        builder.Property(e => e.SeriesId).HasColumnName("series_id");
         builder.Property(e => e.CreatedAt).HasColumnName("created_at");
         builder.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
@@ -78,6 +79,14 @@ internal sealed class EventRepository(CongregaDbContext db) : IEventRepository
     }
 
     public void Add(CalendarEvent calendarEvent) => db.Events.Add(calendarEvent);
+
+    public async Task<IReadOnlyList<CalendarEvent>> ListBySeriesAsync(
+        Guid seriesId,
+        CancellationToken cancellationToken) =>
+        await db.Events
+            .Where(e => e.SeriesId == seriesId)
+            .OrderBy(e => e.StartsAt)
+            .ToListAsync(cancellationToken);
 
     public void Remove(CalendarEvent calendarEvent) => db.Events.Remove(calendarEvent);
 }

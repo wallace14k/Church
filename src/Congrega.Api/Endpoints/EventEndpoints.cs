@@ -3,6 +3,7 @@ using Congrega.Api.Authorization;
 using Congrega.Application.Abstractions;
 using Congrega.Domain.Addressing;
 using Congrega.Domain.Calendar;
+using Congrega.Domain.Common;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,6 +40,27 @@ public sealed record EventTypeRef
 public sealed record EventResponse
 {
     public required Guid Id { get; init; }
+
+    /// <summary>
+    /// Identidade da série semanal, ou <c>null</c> num evento avulso.
+    /// </summary>
+    /// <remarks>
+    /// Sai na resposta porque é o que permite à tela oferecer "apagar a série
+    /// inteira". Sem ele, a agenda mostraria cinquenta e duas linhas iguais sem
+    /// nenhuma pista de que elas são a mesma decisão.
+    /// </remarks>
+    public Guid? SeriesId { get; init; }
+
+    /// <summary>
+    /// Quantas repetições foram criadas junto.
+    /// </summary>
+    /// <remarks>
+    /// Só vem preenchido na <b>criação</b> de uma série. É o que permite a tela
+    /// dizer "e mais 51 domingos" em vez de o usuário descobrir sozinho ao trocar
+    /// de mês — e perceber tarde demais que criou o que não queria.
+    /// </remarks>
+    public int? GeneratedCount { get; init; }
+
     public required string Title { get; init; }
     public string? Description { get; init; }
     public string? Location { get; init; }
@@ -99,6 +121,25 @@ public sealed record SaveEventRequest
     public bool ClearType { get; init; }
 
     /// <summary>
+    /// <c>Semanal</c> cria a série; ausente cria um evento avulso.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Só na CRIAÇÃO. Editar um evento nunca gera série: transformar um culto
+    /// avulso em cinquenta e dois exigiria decidir a partir de quando, e a
+    /// resposta errada encheria a agenda de linhas que ninguém pediu.
+    /// </para>
+    /// <para>
+    /// <b>Semanal é a única frequência.</b> Mensal traria a ambiguidade que todo
+    /// calendário erra — "dia 5" ou "primeiro domingo"? — e a igreja que marca
+    /// santa ceia no primeiro domingo não seria atendida por nenhuma das duas
+    /// leituras sem escolher qual.
+    /// </para>
+    /// </remarks>
+    [MaxLength(20)]
+    public string? Recurrence { get; init; }
+
+    /// <summary>
     /// Endereço do evento.
     /// </summary>
     /// <remarks>
@@ -112,6 +153,19 @@ public sealed record SaveEventRequest
 
 public static class EventEndpoints
 {
+    /// <summary>
+    /// Fuso em que a repetição semanal é contada.
+    /// </summary>
+    /// <remarks>
+    /// "Todo domingo às 19h" é uma afirmação sobre o relógio da parede da
+    /// igreja, não sobre um instante UTC — por isso a soma de sete dias acontece
+    /// no fuso, e não em horas corridas. Fixo aqui como no resto do sistema; o
+    /// <c>tenants.time_zone</c> já existe e ligá-lo é a evolução natural quando
+    /// houver igreja fora deste fuso.
+    /// </remarks>
+    private static readonly TimeZoneInfo FusoDaIgreja =
+        TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+
     /// <summary>
     /// Teto da janela consultável. Sem ele, <c>from=1900&amp;to=2100</c> traria a
     /// agenda inteira em uma resposta — o mesmo raciocínio do teto de
@@ -192,6 +246,10 @@ public static class EventEndpoints
         group.MapPut("/{id:guid}/reactivate", ReactivateAsync)
             .RequireAuthorization(Policies.EventsWrite)
             .WithSummary("Desfaz o cancelamento");
+
+        group.MapDelete("/series/{seriesId:guid}", DeleteSeriesAsync)
+            .RequireAuthorization(Policies.EventsWrite)
+            .WithSummary("Apaga todos os eventos de uma série semanal");
 
         group.MapDelete("/{id:guid}", DeleteAsync)
             .RequireAuthorization(Policies.EventsWrite)
@@ -329,6 +387,30 @@ public static class EventEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        // Só `Semanal` existe. Um valor desconhecido é recusado em vez de
+        // virar evento avulso em silêncio: quem pediu "todo domingo" e recebeu
+        // um domingo só descobriria em novembro.
+        var semanal = false;
+
+        if (!string.IsNullOrWhiteSpace(request.Recurrence))
+        {
+            if (!string.Equals(request.Recurrence, "Semanal", StringComparison.OrdinalIgnoreCase))
+            {
+                return TypedResults.Problem(
+                    title: "Recorrência inválida",
+                    detail: "A agenda repete apenas semanalmente. Use \"Semanal\" ou omita o campo.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            semanal = true;
+        }
+
+        // A identidade da série é criada ANTES do evento original, e
+        // compartilhada por ele e por todas as repetições. Sem isso o original
+        // ficaria fora da própria série, e apagar "todos os domingos" deixaria o
+        // primeiro para trás.
+        Guid? serieId = semanal ? Guid.NewGuid() : null;
+
         CalendarEvent evento;
         try
         {
@@ -341,7 +423,8 @@ public static class EventEndpoints
                 description: request.Description,
                 location: request.Location,
                 typeId: typeId,
-                addressId: addressId);
+                addressId: addressId,
+                seriesId: serieId);
         }
         catch (ArgumentException ex)
         {
@@ -352,14 +435,107 @@ public static class EventEndpoints
         }
 
         events.Add(evento);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // A série inteira entra na MESMA gravação do evento original.
+        //
+        // Uma transação, não cinquenta e três: se a quadragésima repetição
+        // falhasse numa gravação separada, a igreja ficaria com meia série na
+        // agenda e nenhum sinal de que faltou o resto. Ou existe inteira, ou não
+        // existe.
+        int geradas = 0;
+
+        if (semanal)
+        {
+            foreach (var (inicio, fim) in CalendarEvent.CalcularRepeticoesSemanais(
+                request.StartsAt, request.EndsAt, FusoDaIgreja))
+            {
+                events.Add(CalendarEvent.Schedule(
+                    tenantId: tenantId,
+                    title: request.Title,
+                    startsAt: inicio,
+                    endsAt: fim,
+                    now: timeProvider.GetUtcNow(),
+                    description: request.Description,
+                    location: request.Location,
+                    typeId: typeId,
+                    addressId: addressId,
+                    seriesId: serieId));
+
+                geradas++;
+            }
+        }
+
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (UniqueConstraintViolationException ex)
+            when (ex.ConstraintName == "uq_events_serie_inicio")
+        {
+            // Duas requisições gerando a mesma série ao mesmo tempo — clique
+            // duplo, retry de rede. A constraint recusa a segunda em vez de
+            // deixar a agenda com dois cultos no mesmo domingo.
+            return TypedResults.Problem(
+                title: "Série já criada",
+                detail: "Esta série acabou de ser criada. Recarregue a agenda antes de tentar de novo.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
 
         var tipos = await CarregarTiposAsync(types, cancellationToken);
         var enderecos = await CarregarEnderecosAsync([evento], addresses, cancellationToken);
 
+        var resposta = ToResponse(evento, tipos, enderecos);
+
         return TypedResults.Created(
             $"/api/v1/events/{evento.PublicId}",
-            ToResponse(evento, tipos, enderecos));
+            semanal ? resposta with { GeneratedCount = geradas } : resposta);
+    }
+
+    /// <summary>
+    /// Apaga a série semanal inteira.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Sem isto, criar um evento semanal é uma armadilha:</b> cinquenta e duas
+    /// linhas que só saem uma a uma, e ninguém termina. Foi a mesma lição das
+    /// parcelas previstas do financeiro — gerar em massa sem oferecer o caminho
+    /// de volta cria um beco sem saída.
+    /// </para>
+    /// <para>
+    /// Apaga <b>todas</b>, inclusive as passadas. A alternativa — apagar só as
+    /// futuras — parece mais cuidadosa e é pior: deixaria a série pela metade,
+    /// com um pedaço que não pertence mais a nada e que ninguém consegue
+    /// remover depois, já que a série teria deixado de existir.
+    /// </para>
+    /// </remarks>
+    private static async Task<IResult> DeleteSeriesAsync(
+        Guid seriesId,
+        IEventRepository events,
+        IUnitOfWork unitOfWork,
+        ITenantContext tenant,
+        CancellationToken cancellationToken)
+    {
+        if (tenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        var daSerie = await events.ListBySeriesAsync(seriesId, cancellationToken);
+
+        // 204 mesmo quando não há nada: o resultado pedido — não existir esta
+        // série — já é o estado atual. Um 404 faria a tela mostrar erro depois
+        // de uma exclusão que deu certo em outra aba.
+        if (daSerie.Count > 0)
+        {
+            foreach (var evento in daSerie)
+            {
+                events.Remove(evento);
+            }
+
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        return TypedResults.NoContent();
     }
 
     private static async Task<IResult> UpdateAsync(
@@ -562,6 +738,7 @@ public static class EventEndpoints
         IReadOnlyDictionary<long, Address> enderecos) => new()
     {
         Id = evento.PublicId,
+        SeriesId = evento.SeriesId,
         Title = evento.Title,
         Description = evento.Description,
         Location = evento.Location,
