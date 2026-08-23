@@ -15,6 +15,7 @@ import { Card } from '@congrega/ui/Card';
 import { Chip } from '@congrega/ui/Chip';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { EyebrowPill } from '@congrega/ui/EyebrowPill';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { Screen } from '@congrega/ui/Screen';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { SkeletonListRow } from '@congrega/ui/Skeleton';
@@ -208,6 +209,7 @@ function FormularioDoCofre({
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [erroDoValor, setErroDoValor] = useState<string | null>(null);
+  const { executar } = useCarregamentoGlobal();
 
   const valor = useRef('');
   const observacao = useRef('');
@@ -238,12 +240,17 @@ function FormularioDoCofre({
     setSalvando(true);
 
     try {
-      await createVaultMovement(apiClient, {
+      await executar(
+        ehRetirada ? 'Retirando do cofre…' : 'Guardando no cofre…',
+        'Registrando o movimento no extrato.',
+        () =>
+          createVaultMovement(apiClient, {
         direction: direcao,
         amountCents: valorCents,
         ...(contaId !== null ? { accountId: contaId } : {}),
         ...(observacao.current.trim() ? { notes: observacao.current.trim() } : {}),
-      });
+          }),
+      );
 
       aoMovimentar();
       valor.current = '';

@@ -14,6 +14,7 @@ import {
 import { cents, formatBRL, parseBRL } from '@congrega/core/money';
 import { Button } from '@congrega/ui/Button';
 import { Chip } from '@congrega/ui/Chip';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { Screen } from '@congrega/ui/Screen';
 import { ScreenLoading } from '@congrega/ui/ScreenLoading';
@@ -83,6 +84,7 @@ export default function LancarMovimento() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { categorias, carregando: carregandoCategorias } = useGivingCategories();
+  const { executar } = useCarregamentoGlobal();
 
   const valor = useRef('');
   const data = useRef(hojeBr());
@@ -203,7 +205,13 @@ export default function LancarMovimento() {
     setSalvando(true);
 
     try {
-      const lancamento = await createGivingEntry(apiClient, {
+      const lancamento = await executar(
+        recorrencia === null ? 'Lançando…' : 'Criando a série…',
+        recorrencia === null
+          ? 'Guardando no caixa da igreja.'
+          : 'Gerando as parcelas previstas dos próximos 12 meses.',
+        () =>
+          createGivingEntry(apiClient, {
         categoryId: categoriaId!,
         kind: tipo,
         amountCents: valorCents!,
@@ -214,7 +222,8 @@ export default function LancarMovimento() {
         ...(contaId !== null ? { accountId: contaId } : {}),
         ...(recorrencia !== null ? { recurrence: recorrencia } : {}),
         ...(observacao.current.trim() ? { notes: observacao.current.trim() } : {}),
-      });
+          }),
+      );
 
       // O documento vai numa segunda chamada, e a ordem importa: **se ela
       // falhar, o lançamento continua salvo**. É o estado certo — o comprovante
@@ -223,7 +232,11 @@ export default function LancarMovimento() {
       // novo sem digitar nada outra vez.
       if (tipo === 'Saida' && temDocumento) {
         try {
-          await attachFiscalDocument(apiClient, lancamento.id, {
+          await executar(
+            'Anexando o comprovante…',
+            'Enviando o documento fiscal. Arquivos grandes levam alguns segundos.',
+            () =>
+              attachFiscalDocument(apiClient, lancamento.id, {
             documentType: tipoDoDocumento,
             ...(numeroDoDocumento.current.trim()
               ? { number: numeroDoDocumento.current.trim() }
@@ -240,7 +253,8 @@ export default function LancarMovimento() {
                   },
                 }
               : {}),
-          });
+              }),
+          );
         } catch (causaDoDocumento) {
           router.replace({
             pathname: '/financeiro/[id]',

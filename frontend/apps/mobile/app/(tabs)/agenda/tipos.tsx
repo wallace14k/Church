@@ -18,6 +18,7 @@ import { SkeletonListRow } from '@congrega/ui/Skeleton';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
 import { useTheme } from '@congrega/ui/theme';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -335,6 +336,7 @@ function Formulario({
   const [nome, setNome] = useState(inicial?.name ?? '');
   const [icone, setIcone] = useState<string | null>(inicial?.icon ?? 'calendar');
   const [cor, setCor] = useState<string>(inicial?.colorHex ?? CORES[0]!.valor);
+  const { executar } = useCarregamentoGlobal();
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -355,11 +357,11 @@ function Formulario({
         ...(inicial === null ? {} : { isActive: inicial.isActive }),
       };
 
-      if (inicial === null) {
-        await createEventType(apiClient, entrada);
-      } else {
-        await updateEventType(apiClient, inicial.id, entrada);
-      }
+      await executar('Salvando o tipo…', 'Atualizando o vocabulário da agenda.', () =>
+        inicial === null
+          ? createEventType(apiClient, entrada)
+          : updateEventType(apiClient, inicial.id, entrada),
+      );
 
       onSalvo();
     } catch (causa) {

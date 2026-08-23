@@ -10,6 +10,7 @@ import { Button } from '@congrega/ui/Button';
 import { Card } from '@congrega/ui/Card';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { EyebrowPill } from '@congrega/ui/EyebrowPill';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { MonthNavigator } from '@congrega/ui/MonthNavigator';
 import { Screen } from '@congrega/ui/Screen';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
@@ -61,6 +62,7 @@ export default function Financeiro() {
   );
 
   const { categorias } = useGivingCategories();
+  const { executar } = useCarregamentoGlobal();
   const { fechamento, recarregar: recarregarFechamento } = useMonthlyClosing(
     periodo.year,
     periodo.month,
@@ -152,7 +154,9 @@ export default function Financeiro() {
 
   async function apagar(lancamento: GivingEntry) {
     try {
-      await deleteGivingEntry(apiClient, lancamento.id);
+      await executar('Apagando o lançamento…', 'Removendo do caixa da igreja.', () =>
+        deleteGivingEntry(apiClient, lancamento.id),
+      );
       recarregar();
       recarregarFechamento();
     } catch {
@@ -171,7 +175,9 @@ export default function Financeiro() {
    */
   async function confirmar(lancamento: GivingEntry) {
     try {
-      await confirmGivingEntry(apiClient, lancamento.id);
+      await executar('Confirmando…', 'Marcando o lançamento como realizado.', () =>
+        confirmGivingEntry(apiClient, lancamento.id),
+      );
     } finally {
       // Recarrega mesmo em falha: se outra aba já confirmou, a lista precisa
       // parar de oferecer o botão.
@@ -206,9 +212,10 @@ export default function Financeiro() {
     setExportando(true);
 
     try {
-      const { quantidade, nomeDoArquivo } = await exportarLancamentosDoMes(
-        periodo.year,
-        periodo.month,
+      const { quantidade, nomeDoArquivo } = await executar(
+        'Exportando…',
+        'Reunindo os lançamentos do mês para a planilha.',
+        () => exportarLancamentosDoMes(periodo.year, periodo.month),
       );
 
       setAvisoDeExportacao(

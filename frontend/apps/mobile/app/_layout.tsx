@@ -11,6 +11,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GlobalLoadingProvider } from '@congrega/ui/GlobalLoading';
 import { SessionProvider } from '../src/session';
 
 export default function RootLayout() {
@@ -41,9 +42,15 @@ export default function RootLayout() {
         <StatusBar style="dark" />
         {fontesProntas ? (
           <SessionProvider>
+            {/* O carregamento global cobre a aplicação inteira: ele bloqueia a
+                tela durante uma gravação, e uma gravação pode ser disparada de
+                qualquer módulo. Abaixo do SessionProvider porque nada dele
+                depende de sessão — e acima do Stack para sobrepor toda rota. */}
+            <GlobalLoadingProvider>
             {/* Cada tela desenha o próprio cabeçalho — o header padrão do Stack
                 não conhece a tipografia do sistema e quebraria a identidade. */}
             <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
+            </GlobalLoadingProvider>
           </SessionProvider>
         ) : (
           <View

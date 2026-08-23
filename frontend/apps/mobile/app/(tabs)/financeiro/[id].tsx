@@ -14,6 +14,7 @@ import { AsyncContent } from '@congrega/ui/AsyncContent';
 import { Button } from '@congrega/ui/Button';
 import { Card } from '@congrega/ui/Card';
 import { EyebrowPill } from '@congrega/ui/EyebrowPill';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { Chip } from '@congrega/ui/Chip';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { Screen } from '@congrega/ui/Screen';
@@ -213,6 +214,7 @@ function FichaDoLancamento({
   const ehSaida = lancamento.kind === 'Saida';
   const [confirmando, setConfirmando] = useState(false);
   const [erroDaConfirmacao, setErroDaConfirmacao] = useState<string | null>(null);
+  const { executar } = useCarregamentoGlobal();
 
   // Comparação de texto ISO, que ordena igual à cronologia. Passar por `Date`
   // leria `2026-09-30` como meia-noite UTC e, em São Paulo, diria que o dia 30
@@ -225,7 +227,9 @@ function FichaDoLancamento({
     setConfirmando(true);
 
     try {
-      await confirmGivingEntry(apiClient, lancamento.id);
+      await executar('Confirmando…', 'Marcando o lançamento como realizado.', () =>
+        confirmGivingEntry(apiClient, lancamento.id),
+      );
       aoConfirmar();
     } catch (causa) {
       setErroDaConfirmacao(describeError(causa));
@@ -495,6 +499,7 @@ function FormularioDeComprovante({
   const [anexo, setAnexo] = useState<ArquivoEscolhido | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const { executar } = useCarregamentoGlobal();
 
   const numero = useRef('');
   const serie = useRef('');
@@ -511,7 +516,11 @@ function FormularioDeComprovante({
     setSalvando(true);
 
     try {
-      await attachFiscalDocument(apiClient, lancamento.id, {
+      await executar(
+        'Anexando o comprovante…',
+        'Enviando o documento fiscal. Arquivos grandes levam alguns segundos.',
+        () =>
+          attachFiscalDocument(apiClient, lancamento.id, {
         documentType: tipo,
         ...(numero.current.trim() ? { number: numero.current.trim() } : {}),
         ...(serie.current.trim() ? { series: serie.current.trim() } : {}),
@@ -526,7 +535,8 @@ function FormularioDeComprovante({
               },
             }
           : {}),
-      });
+          }),
+      );
 
       aoMudar();
     } catch (causa) {

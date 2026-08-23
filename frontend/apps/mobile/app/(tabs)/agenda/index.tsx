@@ -9,6 +9,7 @@ import { Button } from '@congrega/ui/Button';
 import { Card } from '@congrega/ui/Card';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { EyebrowPill } from '@congrega/ui/EyebrowPill';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { MonthNavigator } from '@congrega/ui/MonthNavigator';
 import { Screen } from '@congrega/ui/Screen';
 import { SkeletonListRow } from '@congrega/ui/Skeleton';
@@ -100,6 +101,7 @@ export default function Agenda() {
   const [filtroDeTipo, setFiltroDeTipo] = useState<string | null>(null);
 
   const { eventos, carregando, erro, recarregar } = useEventsOfMonth(periodo);
+  const { executar } = useCarregamentoGlobal();
 
   const emLinha = width >= LARGURA_PARA_LINHA;
   const emQuatro = width >= LARGURA_PARA_QUATRO;
@@ -201,7 +203,9 @@ export default function Agenda() {
 
   async function apagar(evento: CalendarEvent) {
     try {
-      await deleteEvent(apiClient, evento.id);
+      await executar('Apagando o evento…', 'Removendo da agenda da igreja.', () =>
+        deleteEvent(apiClient, evento.id),
+      );
     } finally {
       // Recarrega mesmo em falha: se outra aba já apagou, a lista precisa
       // parar de mostrar a linha.
@@ -213,7 +217,11 @@ export default function Agenda() {
     if (evento.seriesId === null) return;
 
     try {
-      await deleteEventSeries(apiClient, evento.seriesId);
+      await executar(
+        'Apagando a série…',
+        'Removendo todos os encontros semanais deste evento.',
+        () => deleteEventSeries(apiClient, evento.seriesId!),
+      );
     } finally {
       recarregar();
     }

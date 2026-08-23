@@ -30,7 +30,8 @@
     "./MonthNavigator": "./src/MonthNavigator.tsx",
     "./useReducedMotion": "./src/useReducedMotion.ts",
     "./Skeleton": "./src/Skeleton.tsx",
-    "./ScreenLoading": "./src/ScreenLoading.tsx"
+    "./ScreenLoading": "./src/ScreenLoading.tsx",
+    "./GlobalLoading": "./src/GlobalLoading.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

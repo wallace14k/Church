@@ -4,6 +4,7 @@ import { isProbablyEmail } from '@congrega/core/validation';
 import { Button } from '@congrega/ui/Button';
 import { Card } from '@congrega/ui/Card';
 import { Screen } from '@congrega/ui/Screen';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
@@ -108,6 +109,7 @@ export default function NovoMembro() {
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const { executar } = useCarregamentoGlobal();
 
   const emDuasColunas = width >= LARGURA_PARA_DUAS_COLUNAS;
 
@@ -161,7 +163,8 @@ export default function NovoMembro() {
     setSalvando(true);
 
     try {
-      await createMember(apiClient, {
+      await executar('Cadastrando…', 'Guardando a ficha do membro.', () =>
+        createMember(apiClient, {
         fullName: nome.trim(),
         ...(email.trim() ? { email: email.trim() } : {}),
         ...(telefone ? { phone: telefone } : {}),
@@ -170,7 +173,8 @@ export default function NovoMembro() {
         // significaria "apague o endereço" para o servidor, o que num cadastro
         // novo não faz sentido — e criaria uma linha vazia no banco.
         ...(enderecoPreenchido ? { address: paraPayload(endereco) } : {}),
-      });
+        }),
+      );
 
       // `replace` e não `push`: voltar para o formulário depois de salvar
       // convidaria a cadastrar a mesma pessoa duas vezes.

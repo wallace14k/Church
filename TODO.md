@@ -926,3 +926,31 @@ a tela não dizia isso, e investigar revelou uma lacuna maior.
 | Editar a série inteira | não existe, e é deliberado: nada guarda a definição da repetição, só a identidade. Mudar o horário de todos os cultos futuros exige apagar e recriar. Guardar a definição traria a pergunta que todo calendário erra — "esta, as futuras, ou todas?" — cuja resposta errada reescreve o passado da igreja |
 | Frequência mensal | traria a ambiguidade "dia 5" *vs* "primeiro domingo", e a igreja que marca santa ceia no primeiro domingo não seria atendida por nenhuma das duas sem escolher qual |
 | Mais de um dia por semana | "toda terça e quinta" são duas séries hoje. Um conjunto de dias é a evolução natural |
+
+## Carregamento global — overlay bloqueante em todos os módulos
+
+| Item | Estado |
+|---|---|
+| `GlobalLoadingProvider` na raiz | overlay em `Modal`, cartão com anel (trilho + arco girando + ponto pulsando), título, mensagem e barra indeterminada — a estrutura do exemplo |
+| Ligado em **todos os módulos** | agenda (novo, editar, apagar, apagar série, tipos), financeiro (lançar, confirmar, apagar, anexar comprovante, exportar, cofre), membros (novo, editar, família), configurações (salvar, testar, remover). 24 pontos |
+| Mensagem própria de cada operação | "Criando a série… agendando cerca de 52 encontros semanais", "Testando a conexão… pode levar até 20 segundos", "Anexando o comprovante… arquivos grandes levam alguns segundos". Um "Carregando…" genérico em 24 lugares não diria nada em nenhum |
+| **A API é `executar`, não mostrar/esconder** | um par manual vaza no primeiro caminho de erro que alguém esquecer de cobrir — e o vazamento deixa a tela bloqueada para sempre, sem nada explicando, com recarregar como único caminho de volta. O `finally` mora no provider, uma vez. **Verificado**: forjando um 500, o overlay some |
+| Contagem de operações em voo | duas operações simultâneas não fazem a primeira a terminar destravar a tela enquanto a outra ainda grava |
+| **Sem atraso antes de aparecer** | ao contrário de `ScreenLoading`. Lá o atraso evita um piscar; aqui abriria uma janela em que a tela ainda aceita cliques — e um overlay que começa a bloquear 250 ms depois não bloqueia. **Verificado que bloqueia**: `elementFromPoint` sobre o botão "Lançar" devolve o overlay, não o botão |
+| Movimento reduzido | anel parado em 45°, ponto sem pulsar, barra escondida, transição desligada — como o exemplo pede |
+| A barra é decorativa e escondida do leitor de tela | ela não conhece o progresso real; anunciá-la como barra de progresso faria a tecnologia assistiva prometer uma porcentagem que não existe |
+| Anunciado | `role="progressbar"` com título e mensagem no rótulo, e `accessibilityViewIsModal` para o leitor parar de percorrer o conteúdo atrás |
+
+### A decisão que separa os dois carregamentos
+
+O overlay é para **operação**, não para leitura. Salvar, apagar, enviar e testar
+bloqueiam a tela — e o bloqueio é o ponto: um segundo clique em "Salvar" grava o
+dízimo duas vezes. **Abrir uma lista continua com esqueleto**, que preserva o
+layout e não rouba o controle; cobrir a tela para dizer "estou lendo" trocaria
+uma espera informativa por uma espera cega.
+
+### Aberto
+
+| Item | Por quê |
+|---|---|
+| Aplicar o overlay às leituras | é uma linha por tela, se a preferência for consistência visual sobre o esqueleto. Não foi feito porque seria uma regressão de usabilidade nas listas |

@@ -12,6 +12,7 @@ import { Button } from '@congrega/ui/Button';
 import { Chip } from '@congrega/ui/Chip';
 import { EmptyState } from '@congrega/ui/EmptyState';
 import { Screen } from '@congrega/ui/Screen';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { ScreenLoading } from '@congrega/ui/ScreenLoading';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Text } from '@congrega/ui/Text';
@@ -89,6 +90,7 @@ export default function EditarMembro() {
   const [alterandoFamilia, setAlterandoFamilia] = useState(false);
   const [mostrandoNovaFamilia, setMostrandoNovaFamilia] = useState(false);
   const [criandoFamilia, setCriandoFamilia] = useState(false);
+  const { executar } = useCarregamentoGlobal();
   const nomeNovaFamilia = useRef('');
 
   useEffect(() => {
@@ -139,7 +141,8 @@ export default function EditarMembro() {
     setSalvando(true);
 
     try {
-      await updateMember(apiClient, id ?? '', {
+      await executar('Salvando as alterações…', 'Atualizando a ficha do membro.', () =>
+        updateMember(apiClient, id ?? '', {
         fullName: nome.current.trim(),
         ...(email.current.trim() ? { email: email.current.trim() } : {}),
         ...(telefone.current ? { phone: telefone.current } : {}),
@@ -148,7 +151,8 @@ export default function EditarMembro() {
         // endereço". Omiti-lo significaria "não mexa", e limpar os campos não
         // teria efeito nenhum.
         address: paraPayload(endereco),
-      });
+        }),
+      );
 
       router.replace(`/membros/${id}`);
     } catch (causa) {

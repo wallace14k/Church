@@ -2,6 +2,7 @@ import { describeError } from '@congrega/api-client/errors';
 import { getEvent, updateEvent, type CalendarEvent } from '@congrega/api-client/events';
 import { Button } from '@congrega/ui/Button';
 import { EmptyState } from '@congrega/ui/EmptyState';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { Screen } from '@congrega/ui/Screen';
 import { ScreenLoading } from '@congrega/ui/ScreenLoading';
 import { useTheme } from '@congrega/ui/theme';
@@ -18,6 +19,7 @@ export default function EditarEvento() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [evento, setEvento] = useState<CalendarEvent | null>(null);
+  const { executar } = useCarregamentoGlobal();
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
 
@@ -68,7 +70,9 @@ export default function EditarEvento() {
       titulo={evento.title}
       inicial={evento}
       onSalvar={async (entrada) => {
-        await updateEvent(apiClient, id ?? '', entrada);
+        await executar('Salvando as alterações…', 'Atualizando o evento na agenda.', () =>
+          updateEvent(apiClient, id ?? '', entrada),
+        );
         router.replace(`/agenda/${id}`);
       }}
     />

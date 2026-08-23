@@ -2,6 +2,7 @@ import { createFamily } from '@congrega/api-client/families';
 import { describeError } from '@congrega/api-client/errors';
 import { Button } from '@congrega/ui/Button';
 import { Screen } from '@congrega/ui/Screen';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Text } from '@congrega/ui/Text';
 import { TextField } from '@congrega/ui/TextField';
@@ -19,6 +20,7 @@ export default function NovaFamilia() {
   const nome = useRef('');
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const { executar } = useCarregamentoGlobal();
 
   async function salvar() {
     if (nome.current.trim().length < 2) {
@@ -30,7 +32,9 @@ export default function NovaFamilia() {
     setSalvando(true);
 
     try {
-      await createFamily(apiClient, nome.current.trim());
+      await executar('Criando a família…', 'Guardando o novo agrupamento.', () =>
+        createFamily(apiClient, nome.current.trim()),
+      );
       router.replace('/membros/familias');
     } catch (causa) {
       setErro(describeError(causa));

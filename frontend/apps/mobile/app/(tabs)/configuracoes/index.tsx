@@ -13,6 +13,7 @@ import { Button } from '@congrega/ui/Button';
 import { Card } from '@congrega/ui/Card';
 import { Chip } from '@congrega/ui/Chip';
 import { EyebrowPill } from '@congrega/ui/EyebrowPill';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { Screen } from '@congrega/ui/Screen';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { SkeletonListRow } from '@congrega/ui/Skeleton';
@@ -261,6 +262,7 @@ function BotaoDeTeste({
   readonly aoTestar: () => void;
 }) {
   const [testando, setTestando] = useState(false);
+  const { executar } = useCarregamentoGlobal();
 
   async function testar() {
     setTestando(true);
@@ -270,7 +272,11 @@ function BotaoDeTeste({
       // a recarga o traz junto do resto. Mostrar um alerta volátil faria o
       // diagnóstico sumir na primeira mudança de página — e a pergunta que
       // importa dias depois é "isto chegou a funcionar?".
-      await testConnector(apiClient, kind);
+      await executar(
+        'Testando a conexão…',
+        'Falando com o serviço de verdade. Pode levar até 20 segundos.',
+        () => testConnector(apiClient, kind),
+      );
     } catch {
       // Falha de rede ao testar. O erro do PRÓPRIO teste vem com 200 e já foi
       // gravado; aqui só sobra o caso de a chamada não completar, e a recarga
@@ -321,6 +327,7 @@ function FormularioDeConector({
   const [ligado, setLigado] = useState(conector?.isEnabled ?? true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const { executar } = useCarregamentoGlobal();
 
   async function salvar() {
     setErro(null);
@@ -355,11 +362,13 @@ function FormularioDeConector({
     }
 
     try {
-      await saveConnector(apiClient, definicao.kind, {
+      await executar('Salvando a integração…', 'Guardando a credencial cifrada.', () =>
+        saveConnector(apiClient, definicao.kind, {
         settings,
         ...(segredo !== undefined ? { secret: segredo } : {}),
         isEnabled: ligado,
-      });
+        }),
+      );
 
       aoSalvar();
     } catch (causa) {
@@ -382,7 +391,9 @@ function FormularioDeConector({
     setSalvando(true);
 
     try {
-      await deleteConnector(apiClient, definicao.kind);
+      await executar('Removendo a integração…', 'Apagando a credencial guardada.', () =>
+        deleteConnector(apiClient, definicao.kind),
+      );
       aoRemover();
     } catch (causa) {
       setErro(describeError(causa));

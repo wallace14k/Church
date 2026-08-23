@@ -16,6 +16,7 @@ import { ScreenLoading } from '@congrega/ui/ScreenLoading';
 import { SignatureButton } from '@congrega/ui/SignatureButton';
 import { Text } from '@congrega/ui/Text';
 import { useTheme } from '@congrega/ui/theme';
+import { useCarregamentoGlobal } from '@congrega/ui/GlobalLoading';
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -32,6 +33,7 @@ export default function FichaDeEvento() {
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [agindo, setAgindo] = useState(false);
+  const { executar } = useCarregamentoGlobal();
 
   useEffect(() => {
     let cancelado = false;
@@ -74,7 +76,9 @@ export default function FichaDeEvento() {
 
     setAgindo(true);
     try {
-      await deleteEvent(apiClient, evento.id);
+      await executar('Apagando o evento…', 'Removendo da agenda da igreja.', () =>
+        deleteEvent(apiClient, evento.id),
+      );
       router.replace('/agenda');
     } catch (causa) {
       setErro(describeError(causa));
