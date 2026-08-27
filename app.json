@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "LinguaCards",
+    "slug": "linguacards",
+    "scheme": "linguacards",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0E1116",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.linguacards.app",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "O LinguaCards usa o microfone para você gravar a pronúncia e os diálogos dos seus flashcards.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.linguacards.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0E1116",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": ["android.permission.RECORD_AUDIO"],
+      "predictiveBackGestureEnabled": false,
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "O LinguaCards usa o microfone para você gravar a pronúncia e os diálogos dos seus flashcards."
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-web-browser"
+    ],
+    "extra": {
+      "googleExpoClientId": "",
+      "googleIosClientId": "",
+      "googleAndroidClientId": "",
+      "googleWebClientId": "",
+      "admobInterstitialIosId": "",
+      "admobInterstitialAndroidId": ""
+    }
+  }
+}
